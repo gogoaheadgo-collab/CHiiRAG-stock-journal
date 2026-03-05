@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 
 const EMPTY = {
   account: '',
@@ -9,7 +10,6 @@ const EMPTY = {
   quantity: '',
   mtf_value: '',
   mtf_interest_rate: '',
-  // Notes fields
   entry_reason: '',
   setup_pattern: '',
   sl_target_reasoning: '',
@@ -23,8 +23,13 @@ const PATTERNS = [
   'Trend Following', 'Mean Reversion', 'MTF Opportunity', 'Other'
 ]
 
-export default function AddTradeModal({ session, onClose, onAdd }) {
-  const [activeTab, setActiveTab] = useState('trade') // 'trade' | 'notes'
+const getToken = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token
+}
+
+export default function AddTradeModal({ onClose, onAdd }) {
+  const [activeTab, setActiveTab] = useState('trade')
   const [form, setForm] = useState(EMPTY)
   const [accounts, setAccounts] = useState([])
   const [newAccount, setNewAccount] = useState('')
@@ -40,46 +45,63 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
   useEffect(() => { fetchAccounts() }, [])
 
   const fetchAccounts = async () => {
-    const token = session?.access_token
+    const token = await getToken()
     if (!token) return
-    const res = await fetch('/api/accounts', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    const data = await res.json()
-    if (Array.isArray(data)) setAccounts(data)
+    try {
+      const res = await fetch('/api/accounts', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (Array.isArray(data)) setAccounts(data)
+    } catch (e) {
+      console.error('fetchAccounts error:', e)
+    }
   }
 
   const handleAddAccount = async () => {
     if (!newAccount.trim()) return
     setAccountLoading(true)
-    const res = await fetch('/api/accounts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({ name: newAccount }),
-    })
-    const data = await res.json()
-    if (data.id) {
-      await fetchAccounts()
-      setForm(f => ({ ...f, account: data.name }))
-      setNewAccount('')
-      setShowAddAccount(false)
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/accounts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: newAccount }),
+      })
+      const data = await res.json()
+      if (data.id) {
+        await fetchAccounts()
+        setForm(f => ({ ...f, account: data.name }))
+        setNewAccount('')
+        setShowAddAccount(false)
+      } else {
+        alert(data.error || 'Failed to add account')
+      }
+    } catch (e) {
+      console.error('handleAddAccount error:', e)
+    } finally {
+      setAccountLoading(false)
     }
-    setAccountLoading(false)
   }
 
   const handleDeleteAccount = async (id) => {
-    await fetch('/api/accounts', {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({ id }),
-    })
-    await fetchAccounts()
+    try {
+      const token = await getToken()
+      await fetch('/api/accounts', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id }),
+      })
+      await fetchAccounts()
+    } catch (e) {
+      console.error('handleDeleteAccount error:', e)
+    }
   }
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -89,7 +111,8 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
     setError('')
     if (!form.account) return setError('Select an account')
     if (!form.ticker.trim()) return setError('Enter a ticker symbol')
-    if (!form.entry_price || !form.quantity || !form.entry_date) return setError('Entry price, quantity and date are required')
+    if (!form.entry_price || !form.quantity || !form.entry_date)
+      return setError('Entry price, quantity and date are required')
 
     setLoading(true)
     try {
@@ -119,7 +142,6 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
     }
   }
 
-  // Tab styles
   const tabStyle = (t) => ({
     padding: '8px 20px',
     cursor: 'pointer',
@@ -139,17 +161,13 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box" style={{ maxWidth: '600px' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0' }}>
-          <div className="modal-title" style={{ marginBottom: '0' }}>New Trade Entry</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '20px', lineHeight: 1, padding: '2px' }}>×</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div className="modal-title" style={{ marginBottom: 0 }}>New Trade Entry</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '20px', lineHeight: 1 }}>×</button>
         </div>
 
-        {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '20px', marginTop: '4px' }}>
-          <button style={tabStyle('trade')} onClick={() => setActiveTab('trade')}>
-            📊 Trade Details
-          </button>
+          <button style={tabStyle('trade')} onClick={() => setActiveTab('trade')}>📊 Trade Details</button>
           <button style={tabStyle('notes')} onClick={() => setActiveTab('notes')}>
             📝 Notes & Strategy
             {(form.entry_reason || form.setup_pattern || form.sl_target_reasoning) && (
@@ -160,12 +178,11 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
 
         <form onSubmit={handleSubmit}>
 
-          {/* ── TAB 1: Trade Details ── */}
           {activeTab === 'trade' && (
             <div>
-              {/* Account */}
               <div className="section-divider" style={{ marginTop: 0 }}>Trade Info</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label className="field-label">Account *</label>
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -181,7 +198,14 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
                   {showAddAccount && (
                     <div style={{ marginTop: '8px', padding: '12px', background: 'var(--bg)', borderRadius: '4px', border: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                        <input value={newAccount} onChange={e => setNewAccount(e.target.value)} placeholder="e.g. RAVI" className="field" style={{ flex: 1, textTransform: 'uppercase' }} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddAccount())} />
+                        <input
+                          value={newAccount}
+                          onChange={e => setNewAccount(e.target.value)}
+                          placeholder="e.g. RAVI"
+                          className="field"
+                          style={{ flex: 1, textTransform: 'uppercase' }}
+                          onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddAccount())}
+                        />
                         <button type="button" onClick={handleAddAccount} disabled={accountLoading} className="btn btn-primary" style={{ padding: '7px 14px' }}>
                           {accountLoading ? '...' : 'Add'}
                         </button>
@@ -200,13 +224,11 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
                   )}
                 </div>
 
-                {/* Ticker */}
                 <div>
                   <label className="field-label">Ticker *</label>
                   <input value={form.ticker} onChange={e => set('ticker', e.target.value)} placeholder="RELIANCE, TCS..." className="field" style={{ textTransform: 'uppercase' }} />
                 </div>
 
-                {/* Direction */}
                 <div>
                   <label className="field-label">Direction *</label>
                   <div style={{ display: 'flex', gap: '6px' }}>
@@ -226,7 +248,6 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
                 </div>
               </div>
 
-              {/* Entry Details */}
               <div className="section-divider">Entry Details</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <div>
@@ -250,7 +271,6 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
                 </div>
               )}
 
-              {/* MTF */}
               <div className="section-divider">MTF Details <span style={{ color: 'var(--border2)', fontWeight: 400 }}>(optional)</span></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
@@ -269,7 +289,8 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
                 </div>
               )}
 
-              {/* Next button */}
+              {error && <p style={{ color: 'var(--bear)', fontSize: '11px', marginTop: '10px' }}>{error}</p>}
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', gap: '8px' }}>
                 <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
                 <button type="button" onClick={() => setActiveTab('notes')} className="btn btn-ghost" style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>
@@ -282,105 +303,54 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
             </div>
           )}
 
-          {/* ── TAB 2: Notes & Strategy ── */}
           {activeTab === 'notes' && (
             <div>
               <div style={{ marginBottom: '16px', padding: '10px 14px', background: 'var(--bg)', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px', color: 'var(--muted)' }}>
                 📝 All notes are optional but highly recommended for improving your trading.
               </div>
 
-              {/* Setup Pattern */}
               <div style={{ marginBottom: '14px' }}>
                 <label className="field-label">Setup / Pattern</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
                   {PATTERNS.map(p => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => set('setup_pattern', form.setup_pattern === p ? '' : p)}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '3px',
-                        border: `1px solid ${form.setup_pattern === p ? 'var(--accent)' : 'var(--border)'}`,
-                        background: form.setup_pattern === p ? 'rgba(200,224,0,0.1)' : 'transparent',
-                        color: form.setup_pattern === p ? 'var(--accent)' : 'var(--muted)',
-                        fontSize: '10px',
-                        cursor: 'pointer',
-                        fontFamily: 'DM Mono, monospace',
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      {p}
-                    </button>
+                    <button key={p} type="button" onClick={() => set('setup_pattern', form.setup_pattern === p ? '' : p)} style={{
+                      padding: '4px 10px', borderRadius: '3px',
+                      border: `1px solid ${form.setup_pattern === p ? 'var(--accent)' : 'var(--border)'}`,
+                      background: form.setup_pattern === p ? 'rgba(200,224,0,0.1)' : 'transparent',
+                      color: form.setup_pattern === p ? 'var(--accent)' : 'var(--muted)',
+                      fontSize: '10px', cursor: 'pointer',
+                      fontFamily: 'DM Mono, monospace', transition: 'all 0.15s',
+                    }}>{p}</button>
                   ))}
                 </div>
-                <input
-                  value={form.setup_pattern}
-                  onChange={e => set('setup_pattern', e.target.value)}
-                  placeholder="Or type your own pattern..."
-                  className="field"
-                />
+                <input value={form.setup_pattern} onChange={e => set('setup_pattern', e.target.value)} placeholder="Or type your own pattern..." className="field" />
               </div>
 
-              {/* Entry Reason */}
               <div style={{ marginBottom: '14px' }}>
                 <label className="field-label">Why I Entered This Trade</label>
-                <textarea
-                  value={form.entry_reason}
-                  onChange={e => set('entry_reason', e.target.value)}
-                  placeholder="What was your reasoning? What did you see on the chart?"
-                  className="field"
-                  rows={3}
-                  style={{ resize: 'vertical' }}
-                />
+                <textarea value={form.entry_reason} onChange={e => set('entry_reason', e.target.value)} placeholder="What was your reasoning? What did you see on the chart?" className="field" rows={3} style={{ resize: 'vertical' }} />
               </div>
 
-              {/* SL & Target Reasoning */}
               <div style={{ marginBottom: '14px' }}>
                 <label className="field-label">Stop Loss & Target Reasoning</label>
-                <textarea
-                  value={form.sl_target_reasoning}
-                  onChange={e => set('sl_target_reasoning', e.target.value)}
-                  placeholder="Where is your stop loss? Where is your target? Why?"
-                  className="field"
-                  rows={2}
-                  style={{ resize: 'vertical' }}
-                />
+                <textarea value={form.sl_target_reasoning} onChange={e => set('sl_target_reasoning', e.target.value)} placeholder="Where is your stop loss? Where is your target? Why?" className="field" rows={2} style={{ resize: 'vertical' }} />
               </div>
 
-              {/* What I Learned */}
               <div style={{ marginBottom: '14px' }}>
                 <label className="field-label">What I Learned After Exit <span style={{ color: 'var(--border2)' }}>(fill after closing)</span></label>
-                <textarea
-                  value={form.exit_learning}
-                  onChange={e => set('exit_learning', e.target.value)}
-                  placeholder="What did this trade teach you?"
-                  className="field"
-                  rows={2}
-                  style={{ resize: 'vertical' }}
-                />
+                <textarea value={form.exit_learning} onChange={e => set('exit_learning', e.target.value)} placeholder="What did this trade teach you?" className="field" rows={2} style={{ resize: 'vertical' }} />
               </div>
 
-              {/* Mistakes */}
               <div style={{ marginBottom: '14px' }}>
                 <label className="field-label">Mistakes Made <span style={{ color: 'var(--border2)' }}>(fill after closing)</span></label>
-                <textarea
-                  value={form.mistakes}
-                  onChange={e => set('mistakes', e.target.value)}
-                  placeholder="Did you break your rules? What went wrong?"
-                  className="field"
-                  rows={2}
-                  style={{ resize: 'vertical' }}
-                />
+                <textarea value={form.mistakes} onChange={e => set('mistakes', e.target.value)} placeholder="Did you break your rules? What went wrong?" className="field" rows={2} style={{ resize: 'vertical' }} />
               </div>
 
               {error && <p style={{ color: 'var(--bear)', fontSize: '11px', marginBottom: '10px' }}>{error}</p>}
 
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
                 <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
-                <button type="button" onClick={() => setActiveTab('trade')} className="btn btn-ghost">
-                  ← Back
-                </button>
+                <button type="button" onClick={() => setActiveTab('trade')} className="btn btn-ghost">← Back</button>
                 <button type="submit" disabled={loading} className="btn btn-primary">
                   {loading ? 'Adding...' : '+ Add Trade'}
                 </button>

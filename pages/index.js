@@ -490,7 +490,7 @@ export default function Home() {
         </div>
       </main>
 
-      {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAdd} />}
+      {{showAdd && <AddTradeModal onClose={() => setShowAdd(false)} onAdd={handleAdd} />}
       {closingTrade && <CloseTradeModal trade={closingTrade} onClose={() => setClosingTrade(null)} onConfirm={handleClose} />}
     </>
   )
