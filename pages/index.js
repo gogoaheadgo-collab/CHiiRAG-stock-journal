@@ -216,10 +216,10 @@ export default function Home() {
     return t.direction === 'LONG' ? s + (lp.price - t.entry_price) * t.quantity : s + (t.entry_price - lp.price) * t.quantity
   }, 0)
   const totalMTFInterest = trades.reduce((s, t) => {
-    if (!t.mtf_interest_rate) return s
-    // mtf_value = actual_investment - invested_capital (auto calculated)
-    const mtf = t.mtf_value || (t.actual_investment && t.invested_capital ? t.actual_investment - t.invested_capital : null)
-    if (!mtf || mtf <= 0) return s
+    if (!t.mtf_interest_rate || !t.invested_capital || !t.actual_investment) return s
+    // FORMULA: MTF INT = (Invested Capital - Actual Investment) × Rate / 36500
+    const mtf = t.invested_capital - t.actual_investment
+    if (mtf <= 0) return s
     const days = Math.max(0, differenceInDays(t.exit_date ? new Date(t.exit_date) : new Date(), new Date(t.entry_date)))
     return s + (mtf * t.mtf_interest_rate * days) / 36500
   }, 0)
@@ -367,8 +367,9 @@ export default function Home() {
                     trade.exit_date ? new Date(trade.exit_date) : new Date(), new Date(trade.entry_date)
                   ))
 
-                  // MTF = actual_investment - invested_capital
-                  const mtfAmount = trade.mtf_value || (trade.actual_investment && trade.invested_capital ? trade.actual_investment - trade.invested_capital : null)
+                  // FORMULA: MTF INT = (Invested Capital - Actual Investment) × Rate / 36500
+                  const mtfAmount = trade.invested_capital && trade.actual_investment
+                    ? trade.invested_capital - trade.actual_investment : null
                   const mtfInterest = mtfAmount && mtfAmount > 0 && trade.mtf_interest_rate
                     ? (mtfAmount * trade.mtf_interest_rate * days) / 36500 : null
 
