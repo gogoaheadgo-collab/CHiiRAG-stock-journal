@@ -216,9 +216,12 @@ export default function Home() {
     return t.direction === 'LONG' ? s + (lp.price - t.entry_price) * t.quantity : s + (t.entry_price - lp.price) * t.quantity
   }, 0)
   const totalMTFInterest = trades.reduce((s, t) => {
-    if (!t.mtf_value || !t.mtf_interest_rate) return s
+    if (!t.mtf_interest_rate) return s
+    // mtf_value = actual_investment - invested_capital (auto calculated)
+    const mtf = t.mtf_value || (t.actual_investment && t.invested_capital ? t.actual_investment - t.invested_capital : null)
+    if (!mtf || mtf <= 0) return s
     const days = Math.max(0, differenceInDays(t.exit_date ? new Date(t.exit_date) : new Date(), new Date(t.entry_date)))
-    return s + (t.mtf_value * t.mtf_interest_rate * days) / 36500
+    return s + (mtf * t.mtf_interest_rate * days) / 36500
   }, 0)
   const wins = closedTrades.filter(t => (t.realized_gains || 0) > 0)
   const winRate = closedTrades.length > 0 ? (wins.length / closedTrades.length) * 100 : null
@@ -341,7 +344,6 @@ export default function Home() {
                   <th className="right">Unrealised</th>
                   <th className="right">Realised</th>
                   <th className="hide-mobile">Days</th>
-                  <th className="right hide-mobile">MTF ₹</th>
                   <th className="right hide-mobile">MTF Int ₹</th>
                   <th className="hide-mobile">Exit Date</th>
                   <th>Actions</th>
@@ -365,8 +367,10 @@ export default function Home() {
                     trade.exit_date ? new Date(trade.exit_date) : new Date(), new Date(trade.entry_date)
                   ))
 
-                  const mtfInterest = trade.mtf_value && trade.mtf_interest_rate
-                    ? (trade.mtf_value * trade.mtf_interest_rate * days) / 36500 : null
+                  // MTF = actual_investment - invested_capital
+                  const mtfAmount = trade.mtf_value || (trade.actual_investment && trade.invested_capital ? trade.actual_investment - trade.invested_capital : null)
+                  const mtfInterest = mtfAmount && mtfAmount > 0 && trade.mtf_interest_rate
+                    ? (mtfAmount * trade.mtf_interest_rate * days) / 36500 : null
 
                   const posSize = totalInvested > 0 && trade.invested_capital && isOpen
                     ? (trade.invested_capital / totalInvested) * 100 : null
@@ -433,9 +437,6 @@ export default function Home() {
                         ) : <span className="neutral">—</span>}
                       </td>
                       <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>{days}d</td>
-                      <td className="right hide-mobile" style={{ fontFamily: 'Noto Sans, sans-serif' }}>
-                        {trade.mtf_value ? <span style={{ color: 'var(--gold)' }}>₹{trade.mtf_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span> : <span className="neutral">—</span>}
-                      </td>
                       <td className="right hide-mobile">
                         {mtfInterest != null ? (
                           <div>
