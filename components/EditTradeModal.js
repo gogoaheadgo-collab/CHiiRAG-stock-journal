@@ -32,17 +32,20 @@ export default function EditTradeModal({ trade, onClose, onSave }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  // Auto-calculated
-  const investedCapital = form.entry_price && form.quantity
-    ? parseFloat(form.entry_price) * parseFloat(form.quantity)
-    : null
+  // Auto-calculated — all as numbers
+  const entryPrice = parseFloat(form.entry_price) || 0
+  const quantity = parseFloat(form.quantity) || 0
+  const investedCapital = entryPrice > 0 && quantity > 0 ? entryPrice * quantity : null
+  const actualInvestment = parseFloat(form.actual_investment) || 0
+  const mtfRate = parseFloat(form.mtf_interest_rate) || 0
 
-  const mtfValue = form.actual_investment && investedCapital
-    ? parseFloat(form.actual_investment) - investedCapital
+  // MTF = Actual Investment - Invested Capital
+  const mtfValue = actualInvestment > 0 && investedCapital > 0
+    ? actualInvestment - investedCapital
     : trade.mtf_value || null
 
-  const dailyMTFInterest = mtfValue && mtfValue > 0 && form.mtf_interest_rate
-    ? (mtfValue * parseFloat(form.mtf_interest_rate)) / 36500
+  const dailyMTFInterest = mtfValue && mtfValue > 0 && mtfRate > 0
+    ? (mtfValue * mtfRate) / 36500
     : null
 
   const handleSubmit = async (e) => {
@@ -58,12 +61,12 @@ export default function EditTradeModal({ trade, onClose, onSave }) {
         ticker: form.ticker.toUpperCase().trim(),
         direction: form.direction,
         entry_date: form.entry_date,
-        entry_price: parseFloat(form.entry_price),
-        quantity: parseFloat(form.quantity),
-        invested_capital: investedCapital || null,
-        actual_investment: form.actual_investment ? parseFloat(form.actual_investment) : null,
-        mtf_value: mtfValue && mtfValue > 0 ? mtfValue : null,
-        mtf_interest_rate: form.mtf_interest_rate ? parseFloat(form.mtf_interest_rate) : null,
+        entry_price: entryPrice,
+        quantity: quantity,
+        invested_capital: investedCapital,
+        actual_investment: actualInvestment > 0 ? actualInvestment : null,
+        mtf_value: mtfValue && mtfValue > 0 ? Math.round(mtfValue * 100) / 100 : null,
+        mtf_interest_rate: mtfRate > 0 ? mtfRate : null,
         exit_price: form.exit_price ? parseFloat(form.exit_price) : null,
         exit_date: form.exit_date || null,
         realized_gains: form.realized_gains !== '' ? parseFloat(form.realized_gains) : null,
