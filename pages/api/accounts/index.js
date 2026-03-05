@@ -6,12 +6,15 @@ const supabase = createClient(
 )
 
 export default async function handler(req, res) {
-  const authHeader = req.headers.authorization
-  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' })
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  
+  if (!token) return res.status(401).json({ error: 'No token provided' })
 
-  const token = authHeader.replace('Bearer ', '')
   const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Unauthorized' })
+  
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Invalid token', detail: authError?.message })
+  }
 
   if (req.method === 'GET') {
     const { data, error } = await supabase
