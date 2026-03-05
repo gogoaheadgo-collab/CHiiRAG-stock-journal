@@ -5,17 +5,32 @@ import AddTradeModal from '../components/AddTradeModal'
 import CloseTradeModal from '../components/CloseTradeModal'
 import { differenceInDays, format } from 'date-fns'
 
-// ─── Bull Bear SVG Logo ───────────────────────────────────────────────────────
-function BullBearLogo({ size = 32 }) {
+// ─── India Flag Round Logo (SVG) ─────────────────────────────────────────────
+function IndiaFlagLogo({ size = 40 }) {
+  const r = size / 2
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-      <path d="M8 20 Q4 10 12 8 Q16 14 20 18" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-      <path d="M56 20 Q60 10 52 8 Q48 14 44 18" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-      <ellipse cx="32" cy="26" rx="14" ry="11" fill="none" stroke="var(--accent)" strokeWidth="2"/>
-      <ellipse cx="32" cy="33" rx="7" ry="4" fill="none" stroke="var(--accent)" strokeWidth="1.5"/>
-      <circle cx="26" cy="23" r="1.5" fill="var(--accent)"/>
-      <circle cx="38" cy="23" r="1.5" fill="var(--accent)"/>
-      <path d="M32 44 L32 56 M26 50 L32 44 L38 50" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ borderRadius: '50%', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+      {/* Saffron band */}
+      <rect x="0" y="0" width={size} height={size / 3} fill="#FF9933" />
+      {/* White band */}
+      <rect x="0" y={size / 3} width={size} height={size / 3} fill="#FFFFFF" />
+      {/* Green band */}
+      <rect x="0" y={size * 2 / 3} width={size} height={size / 3} fill="#138808" />
+      {/* Ashoka Chakra - Navy blue circle */}
+      <circle cx={r} cy={r} r={size * 0.14} fill="none" stroke="#000080" strokeWidth={size * 0.025} />
+      {/* Chakra spokes - 24 spokes */}
+      {Array.from({ length: 24 }).map((_, i) => {
+        const angle = (i * 15 * Math.PI) / 180
+        const x1 = r + Math.cos(angle) * size * 0.03
+        const y1 = r + Math.sin(angle) * size * 0.03
+        const x2 = r + Math.cos(angle) * size * 0.13
+        const y2 = r + Math.sin(angle) * size * 0.13
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#000080" strokeWidth={size * 0.015} />
+      })}
+      {/* Center dot */}
+      <circle cx={r} cy={r} r={size * 0.025} fill="#000080" />
+      {/* Circle border */}
+      <circle cx={r} cy={r} r={r - 1} fill="none" stroke="#dde2ee" strokeWidth="2" />
     </svg>
   )
 }
@@ -36,27 +51,41 @@ function AuthScreen() {
     <div className="auth-bg">
       <div className="auth-grid" />
       <div className="auth-glow" />
-      <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', maxWidth: '400px', padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-          <div style={{
-            width: '80px', height: '80px', borderRadius: '20px',
-            background: 'var(--surface)', border: '1px solid var(--border2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 40px rgba(200,224,0,0.15)',
-          }}>
-            <BullBearLogo size={52} />
+
+      {/* Tricolor top strip */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', background: 'linear-gradient(90deg, #FF9933 33.33%, #ffffff 33.33%, #ffffff 66.66%, #138808 66.66%)', zIndex: 10 }} />
+
+      <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', maxWidth: '420px', padding: '24px' }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+          <div style={{ padding: '8px', background: 'white', borderRadius: '50%', boxShadow: '0 4px 20px rgba(14,165,233,0.2)' }}>
+            <IndiaFlagLogo size={80} />
           </div>
         </div>
-        <div style={{ fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '8px' }}>
+
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '8px', fontFamily: 'DM Mono, monospace' }}>
           NSE · BSE · MTF Tracking
         </div>
-        <h1 className="font-bebas" style={{ fontSize: '52px', letterSpacing: '0.05em', color: 'var(--text)', lineHeight: 1.1, marginBottom: '6px' }}>
-          CHIIRAG<br /><span style={{ color: 'var(--accent)' }}>STOCK JOURNAL</span>
+
+        <h1 className="font-display" style={{ fontSize: '40px', fontWeight: 700, color: 'var(--text)', lineHeight: 1.15, marginBottom: '8px' }}>
+          Chiirag<br />
+          <span style={{ color: 'var(--accent)' }}>Stock Journal</span>
         </h1>
-        <p style={{ color: 'var(--muted)', fontSize: '12px', lineHeight: 1.7, marginBottom: '32px' }}>
-          Personal trade journal with live NSE/BSE prices,<br />MTF interest tracking &amp; full P&amp;L analytics.
+
+        {/* Tricolor underline */}
+        <div style={{ width: '120px', height: '3px', margin: '0 auto 20px', background: 'linear-gradient(90deg, #FF9933 33%, #ffffff 33%, #ffffff 66%, #138808 66%)', borderRadius: '2px', border: '1px solid #dde2ee' }} />
+
+        <p style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.7, marginBottom: '32px', fontFamily: 'DM Mono, monospace' }}>
+          Personal trade journal with live NSE/BSE prices,<br />
+          MTF interest tracking &amp; full P&amp;L analytics.
         </p>
-        <button onClick={signIn} disabled={loading} className="btn btn-primary" style={{ padding: '12px 32px', fontSize: '13px', width: '100%', justifyContent: 'center', borderRadius: '6px' }}>
+
+        <button
+          onClick={signIn}
+          disabled={loading}
+          className="btn btn-primary"
+          style={{ padding: '12px 32px', fontSize: '14px', width: '100%', justifyContent: 'center', borderRadius: '8px' }}
+        >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -65,7 +94,10 @@ function AuthScreen() {
           </svg>
           {loading ? 'Signing in...' : 'Sign in with Google'}
         </button>
-        <p style={{ marginTop: '14px', fontSize: '10px', color: 'var(--muted)' }}>Private &amp; Secure · Only your data, always</p>
+
+        <p style={{ marginTop: '14px', fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>
+          Private &amp; Secure · Only your data, always
+        </p>
       </div>
     </div>
   )
@@ -142,7 +174,7 @@ export default function Home() {
     setFetchingPrice(p => ({ ...p, [symbol]: false }))
   }, [livePrices, fetchingPrice])
 
-  // Refresh ALL prices (clears cache first)
+  // Refresh ALL prices
   const refreshAllPrices = useCallback(async () => {
     const openSymbols = [...new Set(trades.filter(t => t.status === 'OPEN').map(t => t.ticker))]
     if (openSymbols.length === 0) return
@@ -170,22 +202,17 @@ export default function Home() {
   useEffect(() => {
     const openTrades = trades.filter(t => t.status === 'OPEN')
     if (openTrades.length === 0) return
-    const interval = setInterval(() => {
-      refreshAllPrices()
-    }, 60000)
+    const interval = setInterval(() => { refreshAllPrices() }, 60000)
     return () => clearInterval(interval)
   }, [trades, refreshAllPrices])
 
-  // Countdown timer display
+  // Countdown timer
   useEffect(() => {
     const openTrades = trades.filter(t => t.status === 'OPEN')
     if (openTrades.length === 0) return
     setCountdown(60)
     const timer = setInterval(() => {
-      setCountdown(c => {
-        if (c <= 1) return 60
-        return c - 1
-      })
+      setCountdown(c => c <= 1 ? 60 : c - 1)
     }, 1000)
     return () => clearInterval(timer)
   }, [lastRefresh, trades])
@@ -246,8 +273,8 @@ export default function Home() {
   const netPnL = totalRealised + totalUnrealised
 
   if (authLoading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-      <div style={{ color: 'var(--muted)', letterSpacing: '0.15em', fontSize: '11px' }}>LOADING...</div>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
+      <div style={{ color: 'var(--muted)', letterSpacing: '0.15em', fontSize: '11px', fontFamily: 'DM Mono, monospace' }}>LOADING...</div>
     </div>
   )
 
@@ -258,31 +285,31 @@ export default function Home() {
       <Head>
         <title>Chiirag Stock Journal</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#1a2008" />
+        <meta name="theme-color" content="#ffffff" />
       </Head>
 
+      {/* Tricolor top bar */}
+      <div style={{ height: '4px', background: 'linear-gradient(90deg, #FF9933 33.33%, #f0f0f0 33.33%, #f0f0f0 66.66%, #138808 66.66%)', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 }} />
+
       {/* Header */}
-      <header className="header">
+      <header className="header" style={{ marginTop: '4px' }}>
         <div className="header-logo">
-          <BullBearLogo size={30} />
-          <span className="font-bebas header-title" style={{ fontSize: '18px', letterSpacing: '0.08em', color: 'var(--text)' }}>
-            CHIIRAG <span style={{ color: 'var(--accent)' }}>STOCK JOURNAL</span>
-          </span>
-          <span style={{ color: 'var(--muted)', fontSize: '10px', marginLeft: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <IndiaFlagLogo size={36} />
+          <div>
+            <span className="font-display header-title" style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>
+              Chiirag <span style={{ color: 'var(--accent)' }}>Stock Journal</span>
+            </span>
+          </div>
+          <span style={{ color: 'var(--muted)', fontSize: '11px', marginLeft: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'DM Mono, monospace' }}>
             <span className="live-dot" />
             <span className="hide-mobile">
-              {openTrades.length > 0 ? `LIVE · refresh in ${countdown}s` : 'LIVE NSE'}
+              {openTrades.length > 0 ? `LIVE · ${countdown}s` : 'LIVE NSE'}
             </span>
           </span>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {openTrades.length > 0 && (
-            <button
-              onClick={refreshAllPrices}
-              className="btn btn-ghost"
-              style={{ padding: '6px 12px', fontSize: '10px' }}
-              title="Refresh prices now"
-            >
+            <button onClick={refreshAllPrices} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }} title="Refresh prices">
               ↻ Refresh
             </button>
           )}
@@ -302,16 +329,16 @@ export default function Home() {
         <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '18px' }}>
           <StatCard label="Open Positions" value={openTrades.length} sub={`${closedTrades.length} closed`} color="var(--accent)" />
           <StatCard label="Invested Capital" value={`₹${(totalInvested / 1000).toFixed(1)}K`} sub="Open positions" />
-          <StatCard label="Unrealised P&L" value={`${totalUnrealised >= 0 ? '+' : ''}₹${Math.abs(totalUnrealised / 1000).toFixed(1)}K`} sub="Live prices" color={totalUnrealised >= 0 ? 'var(--bull)' : 'var(--bear)'} />
-          <StatCard label="Realised P&L" value={`${totalRealised >= 0 ? '+' : ''}₹${Math.abs(totalRealised / 1000).toFixed(1)}K`} sub={`${closedTrades.length} trades`} color={totalRealised >= 0 ? 'var(--bull)' : 'var(--bear)'} />
-          <StatCard label="Net P&L" value={`${netPnL >= 0 ? '+' : ''}₹${Math.abs(netPnL / 1000).toFixed(1)}K`} sub="Realised + Unrealised" color={netPnL >= 0 ? 'var(--bull)' : 'var(--bear)'} />
-          <StatCard label="Win Rate" value={winRate !== null ? `${winRate.toFixed(0)}%` : '—'} sub={`${wins.length}W · ${closedTrades.length - wins.length}L`} color={winRate >= 50 ? 'var(--bull)' : winRate !== null ? 'var(--bear)' : undefined} />
+          <StatCard label="Unrealised P&L" value={`${totalUnrealised >= 0 ? '+' : ''}₹${Math.abs(totalUnrealised / 1000).toFixed(1)}K`} sub="Live prices" color={totalUnrealised >= 0 ? '#16a34a' : '#dc2626'} />
+          <StatCard label="Realised P&L" value={`${totalRealised >= 0 ? '+' : ''}₹${Math.abs(totalRealised / 1000).toFixed(1)}K`} sub={`${closedTrades.length} trades`} color={totalRealised >= 0 ? '#16a34a' : '#dc2626'} />
+          <StatCard label="Net P&L" value={`${netPnL >= 0 ? '+' : ''}₹${Math.abs(netPnL / 1000).toFixed(1)}K`} sub="Realised + Unrealised" color={netPnL >= 0 ? '#16a34a' : '#dc2626'} />
+          <StatCard label="Win Rate" value={winRate !== null ? `${winRate.toFixed(0)}%` : '—'} sub={`${wins.length}W · ${closedTrades.length - wins.length}L`} color={winRate >= 50 ? '#16a34a' : winRate !== null ? '#dc2626' : undefined} />
           <StatCard label="MTF Interest" value={`₹${(totalMTFInterest / 1000).toFixed(1)}K`} sub="Accrued total" color="var(--gold)" />
         </div>
 
-        {/* Last refresh info */}
+        {/* Last refresh */}
         {lastRefresh && (
-          <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '8px', textAlign: 'right' }}>
+          <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '8px', textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>
             Last refreshed: {format(lastRefresh, 'hh:mm:ss a')} · Next in {countdown}s
           </div>
         )}
@@ -339,14 +366,14 @@ export default function Home() {
         </div>
 
         {/* Table */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'auto' }}>
+        <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           {tradesLoading ? (
-            <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)' }}>Loading trades...</div>
+            <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>Loading trades...</div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">
-              <BullBearLogo size={48} />
+              <IndiaFlagLogo size={60} />
               <div className="empty-title" style={{ marginTop: '16px' }}>No Trades Yet</div>
-              <div style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '20px' }}>Click "New Trade" to log your first position</div>
+              <div style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>Click "New Trade" to log your first position</div>
               <button onClick={() => setShowAdd(true)} className="btn btn-primary">+ Add First Trade</button>
             </div>
           ) : (
@@ -401,7 +428,7 @@ export default function Home() {
                   return (
                     <tr key={trade.id}>
                       <td>
-                        <span style={{ fontSize: '10px', color: 'var(--accent)', background: 'rgba(200,224,0,0.06)', padding: '2px 7px', borderRadius: '2px', border: '1px solid rgba(200,224,0,0.12)' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--accent)', background: '#e0f2fe', padding: '2px 8px', borderRadius: '4px', border: '1px solid #bae6fd', fontFamily: 'DM Mono, monospace' }}>
                           {trade.account || '—'}
                         </span>
                       </td>
@@ -411,14 +438,14 @@ export default function Home() {
                       </td>
                       <td><span className={`badge badge-${trade.status.toLowerCase()}`}>{trade.status}</span></td>
                       <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction === 'LONG' ? '▲' : '▼'} {trade.direction}</span></td>
-                      <td style={{ color: 'var(--muted)', fontSize: '11px' }}>
+                      <td style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>
                         {trade.entry_date ? format(new Date(trade.entry_date), 'dd MMM yy') : '—'}
                       </td>
-                      <td className="right">₹{trade.entry_price?.toLocaleString('en-IN')}</td>
+                      <td className="right" style={{ fontFamily: 'DM Mono, monospace' }}>₹{trade.entry_price?.toLocaleString('en-IN')}</td>
                       <td className="right">
                         {isOpen ? (
                           fetchingPrice[trade.ticker] ? (
-                            <span style={{ color: 'var(--muted)', fontSize: '10px' }}>...</span>
+                            <span style={{ color: 'var(--muted)', fontSize: '11px', fontFamily: 'DM Mono, monospace' }}>...</span>
                           ) : lp ? (
                             <div>
                               <div className={`cmp-price ${lp.change >= 0 ? 'profit' : 'loss'}`}>₹{lp.price?.toLocaleString('en-IN')}</div>
@@ -427,23 +454,23 @@ export default function Home() {
                           ) : <span className="neutral">—</span>
                         ) : <span className="neutral">—</span>}
                       </td>
-                      <td className="right hide-mobile">
+                      <td className="right hide-mobile" style={{ fontFamily: 'DM Mono, monospace' }}>
                         {trade.exit_price ? `₹${trade.exit_price.toLocaleString('en-IN')}` : <span className="neutral">—</span>}
                       </td>
-                      <td className="right">{trade.quantity?.toLocaleString('en-IN')}</td>
-                      <td className="right hide-mobile">
+                      <td className="right" style={{ fontFamily: 'DM Mono, monospace' }}>{trade.quantity?.toLocaleString('en-IN')}</td>
+                      <td className="right hide-mobile" style={{ fontFamily: 'DM Mono, monospace' }}>
                         {trade.invested_capital ? `₹${trade.invested_capital.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
                       </td>
                       <td className="right hide-mobile">
-                        {posSize !== null ? <span className="neutral">{posSize.toFixed(1)}%</span> : <span className="neutral">—</span>}
+                        {posSize !== null ? <span className="neutral" style={{ fontFamily: 'DM Mono, monospace' }}>{posSize.toFixed(1)}%</span> : <span className="neutral">—</span>}
                       </td>
                       <td className="right">
                         {unrealised !== null ? (
                           <div>
-                            <div className={unrealised >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 500 }}>
+                            <div className={unrealised >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
                               {unrealised >= 0 ? '+' : '−'}₹{Math.abs(unrealised).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                             </div>
-                            <div className={unrealisedPct >= 0 ? 'profit' : 'loss'} style={{ fontSize: '10px', opacity: 0.7 }}>
+                            <div className={unrealisedPct >= 0 ? 'profit' : 'loss'} style={{ fontSize: '10px', opacity: 0.8, fontFamily: 'DM Mono, monospace' }}>
                               {unrealisedPct >= 0 ? '+' : ''}{unrealisedPct?.toFixed(2)}%
                             </div>
                           </div>
@@ -451,24 +478,26 @@ export default function Home() {
                       </td>
                       <td className="right">
                         {trade.realized_gains != null ? (
-                          <span className={trade.realized_gains >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 500 }}>
+                          <span className={trade.realized_gains >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
                             {trade.realized_gains >= 0 ? '+' : '−'}₹{Math.abs(trade.realized_gains).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                           </span>
                         ) : <span className="neutral">—</span>}
                       </td>
-                      <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '11px' }}>{days}d</td>
+                      <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>{days}d</td>
                       <td className="right hide-mobile">
-                        {trade.mtf_value ? <span style={{ color: 'var(--gold)' }}>₹{trade.mtf_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span> : <span className="neutral">—</span>}
+                        {trade.mtf_value
+                          ? <span style={{ color: 'var(--gold)', fontFamily: 'DM Mono, monospace' }}>₹{trade.mtf_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                          : <span className="neutral">—</span>}
                       </td>
                       <td className="right hide-mobile">
                         {mtfInterest != null ? (
                           <div>
-                            <div style={{ color: 'var(--gold)', fontWeight: 500 }}>₹{mtfInterest.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-                            <div style={{ fontSize: '9px', color: 'var(--muted)' }}>{trade.mtf_interest_rate}% p.a.</div>
+                            <div style={{ color: 'var(--gold)', fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>₹{mtfInterest.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                            <div style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>{trade.mtf_interest_rate}% p.a.</div>
                           </div>
                         ) : <span className="neutral">—</span>}
                       </td>
-                      <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '11px' }}>
+                      <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>
                         {trade.exit_date ? format(new Date(trade.exit_date), 'dd MMM yy') : '—'}
                       </td>
                       <td>
@@ -487,7 +516,7 @@ export default function Home() {
           )}
         </div>
 
-        <div style={{ marginTop: '12px', textAlign: 'center', color: 'var(--muted)', fontSize: '10px', letterSpacing: '0.05em' }}>
+        <div style={{ marginTop: '12px', textAlign: 'center', color: 'var(--muted)', fontSize: '11px', fontFamily: 'DM Mono, monospace' }}>
           Prices via Yahoo Finance · ~15 min delay · Not financial advice
         </div>
       </main>
