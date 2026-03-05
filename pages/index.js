@@ -5,6 +5,26 @@ import AddTradeModal from '../components/AddTradeModal'
 import CloseTradeModal from '../components/CloseTradeModal'
 import { differenceInDays, format } from 'date-fns'
 
+// ─── Bull Bear SVG Logo ───────────────────────────────────────────────────────
+function BullBearLogo({ size = 32 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className="bull-logo">
+      {/* Bull horns */}
+      <path d="M8 20 Q4 10 12 8 Q16 14 20 18" stroke="#00ff88" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+      <path d="M56 20 Q60 10 52 8 Q48 14 44 18" stroke="#00ff88" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+      {/* Bull head */}
+      <ellipse cx="32" cy="26" rx="14" ry="11" fill="none" stroke="#00ff88" strokeWidth="2"/>
+      {/* Bull nose */}
+      <ellipse cx="32" cy="33" rx="7" ry="4" fill="none" stroke="#00ff88" strokeWidth="1.5"/>
+      {/* Bull eyes */}
+      <circle cx="26" cy="23" r="1.5" fill="#00ff88"/>
+      <circle cx="38" cy="23" r="1.5" fill="#00ff88"/>
+      {/* Arrow up (bull market) */}
+      <path d="M32 44 L32 56 M26 50 L32 44 L38 50" stroke="#00ff88" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 // ─── Auth Screen ──────────────────────────────────────────────────────────────
 function AuthScreen() {
   const [loading, setLoading] = useState(false)
@@ -18,40 +38,43 @@ function AuthScreen() {
   }
 
   return (
-    <div className="auth-bg" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div className="auth-bg">
       <div className="auth-grid" />
       <div className="auth-glow" />
 
-      <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', maxWidth: '420px', padding: '24px' }}>
-        {/* Logo mark */}
-        <div style={{ marginBottom: '28px', display: 'flex', justifyContent: 'center' }}>
+      <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', maxWidth: '400px', padding: '24px' }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
           <div style={{
-            width: '56px', height: '56px', borderRadius: '12px',
-            background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
+            width: '80px', height: '80px', borderRadius: '20px',
+            background: 'var(--surface)',
+            border: '1px solid var(--border2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 40px rgba(0,212,255,0.3)',
+            boxShadow: '0 0 40px rgba(0,255,136,0.15)',
           }}>
-            <span style={{ fontSize: '24px', fontFamily: 'Syne, sans-serif', fontWeight: 800, color: '#07080a' }}>C</span>
+            <BullBearLogo size={52} />
           </div>
         </div>
 
-        <div style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '10px' }}>
+        <div style={{ fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '8px' }}>
           NSE · BSE · MTF Tracking
         </div>
-        <h1 className="font-syne" style={{ fontSize: '36px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.15, marginBottom: '10px' }}>
-          Chiirag<br />
-          <span style={{ color: 'var(--accent)' }}>Stock Journal</span>
+
+        <h1 className="font-bebas" style={{ fontSize: '52px', letterSpacing: '0.05em', color: 'var(--text)', lineHeight: 1.1, marginBottom: '6px' }}>
+          CHIIRAG<br />
+          <span style={{ color: 'var(--accent)' }}>STOCK JOURNAL</span>
         </h1>
+
         <p style={{ color: 'var(--muted)', fontSize: '12px', lineHeight: 1.7, marginBottom: '32px' }}>
           Personal trade journal with live NSE/BSE prices,<br />
-          MTF interest tracking, and full P&amp;L analytics.
+          MTF interest tracking &amp; full P&amp;L analytics.
         </p>
 
         <button
           onClick={signIn}
           disabled={loading}
           className="btn btn-primary"
-          style={{ padding: '12px 32px', fontSize: '13px', width: '100%', justifyContent: 'center' }}
+          style={{ padding: '12px 32px', fontSize: '13px', width: '100%', justifyContent: 'center', borderRadius: '6px' }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -62,8 +85,8 @@ function AuthScreen() {
           {loading ? 'Signing in...' : 'Sign in with Google'}
         </button>
 
-        <p style={{ marginTop: '16px', fontSize: '10px', color: 'var(--muted)' }}>
-          gogoaheadgo@gmail.com · Private &amp; Secure
+        <p style={{ marginTop: '14px', fontSize: '10px', color: 'var(--muted)' }}>
+          Private &amp; Secure · Only your data, always
         </p>
       </div>
     </div>
@@ -71,9 +94,9 @@ function AuthScreen() {
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, color, accent }) {
+function StatCard({ label, value, sub, color, icon }) {
   return (
-    <div className="stat-card" style={accent ? { borderColor: `rgba(0,212,255,0.2)` } : {}}>
+    <div className="stat-card">
       <div className="stat-label">{label}</div>
       <div className="stat-value" style={{ color: color || 'var(--text)' }}>{value}</div>
       {sub && <div className="stat-sub">{sub}</div>}
@@ -94,6 +117,7 @@ export default function Home() {
   const [closingTrade, setClosingTrade] = useState(null)
   const [tradesLoading, setTradesLoading] = useState(false)
   const [accounts, setAccounts] = useState([])
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Auth
   useEffect(() => {
@@ -121,13 +145,13 @@ export default function Home() {
 
   useEffect(() => { loadTrades() }, [loadTrades])
 
-  // Load unique account names for filter bar
+  // Unique accounts for filter
   useEffect(() => {
     const names = [...new Set(trades.map(t => t.account).filter(Boolean))]
     setAccounts(names)
   }, [trades])
 
-  // Fetch live price (once per symbol)
+  // Fetch live price
   const fetchPrice = useCallback(async (symbol) => {
     if (livePrices[symbol] !== undefined || fetchingPrice[symbol]) return
     setFetchingPrice(p => ({ ...p, [symbol]: true }))
@@ -183,24 +207,24 @@ export default function Home() {
   const totalUnrealised = openTrades.reduce((s, t) => {
     const lp = livePrices[t.ticker]
     if (!lp) return s
-    const pnl = t.direction === 'LONG'
-      ? (lp.price - t.entry_price) * t.quantity
-      : (t.entry_price - lp.price) * t.quantity
-    return s + pnl
+    return t.direction === 'LONG'
+      ? s + (lp.price - t.entry_price) * t.quantity
+      : s + (t.entry_price - lp.price) * t.quantity
   }, 0)
 
   const totalMTFInterest = trades.reduce((s, t) => {
     if (!t.mtf_value || !t.mtf_interest_rate) return s
-    const startDate = new Date(t.entry_date)
-    const endDate = t.exit_date ? new Date(t.exit_date) : new Date()
-    const days = Math.max(0, differenceInDays(endDate, startDate))
+    const days = Math.max(0, differenceInDays(
+      t.exit_date ? new Date(t.exit_date) : new Date(),
+      new Date(t.entry_date)
+    ))
     return s + (t.mtf_value * t.mtf_interest_rate * days) / 36500
   }, 0)
 
   const wins = closedTrades.filter(t => (t.realized_gains || 0) > 0)
   const winRate = closedTrades.length > 0 ? (wins.length / closedTrades.length) * 100 : null
-
   const totalInvested = openTrades.reduce((s, t) => s + (t.invested_capital || 0), 0)
+  const netPnL = totalRealised + totalUnrealised
 
   if (authLoading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
@@ -215,64 +239,60 @@ export default function Home() {
       <Head>
         <title>Chiirag Stock Journal</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="description" content="Personal NSE/BSE trade journal" />
+        <meta name="theme-color" content="#050807" />
       </Head>
 
       {/* ── Header ── */}
       <header className="header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '30px', height: '30px', borderRadius: '6px',
-            background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span className="font-syne" style={{ fontSize: '14px', fontWeight: 800, color: '#07080a' }}>C</span>
-          </div>
-          <span className="font-syne" style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', letterSpacing: '0.02em' }}>
-            Chiirag Stock Journal
+        <div className="header-logo">
+          <BullBearLogo size={30} />
+          <span className="font-bebas header-title" style={{ fontSize: '18px', letterSpacing: '0.08em', color: 'var(--text)' }}>
+            CHIIRAG <span style={{ color: 'var(--accent)' }}>STOCK JOURNAL</span>
           </span>
-          <span style={{ color: 'var(--border2)', fontSize: '14px' }}>|</span>
-          <span style={{ color: 'var(--muted)', fontSize: '10px', letterSpacing: '0.06em' }}>
-            <span className="live-dot" />LIVE NSE/BSE
+          <span style={{ color: 'var(--muted)', fontSize: '10px', marginLeft: '4px' }}>
+            <span className="live-dot" />
+            <span className="hide-mobile">LIVE NSE</span>
           </span>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding: '6px 16px' }}>
-            <span style={{ fontSize: '14px' }}>+</span> New Trade
+          <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding: '7px 16px' }}>
+            <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span>
+            <span className="hide-mobile">New Trade</span>
           </button>
-          <button onClick={signOut} className="btn btn-ghost" style={{ padding: '6px 12px' }}>Sign Out</button>
+          <button onClick={signOut} className="btn btn-ghost" style={{ padding: '7px 12px' }}>
+            <span className="hide-mobile">Sign Out</span>
+            <span style={{ display: 'none' }} className="show-mobile">↩</span>
+          </button>
         </div>
       </header>
 
-      <main style={{ maxWidth: '1440px', margin: '0 auto', padding: '20px 16px' }}>
+      <main style={{ maxWidth: '1600px', margin: '0 auto', padding: '18px 14px' }}>
 
         {/* ── Stat Cards ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', marginBottom: '20px' }}>
-          <StatCard label="Total Trades" value={trades.length} sub={`${openTrades.length} open · ${closedTrades.length} closed`} accent />
-          <StatCard label="Invested Capital" value={`₹${totalInvested.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} sub="Open positions" color="var(--accent)" />
-          <StatCard label="Unrealised P&L" value={`${totalUnrealised >= 0 ? '+' : ''}₹${Math.abs(totalUnrealised).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} sub="Live (15min delay)" color={totalUnrealised >= 0 ? 'var(--green)' : 'var(--red)'} />
-          <StatCard label="Realised P&L" value={`${totalRealised >= 0 ? '+' : ''}₹${Math.abs(totalRealised).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} sub={`${closedTrades.length} closed trades`} color={totalRealised >= 0 ? 'var(--green)' : 'var(--red)'} />
-          <StatCard label="Win Rate" value={winRate !== null ? `${winRate.toFixed(1)}%` : '—'} sub={`${wins.length}W · ${closedTrades.length - wins.length}L`} color={winRate >= 50 ? 'var(--green)' : winRate !== null ? 'var(--red)' : undefined} />
-          <StatCard label="MTF Interest" value={`₹${totalMTFInterest.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} sub="Accrued (all trades)" color="var(--gold)" />
+        <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '18px' }}>
+          <StatCard label="Open Positions" value={openTrades.length} sub={`${closedTrades.length} closed`} color="var(--accent)" />
+          <StatCard label="Invested Capital" value={`₹${(totalInvested/1000).toFixed(1)}K`} sub="Open positions" />
+          <StatCard label="Unrealised P&L" value={`${totalUnrealised >= 0 ? '+' : ''}₹${Math.abs(totalUnrealised/1000).toFixed(1)}K`} sub="Live prices" color={totalUnrealised >= 0 ? 'var(--green)' : 'var(--red)'} />
+          <StatCard label="Realised P&L" value={`${totalRealised >= 0 ? '+' : ''}₹${Math.abs(totalRealised/1000).toFixed(1)}K`} sub={`${closedTrades.length} trades`} color={totalRealised >= 0 ? 'var(--green)' : 'var(--red)'} />
+          <StatCard label="Net P&L" value={`${netPnL >= 0 ? '+' : ''}₹${Math.abs(netPnL/1000).toFixed(1)}K`} sub="Realised + Unrealised" color={netPnL >= 0 ? 'var(--green)' : 'var(--red)'} />
+          <StatCard label="Win Rate" value={winRate !== null ? `${winRate.toFixed(0)}%` : '—'} sub={`${wins.length}W · ${closedTrades.length - wins.length}L`} color={winRate >= 50 ? 'var(--green)' : winRate !== null ? 'var(--red)' : undefined} />
+          <StatCard label="MTF Interest" value={`₹${(totalMTFInterest/1000).toFixed(1)}K`} sub="Accrued total" color="var(--gold)" />
         </div>
 
         {/* ── Filters ── */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px', alignItems: 'center' }}>
-          {/* Status filter */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '4px' }}>
             {['ALL', 'OPEN', 'CLOSED'].map(f => (
               <button key={f} onClick={() => setFilter(f)} className={`tab ${filter === f ? 'active' : ''}`}>
-                {f}{f === 'ALL' ? ` (${trades.length})` : f === 'OPEN' ? ` (${openTrades.length})` : ` (${closedTrades.length})`}
+                {f} ({f === 'ALL' ? trades.length : f === 'OPEN' ? openTrades.length : closedTrades.length})
               </button>
             ))}
           </div>
-
-          {/* Account filter */}
           {accounts.length > 0 && (
             <>
-              <span style={{ color: 'var(--border2)', fontSize: '14px' }}>|</span>
+              <span style={{ color: 'var(--border2)' }}>|</span>
               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                <button onClick={() => setAccountFilter('ALL')} className={`tab ${accountFilter === 'ALL' ? 'active' : ''}`}>All Accounts</button>
+                <button onClick={() => setAccountFilter('ALL')} className={`tab ${accountFilter === 'ALL' ? 'active' : ''}`}>All</button>
                 {accounts.map(a => (
                   <button key={a} onClick={() => setAccountFilter(a)} className={`tab ${accountFilter === a ? 'active' : ''}`}>{a}</button>
                 ))}
@@ -281,13 +301,14 @@ export default function Home() {
           )}
         </div>
 
-        {/* ── Trades Table ── */}
+        {/* ── Table ── */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'auto' }}>
           {tradesLoading ? (
             <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)' }}>Loading trades...</div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-title">No trades yet</div>
+              <BullBearLogo size={48} />
+              <div className="empty-title" style={{ marginTop: '16px' }}>No Trades Yet</div>
               <div style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '20px' }}>Click "New Trade" to log your first position</div>
               <button onClick={() => setShowAdd(true)} className="btn btn-primary">+ Add First Trade</button>
             </div>
@@ -298,20 +319,20 @@ export default function Home() {
                   <th>Account</th>
                   <th>Ticker</th>
                   <th>Status</th>
-                  <th>Dir.</th>
+                  <th>Dir</th>
                   <th>Entry Date</th>
                   <th className="right">Entry ₹</th>
                   <th className="right">CMP ₹</th>
-                  <th className="right">Exit ₹</th>
+                  <th className="right hide-mobile">Exit ₹</th>
                   <th className="right">Qty</th>
-                  <th className="right">Invested ₹</th>
-                  <th className="right">Pos. Size</th>
+                  <th className="right hide-mobile">Invested ₹</th>
+                  <th className="right hide-mobile">Pos %</th>
                   <th className="right">Unrealised</th>
                   <th className="right">Realised</th>
-                  <th>Duration</th>
-                  <th className="right">MTF Value ₹</th>
-                  <th className="right">MTF Interest ₹</th>
-                  <th>Exit Date</th>
+                  <th className="hide-mobile">Days</th>
+                  <th className="right hide-mobile">MTF ₹</th>
+                  <th className="right hide-mobile">MTF Int ₹</th>
+                  <th className="hide-mobile">Exit Date</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -321,35 +342,30 @@ export default function Home() {
                   const isOpen = trade.status === 'OPEN'
                   const isLong = trade.direction === 'LONG'
 
-                  // P&L calcs
                   const unrealised = isOpen && lp
-                    ? isLong
-                      ? (lp.price - trade.entry_price) * trade.quantity
-                      : (trade.entry_price - lp.price) * trade.quantity
+                    ? isLong ? (lp.price - trade.entry_price) * trade.quantity
+                             : (trade.entry_price - lp.price) * trade.quantity
                     : null
 
                   const unrealisedPct = unrealised !== null && trade.invested_capital > 0
                     ? (unrealised / trade.invested_capital) * 100 : null
 
-                  // Duration
-                  const start = new Date(trade.entry_date)
-                  const end = trade.exit_date ? new Date(trade.exit_date) : new Date()
-                  const days = Math.max(0, differenceInDays(end, start))
+                  const days = Math.max(0, differenceInDays(
+                    trade.exit_date ? new Date(trade.exit_date) : new Date(),
+                    new Date(trade.entry_date)
+                  ))
 
-                  // MTF Interest
                   const mtfInterest = trade.mtf_value && trade.mtf_interest_rate
-                    ? (trade.mtf_value * trade.mtf_interest_rate * days) / 36500
-                    : null
+                    ? (trade.mtf_value * trade.mtf_interest_rate * days) / 36500 : null
 
-                  // Position size (% of total invested)
-                  const posSize = totalInvested > 0 && trade.invested_capital
+                  const posSize = totalInvested > 0 && trade.invested_capital && isOpen
                     ? (trade.invested_capital / totalInvested) * 100 : null
 
                   return (
                     <tr key={trade.id}>
                       {/* Account */}
                       <td>
-                        <span style={{ fontSize: '11px', color: 'var(--accent)', background: 'rgba(0,212,255,0.07)', padding: '2px 7px', borderRadius: '2px', border: '1px solid rgba(0,212,255,0.15)' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--accent)', background: 'rgba(0,255,136,0.06)', padding: '2px 7px', borderRadius: '2px', border: '1px solid rgba(0,255,136,0.12)' }}>
                           {trade.account || '—'}
                         </span>
                       </td>
@@ -357,14 +373,14 @@ export default function Home() {
                       {/* Ticker */}
                       <td>
                         <div className="ticker-symbol">{trade.ticker}</div>
-                        <div className="ticker-exchange">NSE</div>
+                        <div className="ticker-sub">NSE</div>
                       </td>
 
                       {/* Status */}
                       <td><span className={`badge badge-${trade.status.toLowerCase()}`}>{trade.status}</span></td>
 
                       {/* Direction */}
-                      <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
+                      <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction === 'LONG' ? '▲' : '▼'} {trade.direction}</span></td>
 
                       {/* Entry Date */}
                       <td style={{ color: 'var(--muted)', fontSize: '11px' }}>
@@ -382,37 +398,31 @@ export default function Home() {
                           ) : lp ? (
                             <div>
                               <div className={`cmp-price ${lp.change >= 0 ? 'profit' : 'loss'}`}>₹{lp.price?.toLocaleString('en-IN')}</div>
-                              <div className={`cmp-change ${lp.change >= 0 ? 'profit' : 'loss'}`}>
-                                {lp.change >= 0 ? '+' : ''}{lp.changePercent?.toFixed(2)}%
-                              </div>
+                              <div className={`cmp-change ${lp.change >= 0 ? 'profit' : 'loss'}`}>{lp.change >= 0 ? '+' : ''}{lp.changePercent?.toFixed(2)}%</div>
                             </div>
-                          ) : <span style={{ color: 'var(--muted)' }}>—</span>
-                        ) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                          ) : <span className="neutral">—</span>
+                        ) : <span className="neutral">—</span>}
                       </td>
 
                       {/* Exit Price */}
-                      <td className="right">
-                        {trade.exit_price ? `₹${trade.exit_price.toLocaleString('en-IN')}` : <span style={{ color: 'var(--muted)' }}>—</span>}
+                      <td className="right hide-mobile">
+                        {trade.exit_price ? `₹${trade.exit_price.toLocaleString('en-IN')}` : <span className="neutral">—</span>}
                       </td>
 
                       {/* Qty */}
                       <td className="right">{trade.quantity?.toLocaleString('en-IN')}</td>
 
-                      {/* Invested Capital */}
-                      <td className="right">
-                        {trade.invested_capital
-                          ? `₹${trade.invested_capital.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
-                          : '—'}
+                      {/* Invested */}
+                      <td className="right hide-mobile">
+                        {trade.invested_capital ? `₹${trade.invested_capital.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
                       </td>
 
                       {/* Pos Size */}
-                      <td className="right">
-                        {posSize !== null && isOpen
-                          ? <span style={{ color: 'var(--muted)' }}>{posSize.toFixed(1)}%</span>
-                          : <span style={{ color: 'var(--muted)' }}>—</span>}
+                      <td className="right hide-mobile">
+                        {posSize !== null ? <span className="neutral">{posSize.toFixed(1)}%</span> : <span className="neutral">—</span>}
                       </td>
 
-                      {/* Unrealised Gains */}
+                      {/* Unrealised */}
                       <td className="right">
                         {unrealised !== null ? (
                           <div>
@@ -423,44 +433,38 @@ export default function Home() {
                               {unrealisedPct >= 0 ? '+' : ''}{unrealisedPct?.toFixed(2)}%
                             </div>
                           </div>
-                        ) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        ) : <span className="neutral">—</span>}
                       </td>
 
-                      {/* Realised Gains */}
+                      {/* Realised */}
                       <td className="right">
                         {trade.realized_gains != null ? (
                           <span className={trade.realized_gains >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 500 }}>
                             {trade.realized_gains >= 0 ? '+' : '−'}₹{Math.abs(trade.realized_gains).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                           </span>
-                        ) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        ) : <span className="neutral">—</span>}
                       </td>
 
-                      {/* Duration */}
-                      <td style={{ color: 'var(--muted)', fontSize: '11px' }}>{days}d</td>
+                      {/* Days */}
+                      <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '11px' }}>{days}d</td>
 
                       {/* MTF Value */}
-                      <td className="right">
-                        {trade.mtf_value
-                          ? <span style={{ color: 'var(--gold)' }}>₹{trade.mtf_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                          : <span style={{ color: 'var(--muted)' }}>—</span>}
+                      <td className="right hide-mobile">
+                        {trade.mtf_value ? <span style={{ color: 'var(--gold)' }}>₹{trade.mtf_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span> : <span className="neutral">—</span>}
                       </td>
 
                       {/* MTF Interest */}
-                      <td className="right">
+                      <td className="right hide-mobile">
                         {mtfInterest != null ? (
                           <div>
-                            <div style={{ color: 'var(--gold)', fontWeight: 500 }}>
-                              ₹{mtfInterest.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                            </div>
-                            <div style={{ fontSize: '9.5px', color: 'var(--muted)' }}>
-                              {trade.mtf_interest_rate}% p.a.
-                            </div>
+                            <div style={{ color: 'var(--gold)', fontWeight: 500 }}>₹{mtfInterest.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                            <div style={{ fontSize: '9px', color: 'var(--muted)' }}>{trade.mtf_interest_rate}% p.a.</div>
                           </div>
-                        ) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        ) : <span className="neutral">—</span>}
                       </td>
 
                       {/* Exit Date */}
-                      <td style={{ color: 'var(--muted)', fontSize: '11px' }}>
+                      <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '11px' }}>
                         {trade.exit_date ? format(new Date(trade.exit_date), 'dd MMM yy') : '—'}
                       </td>
 
@@ -468,17 +472,9 @@ export default function Home() {
                       <td>
                         <div style={{ display: 'flex', gap: '4px' }}>
                           {isOpen && (
-                            <button
-                              onClick={() => setClosingTrade(trade)}
-                              className="icon-btn exit"
-                              title="Exit trade"
-                            >✓</button>
+                            <button onClick={() => setClosingTrade(trade)} className="icon-btn exit" title="Exit trade">✓</button>
                           )}
-                          <button
-                            onClick={() => handleDelete(trade.id)}
-                            className="icon-btn del"
-                            title="Delete"
-                          >×</button>
+                          <button onClick={() => handleDelete(trade.id)} className="icon-btn del" title="Delete">×</button>
                         </div>
                       </td>
                     </tr>
@@ -489,8 +485,8 @@ export default function Home() {
           )}
         </div>
 
-        <div style={{ marginTop: '12px', textAlign: 'center', color: 'var(--muted)', fontSize: '10px', letterSpacing: '0.06em' }}>
-          Prices via Yahoo Finance · ~15 min delay · NSE stocks only · Not financial advice
+        <div style={{ marginTop: '12px', textAlign: 'center', color: 'var(--muted)', fontSize: '10px', letterSpacing: '0.05em' }}>
+          Prices via Yahoo Finance · ~15 min delay · Not financial advice
         </div>
       </main>
 
