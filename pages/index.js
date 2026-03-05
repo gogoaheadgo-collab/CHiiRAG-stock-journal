@@ -3,22 +3,18 @@ import Head from 'next/head'
 import { supabase } from '../lib/supabase'
 import AddTradeModal from '../components/AddTradeModal'
 import CloseTradeModal from '../components/CloseTradeModal'
+import EditTradeModal from '../components/EditTradeModal'
 import { differenceInDays, format } from 'date-fns'
 
-// ─── India Flag Round Logo (SVG) ─────────────────────────────────────────────
+// ─── India Flag Round Logo ────────────────────────────────────────────────────
 function IndiaFlagLogo({ size = 40 }) {
   const r = size / 2
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ borderRadius: '50%', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-      {/* Saffron band */}
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ borderRadius: '50%', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', display: 'block' }}>
       <rect x="0" y="0" width={size} height={size / 3} fill="#FF9933" />
-      {/* White band */}
       <rect x="0" y={size / 3} width={size} height={size / 3} fill="#FFFFFF" />
-      {/* Green band */}
       <rect x="0" y={size * 2 / 3} width={size} height={size / 3} fill="#138808" />
-      {/* Ashoka Chakra - Navy blue circle */}
       <circle cx={r} cy={r} r={size * 0.14} fill="none" stroke="#000080" strokeWidth={size * 0.025} />
-      {/* Chakra spokes - 24 spokes */}
       {Array.from({ length: 24 }).map((_, i) => {
         const angle = (i * 15 * Math.PI) / 180
         const x1 = r + Math.cos(angle) * size * 0.03
@@ -27,9 +23,7 @@ function IndiaFlagLogo({ size = 40 }) {
         const y2 = r + Math.sin(angle) * size * 0.13
         return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#000080" strokeWidth={size * 0.015} />
       })}
-      {/* Center dot */}
       <circle cx={r} cy={r} r={size * 0.025} fill="#000080" />
-      {/* Circle border */}
       <circle cx={r} cy={r} r={r - 1} fill="none" stroke="#dde2ee" strokeWidth="2" />
     </svg>
   )
@@ -38,7 +32,6 @@ function IndiaFlagLogo({ size = 40 }) {
 // ─── Auth Screen ──────────────────────────────────────────────────────────────
 function AuthScreen() {
   const [loading, setLoading] = useState(false)
-
   const signIn = async () => {
     setLoading(true)
     await supabase.auth.signInWithOAuth({
@@ -46,46 +39,28 @@ function AuthScreen() {
       options: { redirectTo: typeof window !== 'undefined' ? window.location.origin : '' },
     })
   }
-
   return (
     <div className="auth-bg">
       <div className="auth-grid" />
       <div className="auth-glow" />
-
-      {/* Tricolor top strip */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', background: 'linear-gradient(90deg, #FF9933 33.33%, #ffffff 33.33%, #ffffff 66.66%, #138808 66.66%)', zIndex: 10 }} />
-
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', background: 'linear-gradient(90deg, #FF9933 33.33%, #f0f0f0 33.33%, #f0f0f0 66.66%, #138808 66.66%)', zIndex: 10 }} />
       <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', maxWidth: '420px', padding: '24px' }}>
-        {/* Logo */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
           <div style={{ padding: '8px', background: 'white', borderRadius: '50%', boxShadow: '0 4px 20px rgba(14,165,233,0.2)' }}>
             <IndiaFlagLogo size={80} />
           </div>
         </div>
-
         <div style={{ fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '8px', fontFamily: 'DM Mono, monospace' }}>
           NSE · BSE · MTF Tracking
         </div>
-
         <h1 className="font-display" style={{ fontSize: '40px', fontWeight: 700, color: 'var(--text)', lineHeight: 1.15, marginBottom: '8px' }}>
-          Chiirag<br />
-          <span style={{ color: 'var(--accent)' }}>Stock Journal</span>
+          Chiirag<br /><span style={{ color: 'var(--accent)' }}>Stock Journal</span>
         </h1>
-
-        {/* Tricolor underline */}
-        <div style={{ width: '120px', height: '3px', margin: '0 auto 20px', background: 'linear-gradient(90deg, #FF9933 33%, #ffffff 33%, #ffffff 66%, #138808 66%)', borderRadius: '2px', border: '1px solid #dde2ee' }} />
-
+        <div style={{ width: '120px', height: '3px', margin: '0 auto 20px', background: 'linear-gradient(90deg, #FF9933 33%, #e0e0e0 33%, #e0e0e0 66%, #138808 66%)', borderRadius: '2px' }} />
         <p style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.7, marginBottom: '32px', fontFamily: 'DM Mono, monospace' }}>
-          Personal trade journal with live NSE/BSE prices,<br />
-          MTF interest tracking &amp; full P&amp;L analytics.
+          Personal trade journal with live NSE/BSE prices,<br />MTF interest tracking &amp; full P&amp;L analytics.
         </p>
-
-        <button
-          onClick={signIn}
-          disabled={loading}
-          className="btn btn-primary"
-          style={{ padding: '12px 32px', fontSize: '14px', width: '100%', justifyContent: 'center', borderRadius: '8px' }}
-        >
+        <button onClick={signIn} disabled={loading} className="btn btn-primary" style={{ padding: '12px 32px', fontSize: '14px', width: '100%', justifyContent: 'center', borderRadius: '8px' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -94,10 +69,7 @@ function AuthScreen() {
           </svg>
           {loading ? 'Signing in...' : 'Sign in with Google'}
         </button>
-
-        <p style={{ marginTop: '14px', fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>
-          Private &amp; Secure · Only your data, always
-        </p>
+        <p style={{ marginTop: '14px', fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>Private &amp; Secure · Only your data, always</p>
       </div>
     </div>
   )
@@ -125,6 +97,7 @@ export default function Home() {
   const [accountFilter, setAccountFilter] = useState('ALL')
   const [showAdd, setShowAdd] = useState(false)
   const [closingTrade, setClosingTrade] = useState(null)
+  const [editingTrade, setEditingTrade] = useState(null)
   const [tradesLoading, setTradesLoading] = useState(false)
   const [accounts, setAccounts] = useState([])
   const [lastRefresh, setLastRefresh] = useState(null)
@@ -132,12 +105,8 @@ export default function Home() {
 
   // Auth
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session); setAuthLoading(false)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
-      setSession(s); setAuthLoading(false)
-    })
+    supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); setAuthLoading(false) })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => { setSession(s); setAuthLoading(false) })
     return () => subscription.unsubscribe()
   }, [])
 
@@ -145,18 +114,13 @@ export default function Home() {
   const loadTrades = useCallback(async () => {
     if (!session) return
     setTradesLoading(true)
-    const { data } = await supabase
-      .from('trades')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
+    const { data } = await supabase.from('trades').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false })
     if (data) setTrades(data)
     setTradesLoading(false)
   }, [session])
 
   useEffect(() => { loadTrades() }, [loadTrades])
 
-  // Unique accounts for filter
   useEffect(() => {
     const names = [...new Set(trades.map(t => t.account).filter(Boolean))]
     setAccounts(names)
@@ -174,12 +138,11 @@ export default function Home() {
     setFetchingPrice(p => ({ ...p, [symbol]: false }))
   }, [livePrices, fetchingPrice])
 
-  // Refresh ALL prices
+  // Refresh all prices
   const refreshAllPrices = useCallback(async () => {
     const openSymbols = [...new Set(trades.filter(t => t.status === 'OPEN').map(t => t.ticker))]
     if (openSymbols.length === 0) return
-    setLivePrices({})
-    setFetchingPrice({})
+    setLivePrices({}); setFetchingPrice({})
     for (const symbol of openSymbols) {
       try {
         setFetchingPrice(p => ({ ...p, [symbol]: true }))
@@ -189,50 +152,45 @@ export default function Home() {
         setFetchingPrice(p => ({ ...p, [symbol]: false }))
       } catch {}
     }
-    setLastRefresh(new Date())
-    setCountdown(60)
+    setLastRefresh(new Date()); setCountdown(60)
   }, [trades])
 
-  // Initial price fetch
   useEffect(() => {
     trades.filter(t => t.status === 'OPEN').forEach(t => fetchPrice(t.ticker))
   }, [trades]) // eslint-disable-line
 
-  // Auto refresh every 60 seconds
   useEffect(() => {
-    const openTrades = trades.filter(t => t.status === 'OPEN')
-    if (openTrades.length === 0) return
+    if (trades.filter(t => t.status === 'OPEN').length === 0) return
     const interval = setInterval(() => { refreshAllPrices() }, 60000)
     return () => clearInterval(interval)
   }, [trades, refreshAllPrices])
 
-  // Countdown timer
   useEffect(() => {
-    const openTrades = trades.filter(t => t.status === 'OPEN')
-    if (openTrades.length === 0) return
+    if (trades.filter(t => t.status === 'OPEN').length === 0) return
     setCountdown(60)
-    const timer = setInterval(() => {
-      setCountdown(c => c <= 1 ? 60 : c - 1)
-    }, 1000)
+    const timer = setInterval(() => setCountdown(c => c <= 1 ? 60 : c - 1), 1000)
     return () => clearInterval(timer)
   }, [lastRefresh, trades])
 
-  // Add trade
+  // Handlers
   const handleAdd = async (data) => {
     const { error } = await supabase.from('trades').insert([{ ...data, user_id: session.user.id }])
     if (error) throw new Error(error.message)
     await loadTrades()
   }
 
-  // Close trade
   const handleClose = async (updates) => {
     const { error } = await supabase.from('trades').update(updates).eq('id', closingTrade.id)
     if (error) throw new Error(error.message)
-    await loadTrades()
-    setClosingTrade(null)
+    await loadTrades(); setClosingTrade(null)
   }
 
-  // Delete
+  const handleEdit = async (updates) => {
+    const { error } = await supabase.from('trades').update(updates).eq('id', editingTrade.id)
+    if (error) throw new Error(error.message)
+    await loadTrades(); setEditingTrade(null)
+  }
+
   const handleDelete = async (id) => {
     if (!confirm('Delete this trade permanently?')) return
     await supabase.from('trades').delete().eq('id', id)
@@ -254,17 +212,12 @@ export default function Home() {
   // Stats
   const totalRealised = closedTrades.reduce((s, t) => s + (t.realized_gains || 0), 0)
   const totalUnrealised = openTrades.reduce((s, t) => {
-    const lp = livePrices[t.ticker]
-    if (!lp) return s
-    return t.direction === 'LONG'
-      ? s + (lp.price - t.entry_price) * t.quantity
-      : s + (t.entry_price - lp.price) * t.quantity
+    const lp = livePrices[t.ticker]; if (!lp) return s
+    return t.direction === 'LONG' ? s + (lp.price - t.entry_price) * t.quantity : s + (t.entry_price - lp.price) * t.quantity
   }, 0)
   const totalMTFInterest = trades.reduce((s, t) => {
     if (!t.mtf_value || !t.mtf_interest_rate) return s
-    const days = Math.max(0, differenceInDays(
-      t.exit_date ? new Date(t.exit_date) : new Date(), new Date(t.entry_date)
-    ))
+    const days = Math.max(0, differenceInDays(t.exit_date ? new Date(t.exit_date) : new Date(), new Date(t.entry_date)))
     return s + (t.mtf_value * t.mtf_interest_rate * days) / 36500
   }, 0)
   const wins = closedTrades.filter(t => (t.realized_gains || 0) > 0)
@@ -289,29 +242,23 @@ export default function Home() {
       </Head>
 
       {/* Tricolor top bar */}
-      <div style={{ height: '4px', background: 'linear-gradient(90deg, #FF9933 33.33%, #f0f0f0 33.33%, #f0f0f0 66.66%, #138808 66.66%)', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 }} />
+      <div style={{ height: '4px', background: 'linear-gradient(90deg, #FF9933 33.33%, #e8e8e8 33.33%, #e8e8e8 66.66%, #138808 66.66%)', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 }} />
 
       {/* Header */}
       <header className="header" style={{ marginTop: '4px' }}>
         <div className="header-logo">
           <IndiaFlagLogo size={36} />
-          <div>
-            <span className="font-display header-title" style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>
-              Chiirag <span style={{ color: 'var(--accent)' }}>Stock Journal</span>
-            </span>
-          </div>
+          <span className="font-display header-title" style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>
+            Chiirag <span style={{ color: 'var(--accent)' }}>Stock Journal</span>
+          </span>
           <span style={{ color: 'var(--muted)', fontSize: '11px', marginLeft: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'DM Mono, monospace' }}>
             <span className="live-dot" />
-            <span className="hide-mobile">
-              {openTrades.length > 0 ? `LIVE · ${countdown}s` : 'LIVE NSE'}
-            </span>
+            <span className="hide-mobile">{openTrades.length > 0 ? `LIVE · ${countdown}s` : 'LIVE NSE'}</span>
           </span>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {openTrades.length > 0 && (
-            <button onClick={refreshAllPrices} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }} title="Refresh prices">
-              ↻ Refresh
-            </button>
+            <button onClick={refreshAllPrices} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }}>↻ Refresh</button>
           )}
           <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding: '7px 16px' }}>
             <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span>
@@ -336,7 +283,6 @@ export default function Home() {
           <StatCard label="MTF Interest" value={`₹${(totalMTFInterest / 1000).toFixed(1)}K`} sub="Accrued total" color="var(--gold)" />
         </div>
 
-        {/* Last refresh */}
         {lastRefresh && (
           <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '8px', textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>
             Last refreshed: {format(lastRefresh, 'hh:mm:ss a')} · Next in {countdown}s
@@ -390,6 +336,7 @@ export default function Home() {
                   <th className="right hide-mobile">Exit ₹</th>
                   <th className="right">Qty</th>
                   <th className="right hide-mobile">Invested ₹</th>
+                  <th className="right hide-mobile">Actual Inv ₹</th>
                   <th className="right hide-mobile">Pos %</th>
                   <th className="right">Unrealised</th>
                   <th className="right">Realised</th>
@@ -415,8 +362,7 @@ export default function Home() {
                     ? (unrealised / trade.invested_capital) * 100 : null
 
                   const days = Math.max(0, differenceInDays(
-                    trade.exit_date ? new Date(trade.exit_date) : new Date(),
-                    new Date(trade.entry_date)
+                    trade.exit_date ? new Date(trade.exit_date) : new Date(), new Date(trade.entry_date)
                   ))
 
                   const mtfInterest = trade.mtf_value && trade.mtf_interest_rate
@@ -441,11 +387,11 @@ export default function Home() {
                       <td style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>
                         {trade.entry_date ? format(new Date(trade.entry_date), 'dd MMM yy') : '—'}
                       </td>
-                      <td className="right" style={{ fontFamily: 'DM Mono, monospace' }}>₹{trade.entry_price?.toLocaleString('en-IN')}</td>
+                      <td className="right" style={{ fontFamily: 'Noto Sans, sans-serif' }}>₹{trade.entry_price?.toLocaleString('en-IN')}</td>
                       <td className="right">
                         {isOpen ? (
                           fetchingPrice[trade.ticker] ? (
-                            <span style={{ color: 'var(--muted)', fontSize: '11px', fontFamily: 'DM Mono, monospace' }}>...</span>
+                            <span style={{ color: 'var(--muted)', fontSize: '11px' }}>...</span>
                           ) : lp ? (
                             <div>
                               <div className={`cmp-price ${lp.change >= 0 ? 'profit' : 'loss'}`}>₹{lp.price?.toLocaleString('en-IN')}</div>
@@ -454,12 +400,15 @@ export default function Home() {
                           ) : <span className="neutral">—</span>
                         ) : <span className="neutral">—</span>}
                       </td>
-                      <td className="right hide-mobile" style={{ fontFamily: 'DM Mono, monospace' }}>
+                      <td className="right hide-mobile" style={{ fontFamily: 'Noto Sans, sans-serif' }}>
                         {trade.exit_price ? `₹${trade.exit_price.toLocaleString('en-IN')}` : <span className="neutral">—</span>}
                       </td>
-                      <td className="right" style={{ fontFamily: 'DM Mono, monospace' }}>{trade.quantity?.toLocaleString('en-IN')}</td>
-                      <td className="right hide-mobile" style={{ fontFamily: 'DM Mono, monospace' }}>
-                        {trade.invested_capital ? `₹${trade.invested_capital.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
+                      <td className="right" style={{ fontFamily: 'Noto Sans, sans-serif' }}>{trade.quantity?.toLocaleString('en-IN')}</td>
+                      <td className="right hide-mobile" style={{ fontFamily: 'Noto Sans, sans-serif' }}>
+                        {trade.invested_capital ? `₹${trade.invested_capital.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : <span className="neutral">—</span>}
+                      </td>
+                      <td className="right hide-mobile" style={{ fontFamily: 'Noto Sans, sans-serif' }}>
+                        {trade.actual_investment ? `₹${trade.actual_investment.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : <span className="neutral">—</span>}
                       </td>
                       <td className="right hide-mobile">
                         {posSize !== null ? <span className="neutral" style={{ fontFamily: 'DM Mono, monospace' }}>{posSize.toFixed(1)}%</span> : <span className="neutral">—</span>}
@@ -467,10 +416,10 @@ export default function Home() {
                       <td className="right">
                         {unrealised !== null ? (
                           <div>
-                            <div className={unrealised >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
+                            <div className={unrealised >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 700, fontFamily: 'Noto Sans, sans-serif' }}>
                               {unrealised >= 0 ? '+' : '−'}₹{Math.abs(unrealised).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                             </div>
-                            <div className={unrealisedPct >= 0 ? 'profit' : 'loss'} style={{ fontSize: '10px', opacity: 0.8, fontFamily: 'DM Mono, monospace' }}>
+                            <div className={unrealisedPct >= 0 ? 'profit' : 'loss'} style={{ fontSize: '10px', opacity: 0.8, fontFamily: 'Noto Sans, sans-serif' }}>
                               {unrealisedPct >= 0 ? '+' : ''}{unrealisedPct?.toFixed(2)}%
                             </div>
                           </div>
@@ -478,21 +427,19 @@ export default function Home() {
                       </td>
                       <td className="right">
                         {trade.realized_gains != null ? (
-                          <span className={trade.realized_gains >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
+                          <span className={trade.realized_gains >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 700, fontFamily: 'Noto Sans, sans-serif' }}>
                             {trade.realized_gains >= 0 ? '+' : '−'}₹{Math.abs(trade.realized_gains).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                           </span>
                         ) : <span className="neutral">—</span>}
                       </td>
                       <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>{days}d</td>
-                      <td className="right hide-mobile">
-                        {trade.mtf_value
-                          ? <span style={{ color: 'var(--gold)', fontFamily: 'DM Mono, monospace' }}>₹{trade.mtf_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                          : <span className="neutral">—</span>}
+                      <td className="right hide-mobile" style={{ fontFamily: 'Noto Sans, sans-serif' }}>
+                        {trade.mtf_value ? <span style={{ color: 'var(--gold)' }}>₹{trade.mtf_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span> : <span className="neutral">—</span>}
                       </td>
                       <td className="right hide-mobile">
                         {mtfInterest != null ? (
                           <div>
-                            <div style={{ color: 'var(--gold)', fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>₹{mtfInterest.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                            <div style={{ color: 'var(--gold)', fontWeight: 700, fontFamily: 'Noto Sans, sans-serif' }}>₹{mtfInterest.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
                             <div style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>{trade.mtf_interest_rate}% p.a.</div>
                           </div>
                         ) : <span className="neutral">—</span>}
@@ -500,12 +447,17 @@ export default function Home() {
                       <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>
                         {trade.exit_date ? format(new Date(trade.exit_date), 'dd MMM yy') : '—'}
                       </td>
+                      {/* Actions */}
                       <td>
                         <div style={{ display: 'flex', gap: '4px' }}>
+                          {/* Edit button - for ALL trades */}
+                          <button onClick={() => setEditingTrade(trade)} className="icon-btn" title="Edit trade" style={{ fontSize: '12px' }}>✎</button>
+                          {/* Close button - only for OPEN trades */}
                           {isOpen && (
-                            <button onClick={() => setClosingTrade(trade)} className="icon-btn exit" title="Exit trade">✓</button>
+                            <button onClick={() => setClosingTrade(trade)} className="icon-btn exit" title="Close trade">✓</button>
                           )}
-                          <button onClick={() => handleDelete(trade.id)} className="icon-btn del" title="Delete">×</button>
+                          {/* Delete button */}
+                          <button onClick={() => handleDelete(trade.id)} className="icon-btn del" title="Delete trade">×</button>
                         </div>
                       </td>
                     </tr>
@@ -523,6 +475,7 @@ export default function Home() {
 
       {showAdd && <AddTradeModal onClose={() => setShowAdd(false)} onAdd={handleAdd} />}
       {closingTrade && <CloseTradeModal trade={closingTrade} onClose={() => setClosingTrade(null)} onConfirm={handleClose} />}
+      {editingTrade && <EditTradeModal trade={editingTrade} onClose={() => setEditingTrade(null)} onSave={handleEdit} />}
     </>
   )
 }
