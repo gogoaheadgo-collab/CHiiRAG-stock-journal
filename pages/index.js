@@ -283,7 +283,7 @@ export default function Home() {
           <StatCard label="Realised P&L" value={`${totalRealised >= 0 ? '+' : ''}₹${Math.abs(totalRealised / 1000).toFixed(1)}K`} sub={`${closedTrades.length} trades`} color={totalRealised >= 0 ? '#16a34a' : '#dc2626'} />
           <StatCard label="Net P&L" value={`${netPnL >= 0 ? '+' : ''}₹${Math.abs(netPnL / 1000).toFixed(1)}K`} sub="Realised + Unrealised" color={netPnL >= 0 ? '#16a34a' : '#dc2626'} />
           <StatCard label="Win Rate" value={winRate !== null ? `${winRate.toFixed(0)}%` : '—'} sub={`${wins.length}W · ${closedTrades.length - wins.length}L`} color={winRate >= 50 ? '#16a34a' : winRate !== null ? '#dc2626' : undefined} />
-          <StatCard label="MTF Interest" value={`₹${(totalMTFInterest / 1000).toFixed(1)}K`} sub="Accrued total" color="var(--gold)" />
+          <StatCard label="MTF Interest" value={`₹${totalMTFInterest >= 1000 ? (totalMTFInterest / 1000).toFixed(1) + "K" : totalMTFInterest.toFixed(2)}`} sub="Accrued total" color="var(--gold)" />
         </div>
 
         {lastRefresh && (
@@ -440,8 +440,7 @@ export default function Home() {
                       <td className="right hide-mobile">
                         {mtfInterest != null ? (
                           <div>
-                            <div style={{ color: 'var(--gold)', fontWeight: 700, fontFamily: 'Noto Sans, sans-serif' }}>₹{mtfInterest.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-                            <div style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>{trade.mtf_interest_rate}% p.a.</div>
+                            <div style={{ color: 'var(--gold)', fontWeight: 700, fontFamily: 'Noto Sans, sans-serif' }}>₹{mtfInterest.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                           </div>
                         ) : <span className="neutral">—</span>}
                       </td>
