@@ -20,7 +20,7 @@ function NavPill({ active }) {
       ].map(({ label, path }) => (
         <button key={path} onClick={() => router.push(path)} style={{
           padding: '7px 22px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-          fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 600,
+          fontSize: '11px', fontFamily: 'DM Mono, Courier New, monospace', fontWeight: 600,
           letterSpacing: '0.05em',
           background: active === label ? 'var(--accent)' : 'transparent',
           color: active === label ? '#ffffff' : 'var(--muted)',
@@ -235,12 +235,12 @@ export default function AccountsPage() {
       {/* Header */}
       <header className="header">
         <NavPill active="Accounts" />
-        <div style={{ fontFamily: 'Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)', letterSpacing: '-0.02em' }}>
+        <div style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)', letterSpacing: '-0.02em' }}>
           CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK Journal</span>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {openTrades.length > 0 && (
-            <span style={{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>
+            <span style={{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, Courier New, monospace' }}>
               ↻ {countdown}s
             </span>
           )}
@@ -272,7 +272,7 @@ export default function AccountsPage() {
               >
                 <div style={{
                   fontSize: '14px', fontWeight: 700, letterSpacing: '0.1em',
-                  fontFamily: 'DM Mono, monospace',
+                  fontFamily: 'DM Mono, Courier New, monospace',
                   color: activeAccount === acc.name ? 'var(--accent)' : 'var(--text)',
                 }}>{acc.name}</div>
                 <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '3px' }}>
@@ -327,7 +327,7 @@ export default function AccountsPage() {
                 style={{
                   background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: '6px',
                   padding: '6px 12px', color: 'var(--text)', fontSize: '11px',
-                  fontFamily: 'DM Mono, monospace', width: '140px', letterSpacing: '0.08em',
+                  fontFamily: 'DM Mono, Courier New, monospace', width: '140px', letterSpacing: '0.08em',
                   outline: 'none',
                 }}
               />
@@ -341,7 +341,7 @@ export default function AccountsPage() {
                 padding: '7px 14px', borderRadius: '6px',
                 border: '1px dashed var(--border)', background: 'transparent',
                 color: 'var(--muted)', cursor: 'pointer', fontSize: '11px',
-                fontFamily: 'DM Mono, monospace', transition: 'all 0.15s',
+                fontFamily: 'DM Mono, Courier New, monospace', transition: 'all 0.15s',
               }}
             >
               + New Account
@@ -354,7 +354,7 @@ export default function AccountsPage() {
         ) : !activeAccount ? (
           <div style={{ textAlign: 'center', padding: '80px', color: 'var(--muted)' }}>
             <div style={{ fontSize: '32px', marginBottom: '12px' }}>📂</div>
-            <div style={{ fontFamily: 'Libre Baskerville, Georgia, serif', fontWeight: 700, fontSize: '16px', marginBottom: '8px', color: 'var(--text)' }}>No Accounts Yet</div>
+            <div style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontWeight: 700, fontSize: '16px', marginBottom: '8px', color: 'var(--text)' }}>No Accounts Yet</div>
             <div style={{ fontSize: '11px' }}>Click "+ New Account" to create your first portfolio account</div>
           </div>
         ) : (
@@ -363,21 +363,21 @@ export default function AccountsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', marginBottom: '18px' }}>
               <div className="stat-card">
                 <div style={{ fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px' }}>Realised P&L</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Libre Baskerville, Georgia, serif', color: totalRealised >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
+                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', color: totalRealised >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
                   {totalRealised >= 0 ? '+' : '−'}Rs.{toIndian(Math.abs(totalRealised))}
                 </div>
               </div>
               <div className="stat-card">
                 <div style={{ fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px' }}>Open Positions</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Libre Baskerville, Georgia, serif', color: 'var(--accent)' }}>{openTrades.length}</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', color: 'var(--accent)' }}>{openTrades.length}</div>
               </div>
               <div className="stat-card">
                 <div style={{ fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px' }}>Closed Trades</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Libre Baskerville, Georgia, serif', color: 'var(--text)' }}>{closedTrades.length}</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', color: 'var(--text)' }}>{closedTrades.length}</div>
               </div>
               <div className="stat-card">
                 <div style={{ fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px' }}>MTF Interest</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Libre Baskerville, Georgia, serif', color: 'var(--gold)' }}>Rs.{toIndianDec(totalMTF)}</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', color: 'var(--gold)' }}>Rs.{toIndianDec(totalMTF)}</div>
               </div>
             </div>
 
@@ -388,7 +388,7 @@ export default function AccountsPage() {
                   padding: '5px 14px', borderRadius: '4px', border: `1px solid ${filter === f ? 'var(--accent)' : 'var(--border)'}`,
                   background: filter === f ? 'rgba(0,212,255,0.08)' : 'transparent',
                   color: filter === f ? 'var(--accent)' : 'var(--muted)',
-                  cursor: 'pointer', fontSize: '10px', fontFamily: 'DM Mono, monospace',
+                  cursor: 'pointer', fontSize: '10px', fontFamily: 'DM Mono, Courier New, monospace',
                   fontWeight: 600, letterSpacing: '0.08em',
                 }}>
                   {f} {f === 'ALL' ? `(${accountTrades.length})` : f === 'OPEN' ? `(${openTrades.length})` : `(${closedTrades.length})`}
@@ -444,14 +444,14 @@ export default function AccountsPage() {
                           <td><span className="ticker-badge">{trade.ticker}</span></td>
                           <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                           <td className="muted">{trade.entry_date?.slice(0, 10)}</td>
-                          <td className="right" style={{ fontFamily: 'Noto Sans, sans-serif' }}>Rs.{toIndian(trade.entry_price)}</td>
+                          <td className="right" style={{ fontFamily: 'DM Mono, monospace' }}>Rs.{toIndian(trade.entry_price)}</td>
                           <td className="right">{toIndian(trade.quantity)}</td>
                           <td className="right">{trade.invested_capital ? `Rs.${toIndian(trade.invested_capital)}` : <span className="neutral">—</span>}</td>
                           <td className="right">{trade.actual_investment ? `Rs.${toIndian(trade.actual_investment)}` : <span className="neutral">—</span>}</td>
                           <td className="right">
                             {isOpen && lp ? (
                               <div>
-                                <div style={{ fontFamily: 'Noto Sans, sans-serif' }}>Rs.{toIndian(lp.price)}</div>
+                                <div style={{ fontFamily: 'DM Mono, monospace' }}>Rs.{toIndian(lp.price)}</div>
                                 <div className={`cmp-price ${lp.change >= 0 ? 'profit' : 'loss'}`}>
                                   {lp.change >= 0 ? '+' : ''}{lp.changePercent?.toFixed(2)}%
                                 </div>
@@ -461,16 +461,16 @@ export default function AccountsPage() {
                           <td className="right">{trade.exit_price ? `Rs.${toIndian(trade.exit_price)}` : <span className="neutral">—</span>}</td>
                           <td className="right">
                             {mtfInterest ? (
-                              <div style={{ color: 'var(--gold)', fontFamily: 'Noto Sans, sans-serif' }}>Rs.{toIndianDec(mtfInterest)}</div>
+                              <div style={{ color: 'var(--gold)', fontFamily: 'DM Mono, monospace' }}>Rs.{toIndianDec(mtfInterest)}</div>
                             ) : <span className="neutral">—</span>}
                           </td>
                           <td className="right">
                             {isOpen && unrealised !== null ? (
-                              <div style={{ color: unrealised >= 0 ? 'var(--bull)' : 'var(--bear)', fontFamily: 'Noto Sans, sans-serif' }}>
+                              <div style={{ color: unrealised >= 0 ? 'var(--bull)' : 'var(--bear)', fontFamily: 'DM Mono, monospace' }}>
                                 {unrealised >= 0 ? '+' : '−'}Rs.{toIndian(Math.abs(unrealised))}
                               </div>
                             ) : trade.realized_gains != null ? (
-                              <div style={{ color: trade.realized_gains >= 0 ? 'var(--bull)' : 'var(--bear)', fontFamily: 'Noto Sans, sans-serif' }}>
+                              <div style={{ color: trade.realized_gains >= 0 ? 'var(--bull)' : 'var(--bear)', fontFamily: 'DM Mono, monospace' }}>
                                 {trade.realized_gains >= 0 ? '+' : '−'}Rs.{toIndian(Math.abs(trade.realized_gains))}
                               </div>
                             ) : <span className="neutral">—</span>}
