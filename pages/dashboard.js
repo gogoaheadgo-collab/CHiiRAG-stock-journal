@@ -18,10 +18,10 @@ function NavPill({ active }) {
       ].map(({ label, path }) => (
         <button key={path} onClick={() => router.push(path)} style={{
           padding: '7px 22px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-          fontSize: '11px', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600,
+          fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 600,
           letterSpacing: '0.05em',
           background: active === label ? 'var(--accent)' : 'transparent',
-          color: active === label ? '#07080a' : 'var(--muted)',
+          color: active === label ? '#ffffff' : 'var(--muted)',
           transition: 'all 0.15s',
         }}>
           {label}
@@ -36,7 +36,7 @@ function StatCard({ label, value, sub, color }) {
   return (
     <div className="stat-card">
       <div style={{ fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>{label}</div>
-      <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: color || 'var(--text)' }} className="rupee-val">
+      <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'Libre Baskerville, Georgia, serif', color: color || 'var(--text)' }} className="rupee-val">
         {value}
       </div>
       {sub && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>{sub}</div>}
@@ -65,7 +65,7 @@ function PnLCalendar({ trades }) {
       {/* Month nav */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <button onClick={() => setMonth(m => subMonths(m, 1))} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: '14px' }}>‹</button>
-        <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '15px', color: 'var(--text)' }}>
+        <span style={{ fontFamily: 'Libre Baskerville, Georgia, serif', fontWeight: 700, fontSize: '15px', color: 'var(--text)' }}>
           {format(month, 'MMMM yyyy')}
         </span>
         <button onClick={() => setMonth(m => addMonths(m, 1))} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: '14px' }}>›</button>
@@ -95,7 +95,7 @@ function PnLCalendar({ trades }) {
             <div key={key} style={{
               borderRadius: '4px', padding: '6px 4px', textAlign: 'center', minHeight: '48px',
               background: hasTrade
-                ? pnl >= 0 ? 'rgba(0,230,118,0.12)' : 'rgba(255,71,87,0.12)'
+                ? pnl >= 0 ? 'rgba(14,165,233,0.08)' : 'rgba(239,68,68,0.08)'
                 : 'transparent',
               border: isToday
                 ? '1px solid var(--accent)'
@@ -110,10 +110,10 @@ function PnLCalendar({ trades }) {
               {hasTrade && (
                 <div style={{
                   fontSize: '9px', fontWeight: 700, marginTop: '2px',
-                  color: pnl >= 0 ? 'var(--green)' : 'var(--red)',
-                  fontFamily: 'IBM Plex Mono, monospace',
+                  color: pnl >= 0 ? 'var(--bull)' : 'var(--bear)',
+                  fontFamily: 'DM Mono, monospace',
                 }}>
-                  {pnl >= 0 ? '+' : '−'}₹{toIndian(Math.abs(pnl))}
+                  {pnl >= 0 ? '+' : '−'}Rs.{toIndian(Math.abs(pnl))}
                 </div>
               )}
             </div>
@@ -124,11 +124,11 @@ function PnLCalendar({ trades }) {
       {/* Legend */}
       <div style={{ display: 'flex', gap: '16px', marginTop: '12px', justifyContent: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(0,230,118,0.3)', border: '1px solid rgba(0,230,118,0.5)' }} />
+          <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(14,165,233,0.3)', border: '1px solid rgba(0,230,118,0.5)' }} />
           <span style={{ fontSize: '9px', color: 'var(--muted)' }}>Profit day</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(255,71,87,0.3)', border: '1px solid rgba(255,71,87,0.5)' }} />
+          <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(239,68,68,0.3)', border: '1px solid rgba(255,71,87,0.5)' }} />
           <span style={{ fontSize: '9px', color: 'var(--muted)' }}>Loss day</span>
         </div>
       </div>
@@ -204,7 +204,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="header">
         <NavPill active="Dashboard" />
-        <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)', letterSpacing: '-0.02em' }}>
+        <div style={{ fontFamily: 'Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)', letterSpacing: '-0.02em' }}>
           CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK Journal</span>
         </div>
         <button onClick={signOut} className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: '11px' }}>Sign Out</button>
@@ -213,7 +213,7 @@ export default function Dashboard() {
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 16px' }}>
 
         <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '22px', color: 'var(--text)', marginBottom: '4px' }}>
+          <h1 style={{ fontFamily: 'Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '22px', color: 'var(--text)', marginBottom: '4px' }}>
             Overview
           </h1>
           <div style={{ fontSize: '11px', color: 'var(--muted)' }}>All accounts · All time</div>
@@ -227,14 +227,14 @@ export default function Dashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '24px' }}>
               <StatCard
                 label="Total Realised P&L"
-                value={`${totalRealised >= 0 ? '+' : '−'}₹${toIndian(Math.abs(totalRealised))}`}
-                color={totalRealised >= 0 ? 'var(--green)' : 'var(--red)'}
+                value={`${totalRealised >= 0 ? '+' : '−'}Rs.${toIndian(Math.abs(totalRealised))}`}
+                color={totalRealised >= 0 ? 'var(--bull)' : 'var(--bear)'}
                 sub="All closed trades"
               />
               <StatCard
                 label="Unrealised P&L"
-                value={`${totalUnrealised >= 0 ? '+' : '−'}₹${toIndian(Math.abs(totalUnrealised))}`}
-                color={totalUnrealised >= 0 ? 'var(--green)' : 'var(--red)'}
+                value={`${totalUnrealised >= 0 ? '+' : '−'}Rs.${toIndian(Math.abs(totalUnrealised))}`}
+                color={totalUnrealised >= 0 ? 'var(--bull)' : 'var(--bear)'}
                 sub={`${openTrades.length} open positions`}
               />
               <StatCard
@@ -250,7 +250,7 @@ export default function Dashboard() {
               />
               <StatCard
                 label="MTF Interest Due"
-                value={`₹${toIndianDec(totalMTF)}`}
+                value={`Rs.${toIndianDec(totalMTF)}`}
                 color="var(--gold)"
                 sub="Accrued on open positions"
               />
@@ -258,7 +258,7 @@ export default function Dashboard() {
                 label="Profit Trades"
                 value={profitTrades.length}
                 color="var(--green)"
-                sub={`Avg ₹${closedTrades.length > 0 ? toIndian(totalRealised / closedTrades.length) : 0} per trade`}
+                sub={`Avg Rs.${closedTrades.length > 0 ? toIndian(totalRealised / closedTrades.length) : 0} per trade`}
               />
             </div>
 
@@ -269,7 +269,7 @@ export default function Dashboard() {
 
               {/* Recent closed trades */}
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '20px' }}>
-                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '13px', color: 'var(--text)', marginBottom: '14px' }}>
+                <div style={{ fontFamily: 'Libre Baskerville, Georgia, serif', fontWeight: 700, fontSize: '13px', color: 'var(--text)', marginBottom: '14px' }}>
                   Recent Exits
                 </div>
                 {closedTrades.length === 0 ? (
@@ -280,18 +280,18 @@ export default function Dashboard() {
                       <div key={t.id} style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         padding: '8px 10px', borderRadius: '5px',
-                        background: (t.realized_gains || 0) >= 0 ? 'rgba(0,230,118,0.06)' : 'rgba(255,71,87,0.06)',
-                        border: `1px solid ${(t.realized_gains || 0) >= 0 ? 'rgba(0,230,118,0.15)' : 'rgba(255,71,87,0.15)'}`,
+                        background: (t.realized_gains || 0) >= 0 ? 'rgba(14,165,233,0.06)' : 'rgba(239,68,68,0.06)',
+                        border: `1px solid ${(t.realized_gains || 0) >= 0 ? 'rgba(14,165,233,0.2)' : 'rgba(239,68,68,0.2)'}`,
                       }}>
                         <div>
                           <div style={{ fontWeight: 700, fontSize: '12px', color: 'var(--text)' }}>{t.ticker}</div>
                           <div style={{ fontSize: '10px', color: 'var(--muted)' }}>{t.account} · {t.exit_date?.slice(0, 10)}</div>
                         </div>
                         <div style={{
-                          fontSize: '12px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace',
-                          color: (t.realized_gains || 0) >= 0 ? 'var(--green)' : 'var(--red)',
+                          fontSize: '12px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
+                          color: (t.realized_gains || 0) >= 0 ? 'var(--bull)' : 'var(--bear)',
                         }}>
-                          {(t.realized_gains || 0) >= 0 ? '+' : '−'}₹{toIndian(Math.abs(t.realized_gains || 0))}
+                          {(t.realized_gains || 0) >= 0 ? '+' : '−'}Rs.{toIndian(Math.abs(t.realized_gains || 0))}
                         </div>
                       </div>
                     ))}
