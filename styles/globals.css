@@ -1,7 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&family=Noto+Sans:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Bookman Old Style closest Google Font substitute is Libre Baskerville */
 
 :root {
   --bg:         #ffffff;
@@ -11,17 +13,20 @@
   --border2:    #c5cde0;
   --text:       #1a1f36;
   --muted:      #6b7a9e;
-  --accent:     #0ea5e9;
+  --accent:     #0ea5e9;   /* sky blue */
   --accent2:    #0284c7;
   --accent-dim: #e0f2fe;
-  --bull:       #0ea5e9;
+  --bull:       #0ea5e9;   /* sky blue for profit */
   --bull-dim:   #e0f2fe;
-  --bear:       #ef4444;
+  --bear:       #ef4444;   /* red for loss */
   --bear-dim:   #fee2e2;
   --gold:       #f59e0b;
-  --green:      #16a34a;
-  --red:        #dc2626;
+  --green:      #0ea5e9;
+  --red:        #ef4444;
+
+  /* India flag colors */
   --saffron:    #FF9933;
+  --white:      #FFFFFF;
   --india-green:#138808;
   --navy:       #000080;
 }
@@ -38,19 +43,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Rupee symbol fix - use Noto Sans which has full Unicode support */
-.rupee {
-  font-family: 'Noto Sans', 'Arial Unicode MS', sans-serif;
-  font-size: inherit;
-}
-
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: var(--surface); }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
 
-.font-display { font-family: 'Libre Baskerville', Georgia, serif; }
+.font-display { font-family: 'Libre Baskerville', 'Bookman Old Style', Georgia, serif; }
 .font-mono    { font-family: 'DM Mono', monospace; }
-.font-noto    { font-family: 'Noto Sans', sans-serif; }
 
 /* ── Auth Screen ── */
 .auth-bg {
@@ -59,6 +57,7 @@ body {
   overflow: hidden;
   display: flex; align-items: center; justify-content: center;
 }
+
 .auth-grid {
   position: absolute; inset: 0;
   background-image:
@@ -66,6 +65,7 @@ body {
     linear-gradient(90deg, rgba(14,165,233,0.06) 1px, transparent 1px);
   background-size: 48px 48px;
 }
+
 .auth-glow {
   position: absolute; width: 600px; height: 600px; border-radius: 50%;
   background: radial-gradient(circle, rgba(14,165,233,0.08) 0%, transparent 65%);
@@ -73,9 +73,31 @@ body {
   pointer-events: none;
   animation: breathe 4s ease-in-out infinite;
 }
+
 @keyframes breathe {
   0%, 100% { opacity: 0.5; transform: translate(-50%,-50%) scale(1); }
   50%       { opacity: 1;   transform: translate(-50%,-50%) scale(1.05); }
+}
+
+/* ── Round India Flag Logo ── */
+.india-flag-logo {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid var(--border);
+  box-shadow: 0 4px 20px rgba(14,165,233,0.2);
+  display: flex; flex-direction: column;
+  position: relative;
+}
+
+.india-flag-logo-sm {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--border);
+  box-shadow: 0 2px 8px rgba(14,165,233,0.15);
+  display: inline-block;
+  vertical-align: middle;
 }
 
 /* ── Header ── */
@@ -109,23 +131,34 @@ body {
   opacity: 0; transition: opacity 0.3s;
 }
 .stat-card:hover::before { opacity: 1; }
-.stat-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; font-family: 'DM Mono', monospace; }
-.stat-value { font-family: 'Noto Sans', sans-serif; font-size: 22px; line-height: 1; font-weight: 700; }
-.stat-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'DM Mono', monospace; }
+
+.stat-label {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px;
+  font-family: 'DM Mono', monospace;
+}
+.stat-value {
+  font-family: 'Libre Baskerville', Georgia, serif;
+  font-size: 22px; line-height: 1; font-weight: 700;
+}
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'DM Mono', monospace; }
 
 /* ── Table ── */
 .trade-table { width: 100%; border-collapse: collapse; }
-.trade-table thead tr { border-bottom: 2px solid var(--border); background: var(--surface); }
+.trade-table thead tr {
+  border-bottom: 2px solid var(--border);
+  background: var(--surface);
+}
 .trade-table th {
   font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--muted); font-weight: 700; padding: 10px 12px;
-  white-space: nowrap; text-align: left; font-family: 'DM Mono', monospace;
+  white-space: nowrap; text-align: left;
+  font-family: 'DM Mono', monospace;
 }
 .trade-table th.right, .trade-table td.right { text-align: right; }
 .trade-table td {
   padding: 11px 12px; border-bottom: 1px solid var(--border);
-  white-space: nowrap; vertical-align: middle;
-  font-size: 12px; font-family: 'Noto Sans', sans-serif;
+  white-space: nowrap; vertical-align: middle; font-size: 12px;
 }
 .trade-table tbody tr { transition: background 0.1s; }
 .trade-table tbody tr:hover td { background: #f0f8ff; }
@@ -159,7 +192,7 @@ body {
 
 /* ── Buttons ── */
 .btn {
-  font-family: 'Noto Sans', sans-serif;
+  font-family: 'Libre Baskerville', Georgia, serif;
   font-size: 12px; padding: 8px 18px; border-radius: 4px; cursor: pointer;
   transition: all 0.15s; border: none;
   display: inline-flex; align-items: center; gap: 6px;
@@ -179,6 +212,7 @@ body {
 }
 @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
 .modal-box {
   background: white; border: 1px solid var(--border);
   border-radius: 12px; padding: 28px; width: 100%; max-width: 560px;
@@ -191,27 +225,32 @@ body {
 }
 
 /* ── Fields ── */
-.field-label { display: block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; font-family: 'DM Mono', monospace; }
+.field-label {
+  display: block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 4px; font-family: 'DM Mono', monospace;
+}
 .field {
   background: var(--surface); border: 1px solid var(--border);
-  color: var(--text); font-family: 'Noto Sans', sans-serif;
+  color: var(--text); font-family: 'Libre Baskerville', Georgia, serif;
   font-size: 13px; padding: 8px 11px; border-radius: 6px; width: 100%;
   transition: border-color 0.15s;
 }
 .field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14,165,233,0.1); }
 .field::placeholder { color: var(--muted); }
 .field option { background: white; }
+
 .section-divider {
   font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--muted); border-bottom: 1px solid var(--border);
-  padding-bottom: 6px; margin: 20px 0 14px; font-family: 'DM Mono', monospace;
+  padding-bottom: 6px; margin: 20px 0 14px;
+  font-family: 'DM Mono', monospace;
 }
 
 /* ── Ticker ── */
-.ticker-symbol { font-family: 'Noto Sans', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); }
+.ticker-symbol { font-family: 'Libre Baskerville', Georgia, serif; font-size: 13px; font-weight: 700; color: var(--text); }
 .ticker-sub    { font-size: 9px; color: var(--muted); font-family: 'DM Mono', monospace; }
-.cmp-price  { font-weight: 700; font-family: 'Noto Sans', monospace; }
-.cmp-change { font-size: 10px; opacity: 0.85; font-family: 'Noto Sans', monospace; }
+.cmp-price  { font-weight: 700; font-family: 'DM Mono', monospace; }
+.cmp-change { font-size: 10px; opacity: 0.85; font-family: 'DM Mono', monospace; }
 
 /* ── Icon buttons ── */
 .icon-btn {
@@ -244,7 +283,13 @@ body {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 4px; padding: 3px 10px; font-size: 12px; color: var(--text);
-  font-family: 'Noto Sans', sans-serif;
+}
+
+/* ── India flag tricolor top bar ── */
+.tricolor-bar {
+  height: 4px;
+  background: linear-gradient(90deg, #FF9933 33.33%, #ffffff 33.33%, #ffffff 66.66%, #138808 66.66%);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
 }
 
 /* ── Mobile ── */

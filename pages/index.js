@@ -6,6 +6,8 @@ import CloseTradeModal from '../components/CloseTradeModal'
 import EditTradeModal from '../components/EditTradeModal'
 import { differenceInDays, format } from 'date-fns'
 
+const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
+
 // ─── India Flag Round Logo ────────────────────────────────────────────────────
 function IndiaFlagLogo({ size = 40 }) {
   const r = size / 2
@@ -102,13 +104,39 @@ export default function Home() {
   const [accounts, setAccounts] = useState([])
   const [lastRefresh, setLastRefresh] = useState(null)
   const [countdown, setCountdown] = useState(60)
+  const [userRole, setUserRole] = useState(null)       // 'admin' | 'viewer' | 'denied' | null
+  const [viewerPortfolios, setViewerPortfolios] = useState([]) // portfolios viewer can see
+  const [accessLoading, setAccessLoading] = useState(true)
 
-  // Auth
+  // Auth + Access Check
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); setAuthLoading(false) })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => { setSession(s); setAuthLoading(false) })
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session)
+      setAuthLoading(false)
+      if (session) await checkAccess(session)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, s) => {
+      setSession(s)
+      setAuthLoading(false)
+      if (s) await checkAccess(s)
+      else { setUserRole(null); setAccessLoading(false) }
+    })
     return () => subscription.unsubscribe()
   }, [])
+
+  const checkAccess = async (session) => {
+    setAccessLoading(true)
+    try {
+      const token = session.access_token
+      const res = await fetch('/api/access', { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      setUserRole(data.role)
+      if (data.role === 'viewer') setViewerPortfolios(data.portfolios || [])
+    } catch (e) {
+      setUserRole('denied')
+    }
+    setAccessLoading(false)
+  }
 
   // Load trades
   const loadTrades = useCallback(async () => {
@@ -179,10 +207,41 @@ export default function Home() {
     await loadTrades()
   }
 
-  const handleClose = async (updates) => {
-    const { error } = await supabase.from('trades').update(updates).eq('id', closingTrade.id)
-    if (error) throw new Error(error.message)
-    await loadTrades(); setClosingTrade(null)
+  const handleClose = async (payload) => {
+    if (payload.type === 'full') {
+      // Full exit — just update the trade to CLOSED
+      const { error } = await supabase.from('trades').update(payload.updates).eq('id', closingTrade.id)
+      if (error) throw new Error(error.message)
+
+    } else if (payload.type === 'partial') {
+      // Partial exit:
+      // 1. Update current trade to CLOSED with partial qty
+      const { error: err1 } = await supabase.from('trades').update(payload.updates).eq('id', closingTrade.id)
+      if (err1) throw new Error(err1.message)
+
+      // 2. Insert new OPEN trade with remaining qty (copy all fields)
+      const remainingTrade = {
+        user_id: session.user.id,
+        account: closingTrade.account,
+        ticker: closingTrade.ticker,
+        direction: closingTrade.direction,
+        entry_date: closingTrade.entry_date,
+        entry_price: closingTrade.entry_price,
+        quantity: payload.remaining.quantity,
+        invested_capital: payload.remaining.invested_capital,
+        actual_investment: payload.remaining.actual_investment,
+        mtf_value: payload.remaining.mtf_value,
+        mtf_interest_rate: closingTrade.mtf_interest_rate,
+        setup_pattern: closingTrade.setup_pattern,
+        entry_reason: closingTrade.entry_reason,
+        sl_target_reasoning: closingTrade.sl_target_reasoning,
+        status: 'OPEN',
+      }
+      const { error: err2 } = await supabase.from('trades').insert([remainingTrade])
+      if (err2) throw new Error(err2.message)
+    }
+    await loadTrades()
+    setClosingTrade(null)
   }
 
   const handleEdit = async (updates) => {
@@ -199,11 +258,12 @@ export default function Home() {
 
   const signOut = () => supabase.auth.signOut()
 
-  // Filtering
+  // Filtering — viewers only see their assigned portfolios
   const filtered = trades.filter(t => {
     const statusOk = filter === 'ALL' || t.status === filter
     const accountOk = accountFilter === 'ALL' || t.account === accountFilter
-    return statusOk && accountOk
+    const portfolioOk = isViewer ? viewerPortfolios.includes(t.account) : true
+    return statusOk && accountOk && portfolioOk
   })
 
   const openTrades = trades.filter(t => t.status === 'OPEN')
@@ -228,13 +288,35 @@ export default function Home() {
   const totalInvested = openTrades.reduce((s, t) => s + (t.invested_capital || 0), 0)
   const netPnL = totalRealised + totalUnrealised
 
-  if (authLoading) return (
+  if (authLoading || (session && accessLoading)) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
       <div style={{ color: 'var(--muted)', letterSpacing: '0.15em', fontSize: '11px', fontFamily: 'DM Mono, monospace' }}>LOADING...</div>
     </div>
   )
 
   if (!session) return <AuthScreen />
+
+  // Access denied
+  if (userRole === 'denied') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', fontFamily: 'Libre Baskerville, Georgia, serif' }}>
+        <div style={{ height: '4px', background: 'linear-gradient(90deg, #FF9933 33.33%, #e8e8e8 33.33%, #e8e8e8 66.66%, #138808 66.66%)', position: 'fixed', top: 0, left: 0, right: 0 }} />
+        <div style={{ textAlign: 'center', maxWidth: '420px', padding: '32px' }}>
+          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fee2e2', border: '2px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', fontSize: '36px' }}>🔒</div>
+          <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#1a1f36', marginBottom: '10px' }}>Access Denied</h1>
+          <p style={{ color: '#6b7a9e', fontSize: '13px', lineHeight: 1.8, marginBottom: '28px', fontFamily: 'DM Mono, monospace' }}>
+            Your Google account is not authorised to access this journal.<br />Contact the portfolio owner to request access.
+          </p>
+          <button onClick={() => supabase.auth.signOut()} style={{ background: '#0ea5e9', color: 'white', border: 'none', padding: '10px 28px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
+            ← Sign Out & Try Another Account
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const isAdmin = userRole === 'admin'
+  const isViewer = userRole === 'viewer'
 
   return (
     <>
@@ -263,10 +345,22 @@ export default function Home() {
           {openTrades.length > 0 && (
             <button onClick={refreshAllPrices} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }}>↻ Refresh</button>
           )}
-          <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding: '7px 16px' }}>
-            <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span>
-            <span className="hide-mobile">New Trade</span>
-          </button>
+          {isAdmin && (
+            <>
+              <button onClick={() => window.location.href='/viewers'} className="btn btn-ghost" style={{ padding: '7px 14px', fontSize: '11px' }}>
+                👁 Viewers
+              </button>
+              <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding: '7px 16px' }}>
+                <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span>
+                <span className="hide-mobile">New Trade</span>
+              </button>
+            </>
+          )}
+          {isViewer && (
+            <span style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', padding: '4px 10px', background: '#f0f8ff', border: '1px solid #bae6fd', borderRadius: '4px' }}>
+              👁 View Only
+            </span>
+          )}
           <button onClick={signOut} className="btn btn-ghost" style={{ padding: '7px 12px' }}>
             <span className="hide-mobile">Sign Out</span>
           </button>
@@ -448,18 +542,19 @@ export default function Home() {
                       <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>
                         {trade.exit_date ? format(new Date(trade.exit_date), 'dd MMM yy') : '—'}
                       </td>
-                      {/* Actions */}
+                      {/* Actions — hidden for viewers */}
                       <td>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          {/* Edit button - for ALL trades */}
-                          <button onClick={() => setEditingTrade(trade)} className="icon-btn" title="Edit trade" style={{ fontSize: '12px' }}>✎</button>
-                          {/* Close button - only for OPEN trades */}
-                          {isOpen && (
-                            <button onClick={() => setClosingTrade(trade)} className="icon-btn exit" title="Close trade">✓</button>
-                          )}
-                          {/* Delete button */}
-                          <button onClick={() => handleDelete(trade.id)} className="icon-btn del" title="Delete trade">×</button>
-                        </div>
+                        {isAdmin ? (
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <button onClick={() => setEditingTrade(trade)} className="icon-btn" title="Edit trade" style={{ fontSize: '12px' }}>✎</button>
+                            {isOpen && (
+                              <button onClick={() => setClosingTrade(trade)} className="icon-btn exit" title="Close trade">✓</button>
+                            )}
+                            <button onClick={() => handleDelete(trade.id)} className="icon-btn del" title="Delete trade">×</button>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>view only</span>
+                        )}
                       </td>
                     </tr>
                   )
