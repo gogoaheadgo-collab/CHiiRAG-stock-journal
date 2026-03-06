@@ -336,20 +336,20 @@ function EditTradeModal({ trade, onClose, onSave }) {
               {/* P&L Preview */}
               {form.exit_price && form.entry_price && form.quantity && (
                 (() => {
-                  const exitPriceVal = parseFloat(form.exit_price)
-                  const en = parseFloat(form.entry_price)
-                  const qty = parseFloat(form.quantity)
-                  const pnl = form.direction === 'LONG' ? (exitPriceVal - en) * qty : (en - exitPriceVal) * qty
-                  const pct = investedCapital ? (pnl / investedCapital) * 100 : null
+                  const previewExitPrice = parseFloat(form.exit_price)
+                  const previewEntryPrice = parseFloat(form.entry_price)
+                  const previewQty = parseFloat(form.quantity)
+                  const previewPnl = form.direction === 'LONG' ? (previewExitPrice - previewEntryPrice) * previewQty : (previewEntryPrice - previewExitPrice) * previewQty
+                  const previewPct = investedCapital ? (previewPnl / investedCapital) * 100 : null
                   return (
-                    <div style={{ marginTop: '14px', padding: '16px', borderRadius: '8px', background: pnl >= 0 ? '#f0fdf4' : '#fff1f2', border: `1px solid ${pnl >= 0 ? '#bbf7d0' : '#fecdd3'}`, textAlign: 'center' }}>
+                    <div style={{ marginTop: '14px', padding: '16px', borderRadius: '8px', background: previewPnl >= 0 ? '#f0fdf4' : '#fff1f2', border: `1px solid ${previewPnl >= 0 ? '#bbf7d0' : '#fecdd3'}`, textAlign: 'center' }}>
                       <div style={{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>P&L Preview</div>
-                      <div style={{ fontFamily: 'Noto Sans, sans-serif', fontSize: '26px', fontWeight: 700, color: pnl >= 0 ? '#16a34a' : '#dc2626' }}>
-                        {pnl >= 0 ? '+' : '−'}₹{Math.abs(pnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      <div style={{ fontFamily: 'Noto Sans, sans-serif', fontSize: '26px', fontWeight: 700, color: previewPnl >= 0 ? '#16a34a' : '#dc2626' }}>
+                        {previewPnl >= 0 ? '+' : '−'}₹{Math.abs(previewPnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                       </div>
-                      {pct !== null && (
-                        <div style={{ fontSize: '12px', color: pnl >= 0 ? '#16a34a' : '#dc2626', marginTop: '2px', fontFamily: 'Noto Sans, sans-serif' }}>
-                          {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                      {previewPct !== null && (
+                        <div style={{ fontSize: '12px', color: previewPnl >= 0 ? '#16a34a' : '#dc2626', marginTop: '2px', fontFamily: 'Noto Sans, sans-serif' }}>
+                          {previewPct >= 0 ? '+' : ''}{previewPct.toFixed(2)}%
                         </div>
                       )}
                     </div>
