@@ -113,7 +113,7 @@ function PnLCalendar({ trades }) {
                   color: pnl >= 0 ? 'var(--green)' : 'var(--red)',
                   fontFamily: 'IBM Plex Mono, monospace',
                 }}>
-                  {pnl >= 0 ? '+' : '−'}<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>{toIndian(Math.abs(pnl))}
+                  {pnl >= 0 ? '+' : '−'}₹{toIndian(Math.abs(pnl))}
                 </div>
               )}
             </div>
@@ -227,13 +227,13 @@ export default function Dashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '24px' }}>
               <StatCard
                 label="Total Realised P&L"
-                value={`${totalRealised >= 0 ? '+' : '−'}<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>${toIndian(Math.abs(totalRealised))}`}
+                value={`${totalRealised >= 0 ? '+' : '−'}₹${toIndian(Math.abs(totalRealised))}`}
                 color={totalRealised >= 0 ? 'var(--green)' : 'var(--red)'}
                 sub="All closed trades"
               />
               <StatCard
                 label="Unrealised P&L"
-                value={`${totalUnrealised >= 0 ? '+' : '−'}<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>${toIndian(Math.abs(totalUnrealised))}`}
+                value={`${totalUnrealised >= 0 ? '+' : '−'}₹${toIndian(Math.abs(totalUnrealised))}`}
                 color={totalUnrealised >= 0 ? 'var(--green)' : 'var(--red)'}
                 sub={`${openTrades.length} open positions`}
               />
@@ -250,7 +250,7 @@ export default function Dashboard() {
               />
               <StatCard
                 label="MTF Interest Due"
-                value={`<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>${toIndianDec(totalMTF)}`}
+                value={`₹${toIndianDec(totalMTF)}`}
                 color="var(--gold)"
                 sub="Accrued on open positions"
               />
@@ -258,7 +258,7 @@ export default function Dashboard() {
                 label="Profit Trades"
                 value={profitTrades.length}
                 color="var(--green)"
-                sub={`Avg <span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>${closedTrades.length > 0 ? toIndian(totalRealised / closedTrades.length) : 0} per trade`}
+                sub={`Avg ₹${closedTrades.length > 0 ? toIndian(totalRealised / closedTrades.length) : 0} per trade`}
               />
             </div>
 
@@ -291,7 +291,7 @@ export default function Dashboard() {
                           fontSize: '12px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace',
                           color: (t.realized_gains || 0) >= 0 ? 'var(--green)' : 'var(--red)',
                         }}>
-                          {(t.realized_gains || 0) >= 0 ? '+' : '−'}<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>{toIndian(Math.abs(t.realized_gains || 0))}
+                          {(t.realized_gains || 0) >= 0 ? '+' : '−'}₹{toIndian(Math.abs(t.realized_gains || 0))}
                         </div>
                       </div>
                     ))}
