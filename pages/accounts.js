@@ -364,7 +364,7 @@ export default function AccountsPage() {
               <div className="stat-card">
                 <div style={{ fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px' }}>Realised P&L</div>
                 <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: totalRealised >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                  {totalRealised >= 0 ? '+' : '−'}₹{toIndian(Math.abs(totalRealised))}
+                  {totalRealised >= 0 ? '+' : '−'}<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>{toIndian(Math.abs(totalRealised))}
                 </div>
               </div>
               <div className="stat-card">
@@ -377,7 +377,7 @@ export default function AccountsPage() {
               </div>
               <div className="stat-card">
                 <div style={{ fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px' }}>MTF Interest</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: 'var(--gold)' }}>₹{toIndianDec(totalMTF)}</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: 'var(--gold)' }}><span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>{toIndianDec(totalMTF)}</div>
               </div>
             </div>
 
@@ -409,14 +409,14 @@ export default function AccountsPage() {
                       <th>Ticker</th>
                       <th>Dir</th>
                       <th>Entry Date</th>
-                      <th className="right">Entry ₹</th>
+                      <th className="right">Entry <span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span></th>
                       <th className="right">Qty</th>
-                      <th className="right">Invested ₹</th>
-                      <th className="right">Actual Inv ₹</th>
-                      <th className="right">CMP ₹</th>
-                      <th className="right">Exit ₹</th>
-                      <th className="right">MTF Int ₹</th>
-                      <th className="right">P&L ₹</th>
+                      <th className="right">Invested <span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span></th>
+                      <th className="right">Actual Inv <span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span></th>
+                      <th className="right">CMP <span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span></th>
+                      <th className="right">Exit <span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span></th>
+                      <th className="right">MTF Int <span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span></th>
+                      <th className="right">P&L <span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span></th>
                       <th>Status</th>
                       <th>Actions</th>
                     </tr>
@@ -444,34 +444,34 @@ export default function AccountsPage() {
                           <td><span className="ticker-badge">{trade.ticker}</span></td>
                           <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                           <td className="muted">{trade.entry_date?.slice(0, 10)}</td>
-                          <td className="right" style={{ fontFamily: 'Noto Sans, sans-serif' }}>₹{toIndian(trade.entry_price)}</td>
+                          <td className="right" style={{ fontFamily: 'Noto Sans, sans-serif' }}><span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>{toIndian(trade.entry_price)}</td>
                           <td className="right">{toIndian(trade.quantity)}</td>
-                          <td className="right">{trade.invested_capital ? `₹${toIndian(trade.invested_capital)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{trade.actual_investment ? `₹${toIndian(trade.actual_investment)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{trade.invested_capital ? `<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>${toIndian(trade.invested_capital)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{trade.actual_investment ? `<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>${toIndian(trade.actual_investment)}` : <span className="neutral">—</span>}</td>
                           <td className="right">
                             {isOpen && lp ? (
                               <div>
-                                <div style={{ fontFamily: 'Noto Sans, sans-serif' }}>₹{toIndian(lp.price)}</div>
+                                <div style={{ fontFamily: 'Noto Sans, sans-serif' }}><span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>{toIndian(lp.price)}</div>
                                 <div className={`cmp-price ${lp.change >= 0 ? 'profit' : 'loss'}`}>
                                   {lp.change >= 0 ? '+' : ''}{lp.changePercent?.toFixed(2)}%
                                 </div>
                               </div>
                             ) : <span className="neutral">—</span>}
                           </td>
-                          <td className="right">{trade.exit_price ? `₹${toIndian(trade.exit_price)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{trade.exit_price ? `<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>${toIndian(trade.exit_price)}` : <span className="neutral">—</span>}</td>
                           <td className="right">
                             {mtfInterest ? (
-                              <div style={{ color: 'var(--gold)', fontFamily: 'Noto Sans, sans-serif' }}>₹{toIndianDec(mtfInterest)}</div>
+                              <div style={{ color: 'var(--gold)', fontFamily: 'Noto Sans, sans-serif' }}><span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>{toIndianDec(mtfInterest)}</div>
                             ) : <span className="neutral">—</span>}
                           </td>
                           <td className="right">
                             {isOpen && unrealised !== null ? (
                               <div style={{ color: unrealised >= 0 ? 'var(--green)' : 'var(--red)', fontFamily: 'Noto Sans, sans-serif' }}>
-                                {unrealised >= 0 ? '+' : '−'}₹{toIndian(Math.abs(unrealised))}
+                                {unrealised >= 0 ? '+' : '−'}<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>{toIndian(Math.abs(unrealised))}
                               </div>
                             ) : trade.realized_gains != null ? (
                               <div style={{ color: trade.realized_gains >= 0 ? 'var(--green)' : 'var(--red)', fontFamily: 'Noto Sans, sans-serif' }}>
-                                {trade.realized_gains >= 0 ? '+' : '−'}₹{toIndian(Math.abs(trade.realized_gains))}
+                                {trade.realized_gains >= 0 ? '+' : '−'}<span style={{fontFamily:"Noto Sans,Arial Unicode MS,sans-serif"}}>₹</span>{toIndian(Math.abs(trade.realized_gains))}
                               </div>
                             ) : <span className="neutral">—</span>}
                           </td>
