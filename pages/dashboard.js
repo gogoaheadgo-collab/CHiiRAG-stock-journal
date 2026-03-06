@@ -17,7 +17,7 @@ function NavPill({ active }) {
         { label: 'Accounts', path: '/accounts' },
       ].map(({ label, path }) => (
         <button key={path} onClick={() => router.push(path)} style={{
-          padding: '5px 18px', borderRadius: '5px', border: 'none', cursor: 'pointer',
+          padding: '7px 22px', borderRadius: '6px', border: 'none', cursor: 'pointer',
           fontSize: '11px', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600,
           letterSpacing: '0.05em',
           background: active === label ? 'var(--accent)' : 'transparent',
@@ -36,7 +36,7 @@ function StatCard({ label, value, sub, color }) {
   return (
     <div className="stat-card">
       <div style={{ fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>{label}</div>
-      <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: color || 'var(--text)' }}>
+      <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: color || 'var(--text)' }} className="rupee-val">
         {value}
       </div>
       {sub && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>{sub}</div>}
@@ -58,13 +58,7 @@ function PnLCalendar({ trades }) {
     dailyPnL[key] = (dailyPnL[key] || 0) + t.realized_gains
   })
 
-  const toIndian = (n) => {
-    const abs = Math.abs(n)
-    if (abs >= 10000000) return (n / 10000000).toFixed(1) + 'Cr'
-    if (abs >= 100000) return (n / 100000).toFixed(1) + 'L'
-    if (abs >= 1000) return (n / 1000).toFixed(1) + 'K'
-    return n.toFixed(0)
-  }
+  const toIndian = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '20px' }}>
@@ -211,7 +205,7 @@ export default function Dashboard() {
       <header className="header">
         <NavPill active="Dashboard" />
         <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)', letterSpacing: '-0.02em' }}>
-          Chiirag <span style={{ color: 'var(--accent)' }}>Journal</span>
+          CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK Journal</span>
         </div>
         <button onClick={signOut} className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: '11px' }}>Sign Out</button>
       </header>
@@ -311,5 +305,3 @@ export default function Dashboard() {
     </>
   )
 }
-
-
