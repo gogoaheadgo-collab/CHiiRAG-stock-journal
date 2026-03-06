@@ -3,9 +3,8 @@ import Head from 'next/head'
 import { supabase } from '../lib/supabase'
 import AddTradeModal from '../components/AddTradeModal'
 import CloseTradeModal from '../components/CloseTradeModal'
+import EditTradeModal from '../components/EditTradeModal'
 import { differenceInDays, format } from 'date-fns'
-
-const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 // ─── India Flag Round Logo ────────────────────────────────────────────────────
 function IndiaFlagLogo({ size = 40 }) {
@@ -87,336 +86,6 @@ function StatCard({ label, value, sub, color }) {
   )
 }
 
-const PATTERNS = [
-  'Breakout', 'Breakdown', 'Reversal', 'Momentum', 'Swing',
-  'Gap Up', 'Gap Down', 'Support Bounce', 'Resistance Rejection',
-  'Trend Following', 'Mean Reversion', 'MTF Opportunity', 'Other'
-]
-
-function EditTradeModal({ trade, onClose, onSave }) {
-  const [form, setForm] = useState({
-    account: trade.account || '',
-    ticker: trade.ticker || '',
-    direction: trade.direction || 'LONG',
-    entry_date: trade.entry_date?.slice(0, 10) || '',
-    entry_price: trade.entry_price || '',
-    quantity: trade.quantity || '',
-    actual_investment: trade.actual_investment || '',
-    mtf_interest_rate: trade.mtf_interest_rate || '',
-    exit_price: trade.exit_price || '',
-    exit_date: trade.exit_date?.slice(0, 10) || '',
-    realized_gains: trade.realized_gains || '',
-    status: trade.status || 'OPEN',
-    entry_reason: trade.entry_reason || '',
-    setup_pattern: trade.setup_pattern || '',
-    sl_target_reasoning: trade.sl_target_reasoning || '',
-    exit_learning: trade.exit_learning || '',
-    mistakes: trade.mistakes || '',
-  })
-  const [activeTab, setActiveTab] = useState('trade')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-
-  // Auto-calculated — all as numbers
-  const entryPrice = parseFloat(form.entry_price) || 0
-  const quantity = parseFloat(form.quantity) || 0
-  const investedCapital = entryPrice > 0 && quantity > 0 ? entryPrice * quantity : null
-  const actualInvestment = parseFloat(form.actual_investment) || 0
-  const mtfRate = parseFloat(form.mtf_interest_rate) || 0
-
-  // MTF = Actual Investment - Invested Capital
-  const mtfValue = actualInvestment > 0 && investedCapital > 0
-    ? actualInvestment - investedCapital
-    : trade.mtf_value || null
-
-  const dailyMTFInterest = mtfValue && mtfValue > 0 && mtfRate > 0
-    ? (mtfValue * mtfRate) / 36500
-    : null
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    if (!form.ticker.trim()) return setError('Ticker is required')
-    if (!form.entry_price || !form.quantity) return setError('Entry price and quantity are required')
-
-    setLoading(true)
-    try {
-      await onSave({
-        account: form.account,
-        ticker: form.ticker.toUpperCase().trim(),
-        direction: form.direction,
-        entry_date: form.entry_date,
-        entry_price: entryPrice,
-        quantity: quantity,
-        invested_capital: investedCapital,
-        actual_investment: actualInvestment > 0 ? actualInvestment : null,
-        mtf_value: mtfValue && mtfValue > 0 ? Math.round(mtfValue * 100) / 100 : null,
-        mtf_interest_rate: mtfRate > 0 ? mtfRate : null,
-        exit_price: form.exit_price ? parseFloat(form.exit_price) : null,
-        exit_date: form.exit_date || null,
-        realized_gains: form.realized_gains !== '' ? parseFloat(form.realized_gains) : null,
-        status: form.status,
-        entry_reason: form.entry_reason || null,
-        setup_pattern: form.setup_pattern || null,
-        sl_target_reasoning: form.sl_target_reasoning || null,
-        exit_learning: form.exit_learning || null,
-        mistakes: form.mistakes || null,
-      })
-      onClose()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const tabStyle = (t) => ({
-    padding: '8px 20px', cursor: 'pointer', fontSize: '11px',
-    letterSpacing: '0.08em', textTransform: 'uppercase',
-    fontFamily: 'DM Mono, monospace', border: 'none',
-    borderBottom: activeTab === t ? '2px solid var(--accent)' : '2px solid transparent',
-    background: 'transparent',
-    color: activeTab === t ? 'var(--accent)' : 'var(--muted)',
-    fontWeight: activeTab === t ? 600 : 400, transition: 'all 0.15s',
-  })
-
-  return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box" style={{ maxWidth: '620px' }}>
-
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div className="modal-title" style={{ marginBottom: '2px' }}>Edit Trade</div>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <span className={`badge badge-${trade.status.toLowerCase()}`}>{trade.status}</span>
-              <span style={{ fontSize: '12px', color: 'var(--muted)', fontFamily: 'Noto Sans, sans-serif' }}>{trade.ticker}</span>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '20px', lineHeight: 1 }}>×</button>
-        </div>
-
-        {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '20px', marginTop: '12px' }}>
-          <button style={tabStyle('trade')} onClick={() => setActiveTab('trade')}>📊 Trade Details</button>
-          <button style={tabStyle('exit')} onClick={() => setActiveTab('exit')}>🏁 Exit Details</button>
-          <button style={tabStyle('notes')} onClick={() => setActiveTab('notes')}>📝 Notes</button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-
-          {/* ── TAB 1: Trade Details ── */}
-          {activeTab === 'trade' && (
-            <div>
-              <div className="section-divider" style={{ marginTop: 0 }}>Trade Info</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-
-                <div>
-                  <label className="field-label">Ticker *</label>
-                  <input value={form.ticker} onChange={e => set('ticker', e.target.value)} className="field" style={{ textTransform: 'uppercase' }} />
-                </div>
-
-                <div>
-                  <label className="field-label">Account</label>
-                  <input value={form.account} onChange={e => set('account', e.target.value)} className="field" />
-                </div>
-
-                <div>
-                  <label className="field-label">Direction</label>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    {['LONG', 'SHORT'].map(d => (
-                      <button key={d} type="button" onClick={() => set('direction', d)} style={{
-                        flex: 1, padding: '7px', borderRadius: '4px', cursor: 'pointer',
-                        border: `1px solid ${form.direction === d ? (d === 'LONG' ? '#16a34a' : '#dc2626') : 'var(--border)'}`,
-                        background: form.direction === d ? (d === 'LONG' ? '#dcfce7' : '#fee2e2') : 'var(--surface)',
-                        color: form.direction === d ? (d === 'LONG' ? '#16a34a' : '#dc2626') : 'var(--muted)',
-                        fontSize: '11px', fontFamily: 'DM Mono, monospace',
-                        fontWeight: form.direction === d ? 700 : 400, transition: 'all 0.15s',
-                      }}>
-                        {d === 'LONG' ? '▲ LONG' : '▼ SHORT'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="field-label">Status</label>
-                  <select value={form.status} onChange={e => set('status', e.target.value)} className="field">
-                    <option value="OPEN">OPEN</option>
-                    <option value="CLOSED">CLOSED</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="section-divider">Entry Details</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label className="field-label">Entry Date</label>
-                  <input type="date" value={form.entry_date} onChange={e => set('entry_date', e.target.value)} className="field" />
-                </div>
-                <div>
-                  <label className="field-label">Entry Price</label>
-                  <input type="number" value={form.entry_price} onChange={e => set('entry_price', e.target.value)} className="field" step="0.01" min="0" />
-                </div>
-                <div>
-                  <label className="field-label">Quantity</label>
-                  <input type="number" value={form.quantity} onChange={e => set('quantity', e.target.value)} className="field" min="1" />
-                </div>
-              </div>
-
-              {investedCapital && (
-                <div style={{ marginTop: '10px', padding: '10px 14px', background: '#f0f8ff', borderRadius: '6px', border: '1px solid #bae6fd', display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Invested Capital (auto)</span>
-                  <span style={{ color: 'var(--accent)', fontWeight: 700, fontFamily: 'Noto Sans, sans-serif' }}>₹{investedCapital.toLocaleString('en-IN')}</span>
-                </div>
-              )}
-
-              <div className="section-divider">MTF Details <span style={{ color: 'var(--border2)', fontWeight: 400 }}>(optional)</span></div>
-              <div style={{ padding: '10px 14px', background: '#fffbeb', borderRadius: '6px', border: '1px solid #fde68a', marginBottom: '12px', fontSize: '11px', color: '#92400e', fontFamily: 'DM Mono, monospace' }}>
-                💡 MTF = Actual Investment − Invested Capital
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label className="field-label">Actual Investment</label>
-                  <input type="number" value={form.actual_investment} onChange={e => set('actual_investment', e.target.value)} placeholder="Total amount paid" className="field" step="0.01" min="0" />
-                </div>
-                <div>
-                  <label className="field-label">MTF Interest Rate % p.a.</label>
-                  <input type="number" value={form.mtf_interest_rate} onChange={e => set('mtf_interest_rate', e.target.value)} placeholder="e.g. 18" className="field" step="0.01" min="0" max="100" />
-                </div>
-              </div>
-
-              {mtfValue !== null && (
-                <div style={{ marginTop: '10px', padding: '10px 14px', background: '#fff7ed', borderRadius: '6px', border: '1px solid #fed7aa' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: dailyMTFInterest ? '4px' : 0 }}>
-                    <span style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>MTF Amount (auto)</span>
-                    <span style={{ color: '#ea580c', fontWeight: 700, fontFamily: 'Noto Sans, sans-serif' }}>₹{Math.abs(mtfValue).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                  </div>
-                  {dailyMTFInterest && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Daily Interest</span>
-                      <span style={{ color: '#f59e0b', fontWeight: 700, fontFamily: 'Noto Sans, sans-serif' }}>₹{dailyMTFInterest.toFixed(2)}/day</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── TAB 2: Exit Details ── */}
-          {activeTab === 'exit' && (
-            <div>
-              <div className="section-divider" style={{ marginTop: 0 }}>Exit Details</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label className="field-label">Exit Price</label>
-                  <input type="number" value={form.exit_price} onChange={e => set('exit_price', e.target.value)} placeholder="0.00" className="field" step="0.01" min="0" />
-                </div>
-                <div>
-                  <label className="field-label">Exit Date</label>
-                  <input type="date" value={form.exit_date} onChange={e => set('exit_date', e.target.value)} className="field" />
-                </div>
-              </div>
-
-              <div style={{ marginTop: '14px' }}>
-                <label className="field-label">Realised P&L (override)</label>
-                <input
-                  type="number" value={form.realized_gains}
-                  onChange={e => set('realized_gains', e.target.value)}
-                  placeholder="Leave blank to auto-calculate from exit price"
-                  className="field" step="0.01"
-                />
-                <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px', fontFamily: 'DM Mono, monospace' }}>
-                  💡 If left blank, P&L will be auto-calculated from exit price
-                </div>
-              </div>
-
-              {/* P&L Preview */}
-              {form.exit_price && form.entry_price && form.quantity && (
-                (() => {
-                  const exitPriceVal = parseFloat(form.exit_price)
-                  const en = parseFloat(form.entry_price)
-                  const qty = parseFloat(form.quantity)
-                  const pnl = form.direction === 'LONG' ? (exitPriceVal - en) * qty : (en - exitPriceVal) * qty
-                  const pct = investedCapital ? (pnl / investedCapital) * 100 : null
-                  return (
-                    <div style={{ marginTop: '14px', padding: '16px', borderRadius: '8px', background: pnl >= 0 ? '#f0fdf4' : '#fff1f2', border: `1px solid ${pnl >= 0 ? '#bbf7d0' : '#fecdd3'}`, textAlign: 'center' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>P&L Preview</div>
-                      <div style={{ fontFamily: 'Noto Sans, sans-serif', fontSize: '26px', fontWeight: 700, color: pnl >= 0 ? '#16a34a' : '#dc2626' }}>
-                        {pnl >= 0 ? '+' : '−'}₹{Math.abs(pnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                      </div>
-                      {pct !== null && (
-                        <div style={{ fontSize: '12px', color: pnl >= 0 ? '#16a34a' : '#dc2626', marginTop: '2px', fontFamily: 'Noto Sans, sans-serif' }}>
-                          {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()
-              )}
-            </div>
-          )}
-
-          {/* ── TAB 3: Notes ── */}
-          {activeTab === 'notes' && (
-            <div>
-              <div style={{ marginBottom: '14px' }}>
-                <label className="field-label">Setup / Pattern</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                  {PATTERNS.map(p => (
-                    <button key={p} type="button" onClick={() => set('setup_pattern', form.setup_pattern === p ? '' : p)} style={{
-                      padding: '4px 10px', borderRadius: '4px',
-                      border: `1px solid ${form.setup_pattern === p ? 'var(--accent)' : 'var(--border)'}`,
-                      background: form.setup_pattern === p ? '#e0f2fe' : 'transparent',
-                      color: form.setup_pattern === p ? 'var(--accent)' : 'var(--muted)',
-                      fontSize: '10px', cursor: 'pointer', fontFamily: 'DM Mono, monospace', transition: 'all 0.15s',
-                    }}>{p}</button>
-                  ))}
-                </div>
-                <input value={form.setup_pattern} onChange={e => set('setup_pattern', e.target.value)} placeholder="Or type your own..." className="field" />
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label className="field-label">Why I Entered This Trade</label>
-                <textarea value={form.entry_reason} onChange={e => set('entry_reason', e.target.value)} placeholder="Your reasoning..." className="field" rows={2} style={{ resize: 'vertical' }} />
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label className="field-label">Stop Loss & Target Reasoning</label>
-                <textarea value={form.sl_target_reasoning} onChange={e => set('sl_target_reasoning', e.target.value)} placeholder="SL and target logic..." className="field" rows={2} style={{ resize: 'vertical' }} />
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label className="field-label">What I Learned After Exit</label>
-                <textarea value={form.exit_learning} onChange={e => set('exit_learning', e.target.value)} placeholder="Key learnings..." className="field" rows={2} style={{ resize: 'vertical' }} />
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label className="field-label">Mistakes Made</label>
-                <textarea value={form.mistakes} onChange={e => set('mistakes', e.target.value)} placeholder="What went wrong..." className="field" rows={2} style={{ resize: 'vertical' }} />
-              </div>
-            </div>
-          )}
-
-          {error && <p style={{ color: '#dc2626', fontSize: '11px', marginTop: '10px', fontFamily: 'DM Mono, monospace' }}>{error}</p>}
-
-          {/* Footer buttons always visible */}
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
-            <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
-            <button type="submit" disabled={loading} className="btn btn-primary">
-              {loading ? 'Saving...' : '💾 Save Changes'}
-            </button>
-          </div>
-
-        </form>
-      </div>
-    </div>
-  )
-}
-
-
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function Home() {
   const [session, setSession] = useState(null)
@@ -433,39 +102,13 @@ export default function Home() {
   const [accounts, setAccounts] = useState([])
   const [lastRefresh, setLastRefresh] = useState(null)
   const [countdown, setCountdown] = useState(60)
-  const [userRole, setUserRole] = useState(null)       // 'admin' | 'viewer' | 'denied' | null
-  const [viewerPortfolios, setViewerPortfolios] = useState([]) // portfolios viewer can see
-  const [accessLoading, setAccessLoading] = useState(true)
 
-  // Auth + Access Check
+  // Auth
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session)
-      setAuthLoading(false)
-      if (session) await checkAccess(session)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, s) => {
-      setSession(s)
-      setAuthLoading(false)
-      if (s) await checkAccess(s)
-      else { setUserRole(null); setAccessLoading(false) }
-    })
+    supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); setAuthLoading(false) })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => { setSession(s); setAuthLoading(false) })
     return () => subscription.unsubscribe()
   }, [])
-
-  const checkAccess = async (session) => {
-    setAccessLoading(true)
-    try {
-      const token = session.access_token
-      const res = await fetch('/api/access', { headers: { Authorization: `Bearer ${token}` } })
-      const data = await res.json()
-      setUserRole(data.role)
-      if (data.role === 'viewer') setViewerPortfolios(data.portfolios || [])
-    } catch (e) {
-      setUserRole('denied')
-    }
-    setAccessLoading(false)
-  }
 
   // Load trades
   const loadTrades = useCallback(async () => {
@@ -536,41 +179,10 @@ export default function Home() {
     await loadTrades()
   }
 
-  const handleClose = async (payload) => {
-    if (payload.type === 'full') {
-      // Full exit — just update the trade to CLOSED
-      const { error } = await supabase.from('trades').update(payload.updates).eq('id', closingTrade.id)
-      if (error) throw new Error(error.message)
-
-    } else if (payload.type === 'partial') {
-      // Partial exit:
-      // 1. Update current trade to CLOSED with partial qty
-      const { error: err1 } = await supabase.from('trades').update(payload.updates).eq('id', closingTrade.id)
-      if (err1) throw new Error(err1.message)
-
-      // 2. Insert new OPEN trade with remaining qty (copy all fields)
-      const remainingTrade = {
-        user_id: session.user.id,
-        account: closingTrade.account,
-        ticker: closingTrade.ticker,
-        direction: closingTrade.direction,
-        entry_date: closingTrade.entry_date,
-        entry_price: closingTrade.entry_price,
-        quantity: payload.remaining.quantity,
-        invested_capital: payload.remaining.invested_capital,
-        actual_investment: payload.remaining.actual_investment,
-        mtf_value: payload.remaining.mtf_value,
-        mtf_interest_rate: closingTrade.mtf_interest_rate,
-        setup_pattern: closingTrade.setup_pattern,
-        entry_reason: closingTrade.entry_reason,
-        sl_target_reasoning: closingTrade.sl_target_reasoning,
-        status: 'OPEN',
-      }
-      const { error: err2 } = await supabase.from('trades').insert([remainingTrade])
-      if (err2) throw new Error(err2.message)
-    }
-    await loadTrades()
-    setClosingTrade(null)
+  const handleClose = async (updates) => {
+    const { error } = await supabase.from('trades').update(updates).eq('id', closingTrade.id)
+    if (error) throw new Error(error.message)
+    await loadTrades(); setClosingTrade(null)
   }
 
   const handleEdit = async (updates) => {
@@ -587,12 +199,11 @@ export default function Home() {
 
   const signOut = () => supabase.auth.signOut()
 
-  // Filtering — viewers only see their assigned portfolios
+  // Filtering
   const filtered = trades.filter(t => {
     const statusOk = filter === 'ALL' || t.status === filter
     const accountOk = accountFilter === 'ALL' || t.account === accountFilter
-    const portfolioOk = isViewer ? viewerPortfolios.includes(t.account) : true
-    return statusOk && accountOk && portfolioOk
+    return statusOk && accountOk
   })
 
   const openTrades = trades.filter(t => t.status === 'OPEN')
@@ -617,35 +228,13 @@ export default function Home() {
   const totalInvested = openTrades.reduce((s, t) => s + (t.invested_capital || 0), 0)
   const netPnL = totalRealised + totalUnrealised
 
-  if (authLoading || (session && accessLoading)) return (
+  if (authLoading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
       <div style={{ color: 'var(--muted)', letterSpacing: '0.15em', fontSize: '11px', fontFamily: 'DM Mono, monospace' }}>LOADING...</div>
     </div>
   )
 
   if (!session) return <AuthScreen />
-
-  // Access denied
-  if (userRole === 'denied') {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', fontFamily: 'Libre Baskerville, Georgia, serif' }}>
-        <div style={{ height: '4px', background: 'linear-gradient(90deg, #FF9933 33.33%, #e8e8e8 33.33%, #e8e8e8 66.66%, #138808 66.66%)', position: 'fixed', top: 0, left: 0, right: 0 }} />
-        <div style={{ textAlign: 'center', maxWidth: '420px', padding: '32px' }}>
-          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fee2e2', border: '2px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', fontSize: '36px' }}>🔒</div>
-          <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#1a1f36', marginBottom: '10px' }}>Access Denied</h1>
-          <p style={{ color: '#6b7a9e', fontSize: '13px', lineHeight: 1.8, marginBottom: '28px', fontFamily: 'DM Mono, monospace' }}>
-            Your Google account is not authorised to access this journal.<br />Contact the portfolio owner to request access.
-          </p>
-          <button onClick={() => supabase.auth.signOut()} style={{ background: '#0ea5e9', color: 'white', border: 'none', padding: '10px 28px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
-            ← Sign Out & Try Another Account
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  const isAdmin = userRole === 'admin'
-  const isViewer = userRole === 'viewer'
 
   return (
     <>
@@ -674,22 +263,10 @@ export default function Home() {
           {openTrades.length > 0 && (
             <button onClick={refreshAllPrices} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }}>↻ Refresh</button>
           )}
-          {isAdmin && (
-            <>
-              <button onClick={() => window.location.href='/viewers'} className="btn btn-ghost" style={{ padding: '7px 14px', fontSize: '11px' }}>
-                👁 Viewers
-              </button>
-              <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding: '7px 16px' }}>
-                <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span>
-                <span className="hide-mobile">New Trade</span>
-              </button>
-            </>
-          )}
-          {isViewer && (
-            <span style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', padding: '4px 10px', background: '#f0f8ff', border: '1px solid #bae6fd', borderRadius: '4px' }}>
-              👁 View Only
-            </span>
-          )}
+          <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding: '7px 16px' }}>
+            <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span>
+            <span className="hide-mobile">New Trade</span>
+          </button>
           <button onClick={signOut} className="btn btn-ghost" style={{ padding: '7px 12px' }}>
             <span className="hide-mobile">Sign Out</span>
           </button>
@@ -871,19 +448,18 @@ export default function Home() {
                       <td className="hide-mobile" style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>
                         {trade.exit_date ? format(new Date(trade.exit_date), 'dd MMM yy') : '—'}
                       </td>
-                      {/* Actions — hidden for viewers */}
+                      {/* Actions */}
                       <td>
-                        {isAdmin ? (
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            <button onClick={() => setEditingTrade(trade)} className="icon-btn" title="Edit trade" style={{ fontSize: '12px' }}>✎</button>
-                            {isOpen && (
-                              <button onClick={() => setClosingTrade(trade)} className="icon-btn exit" title="Close trade">✓</button>
-                            )}
-                            <button onClick={() => handleDelete(trade.id)} className="icon-btn del" title="Delete trade">×</button>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>view only</span>
-                        )}
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {/* Edit button - for ALL trades */}
+                          <button onClick={() => setEditingTrade(trade)} className="icon-btn" title="Edit trade" style={{ fontSize: '12px' }}>✎</button>
+                          {/* Close button - only for OPEN trades */}
+                          {isOpen && (
+                            <button onClick={() => setClosingTrade(trade)} className="icon-btn exit" title="Close trade">✓</button>
+                          )}
+                          {/* Delete button */}
+                          <button onClick={() => handleDelete(trade.id)} className="icon-btn del" title="Delete trade">×</button>
+                        </div>
                       </td>
                     </tr>
                   )
