@@ -19,7 +19,7 @@ function NavPill({ active }) {
         { label: 'Accounts', path: '/accounts' },
       ].map(({ label, path }) => (
         <button key={path} onClick={() => router.push(path)} style={{
-          padding: '5px 18px', borderRadius: '5px', border: 'none', cursor: 'pointer',
+          padding: '7px 22px', borderRadius: '6px', border: 'none', cursor: 'pointer',
           fontSize: '11px', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600,
           letterSpacing: '0.05em',
           background: active === label ? 'var(--accent)' : 'transparent',
@@ -236,7 +236,7 @@ export default function AccountsPage() {
       <header className="header">
         <NavPill active="Accounts" />
         <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)', letterSpacing: '-0.02em' }}>
-          Chiirag <span style={{ color: 'var(--accent)' }}>Journal</span>
+          CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK Journal</span>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {openTrades.length > 0 && (
@@ -254,33 +254,64 @@ export default function AccountsPage() {
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 16px' }}>
 
         {/* Account Tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
           {accounts.map(acc => (
-            <div key={acc.id} style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+            <div key={acc.id} style={{
+              position: 'relative',
+              border: `2px solid ${activeAccount === acc.name ? 'var(--accent)' : 'var(--border)'}`,
+              background: activeAccount === acc.name ? 'rgba(0,212,255,0.08)' : 'var(--surface)',
+              borderRadius: '10px', transition: 'all 0.15s', minWidth: '120px',
+            }}>
+              {/* Main click area */}
               <button
                 onClick={() => setActiveAccount(acc.name)}
                 style={{
-                  padding: '7px 18px', borderRadius: showNewAccount ? '6px' : '6px',
-                  border: `1px solid ${activeAccount === acc.name ? 'var(--accent)' : 'var(--border)'}`,
-                  background: activeAccount === acc.name ? 'rgba(0,212,255,0.1)' : 'var(--surface)',
-                  color: activeAccount === acc.name ? 'var(--accent)' : 'var(--muted)',
-                  cursor: 'pointer', fontSize: '11px',
-                  fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700,
-                  letterSpacing: '0.08em', transition: 'all 0.15s',
+                  width: '100%', padding: '14px 16px 10px',
+                  background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
                 }}
               >
-                {acc.name}
-                <span style={{ marginLeft: '6px', fontSize: '9px', opacity: 0.6 }}>
-                  {trades.filter(t => t.account === acc.name).length}
-                </span>
+                <div style={{
+                  fontSize: '14px', fontWeight: 700, letterSpacing: '0.1em',
+                  fontFamily: 'IBM Plex Mono, monospace',
+                  color: activeAccount === acc.name ? 'var(--accent)' : 'var(--text)',
+                }}>{acc.name}</div>
+                <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '3px' }}>
+                  {trades.filter(t => t.account === acc.name).length} trades
+                </div>
               </button>
-              {activeAccount === acc.name && accounts.length > 1 && (
+              {/* Edit + Delete buttons inside tile */}
+              <div style={{ display: 'flex', borderTop: '1px solid var(--border)', }}>
+                <button
+                  onClick={() => {
+                    const newName = prompt('Rename account:', acc.name)
+                    if (newName && newName.trim() && newName.trim().toUpperCase() !== acc.name) {
+                      getToken().then(token =>
+                        fetch('/api/accounts', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({ id: acc.id, name: newName.trim().toUpperCase() }),
+                        }).then(() => loadData())
+                      )
+                    }
+                  }}
+                  style={{
+                    flex: 1, padding: '6px', background: 'none', border: 'none',
+                    borderRight: '1px solid var(--border)',
+                    color: 'var(--muted)', cursor: 'pointer', fontSize: '11px',
+                    transition: 'color 0.1s',
+                  }}
+                  title="Rename"
+                >✎</button>
                 <button
                   onClick={() => handleDeleteAccount(acc.name)}
-                  style={{ marginLeft: '3px', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '12px', padding: '2px 4px', opacity: 0.5 }}
+                  style={{
+                    flex: 1, padding: '6px', background: 'none', border: 'none',
+                    color: 'var(--muted)', cursor: 'pointer', fontSize: '13px',
+                    transition: 'color 0.1s',
+                  }}
                   title="Delete account"
-                >×</button>
-              )}
+                >🗑</button>
+              </div>
             </div>
           ))}
 
@@ -482,5 +513,3 @@ export default function AccountsPage() {
     </>
   )
 }
-
-
