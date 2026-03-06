@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&family=Noto+Sans:wght@400;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -37,7 +37,7 @@ html { scroll-behavior: smooth; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Libre Baskerville', 'Bookman Old Style', Georgia, serif;
+  font-family: 'Bookman Old Style', 'Libre Baskerville', Georgia, serif;
   font-size: 13px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -47,7 +47,7 @@ body {
 ::-webkit-scrollbar-track { background: var(--surface); }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
 
-.font-display { font-family: 'Libre Baskerville', 'Bookman Old Style', Georgia, serif; }
+.font-display { font-family: 'Bookman Old Style', 'Libre Baskerville', Georgia, serif; }
 .font-mono    { font-family: 'DM Mono', monospace; }
 
 /* ── Auth Screen ── */
