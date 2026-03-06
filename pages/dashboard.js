@@ -18,7 +18,7 @@ function NavPill({ active }) {
       ].map(({ label, path }) => (
         <button key={path} onClick={() => router.push(path)} style={{
           padding: '7px 22px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-          fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 600,
+          fontSize: '11px', fontFamily: 'DM Mono, Courier New, monospace', fontWeight: 600,
           letterSpacing: '0.05em',
           background: active === label ? 'var(--accent)' : 'transparent',
           color: active === label ? '#ffffff' : 'var(--muted)',
@@ -36,7 +36,7 @@ function StatCard({ label, value, sub, color }) {
   return (
     <div className="stat-card">
       <div style={{ fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>{label}</div>
-      <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'Libre Baskerville, Georgia, serif', color: color || 'var(--text)' }} className="rupee-val">
+      <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', color: color || 'var(--text)' }} className="rupee-val">
         {value}
       </div>
       {sub && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>{sub}</div>}
@@ -65,7 +65,7 @@ function PnLCalendar({ trades }) {
       {/* Month nav */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <button onClick={() => setMonth(m => subMonths(m, 1))} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: '14px' }}>‹</button>
-        <span style={{ fontFamily: 'Libre Baskerville, Georgia, serif', fontWeight: 700, fontSize: '15px', color: 'var(--text)' }}>
+        <span style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontWeight: 700, fontSize: '15px', color: 'var(--text)' }}>
           {format(month, 'MMMM yyyy')}
         </span>
         <button onClick={() => setMonth(m => addMonths(m, 1))} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: '14px' }}>›</button>
@@ -111,7 +111,7 @@ function PnLCalendar({ trades }) {
                 <div style={{
                   fontSize: '9px', fontWeight: 700, marginTop: '2px',
                   color: pnl >= 0 ? 'var(--bull)' : 'var(--bear)',
-                  fontFamily: 'DM Mono, monospace',
+                  fontFamily: 'DM Mono, Courier New, monospace',
                 }}>
                   {pnl >= 0 ? '+' : '−'}Rs.{toIndian(Math.abs(pnl))}
                 </div>
@@ -142,6 +142,7 @@ export default function Dashboard() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [trades, setTrades] = useState([])
+  const [liveOpenPrices, setLiveOpenPrices] = useState({})
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -166,6 +167,21 @@ export default function Dashboard() {
   }, [session])
 
   useEffect(() => { if (session) loadTrades() }, [session, loadTrades])
+
+  const fetchPrice = useCallback(async (ticker) => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token
+      const res = await fetch(`/api/stock/${ticker}`, { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      if (data.price) setLiveOpenPrices(prev => ({ ...prev, [ticker]: data }))
+    } catch (e) {}
+  }, [])
+
+  useEffect(() => {
+    if (!trades.length) return
+    const openSymbols = [...new Set(trades.filter(t => t.status === 'OPEN').map(t => t.ticker))]
+    openSymbols.forEach(fetchPrice)
+  }, [trades, fetchPrice])
 
   const signOut = () => supabase.auth.signOut().then(() => router.push('/'))
 
@@ -204,7 +220,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="header">
         <NavPill active="Dashboard" />
-        <div style={{ fontFamily: 'Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)', letterSpacing: '-0.02em' }}>
+        <div style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)', letterSpacing: '-0.02em' }}>
           CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK Journal</span>
         </div>
         <button onClick={signOut} className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: '11px' }}>Sign Out</button>
@@ -213,7 +229,7 @@ export default function Dashboard() {
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 16px' }}>
 
         <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ fontFamily: 'Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '22px', color: 'var(--text)', marginBottom: '4px' }}>
+          <h1 style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '22px', color: 'var(--text)', marginBottom: '4px' }}>
             Overview
           </h1>
           <div style={{ fontSize: '11px', color: 'var(--muted)' }}>All accounts · All time</div>
@@ -262,6 +278,63 @@ export default function Dashboard() {
               />
             </div>
 
+            {/* Open Positions */}
+            {openTrades.length > 0 && (
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '20px', marginBottom: '16px' }}>
+                <div style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontWeight: 700, fontSize: '14px', color: 'var(--text)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Open Positions
+                  <span style={{ fontSize: '11px', background: 'var(--accent-dim)', color: 'var(--accent)', padding: '2px 8px', borderRadius: '4px', fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{openTrades.length}</span>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                        {['Ticker', 'Account', 'Direction', 'Entry Rs.', 'Qty', 'CMP', 'Change %', 'Unreal. P&L'].map(h => (
+                          <th key={h} style={{ padding: '6px 12px', textAlign: h === 'Ticker' || h === 'Account' || h === 'Direction' ? 'left' : 'right', fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', letterSpacing: '0.08em', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {openTrades.map(trade => {
+                        const lp = liveOpenPrices[trade.ticker]
+                        const unr = lp?.price && trade.entry_price && trade.quantity
+                          ? trade.direction === 'LONG'
+                            ? (lp.price - trade.entry_price) * trade.quantity
+                            : (trade.entry_price - lp.price) * trade.quantity
+                          : null
+                        return (
+                          <tr key={trade.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}>
+                            <td style={{ padding: '8px 12px', fontWeight: 700, fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>{trade.ticker}</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', fontSize: '11px' }}>{trade.account}</td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '3px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
+                                background: trade.direction === 'LONG' ? 'var(--accent-dim)' : 'var(--bear-dim)',
+                                color: trade.direction === 'LONG' ? 'var(--accent)' : 'var(--bear)' }}>
+                                {trade.direction}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>Rs.{toIndian(trade.entry_price)}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>{toIndian(trade.quantity)}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--text)' }}>
+                              {lp?.price ? `Rs.${toIndian(lp.price)}` : '—'}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700,
+                              color: lp?.change >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
+                              {lp?.changePercent != null ? `${lp.change >= 0 ? '+' : ''}${lp.changePercent.toFixed(2)}%` : '—'}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700,
+                              color: unr === null ? 'var(--muted)' : unr >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
+                              {unr !== null ? `${unr >= 0 ? '+' : '−'}Rs.${toIndian(Math.abs(unr))}` : '—'}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Calendar + Recent */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '16px' }}>
               {/* Calendar */}
@@ -269,7 +342,7 @@ export default function Dashboard() {
 
               {/* Recent closed trades */}
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '20px' }}>
-                <div style={{ fontFamily: 'Libre Baskerville, Georgia, serif', fontWeight: 700, fontSize: '13px', color: 'var(--text)', marginBottom: '14px' }}>
+                <div style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontWeight: 700, fontSize: '13px', color: 'var(--text)', marginBottom: '14px' }}>
                   Recent Exits
                 </div>
                 {closedTrades.length === 0 ? (
@@ -288,7 +361,7 @@ export default function Dashboard() {
                           <div style={{ fontSize: '10px', color: 'var(--muted)' }}>{t.account} · {t.exit_date?.slice(0, 10)}</div>
                         </div>
                         <div style={{
-                          fontSize: '12px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
+                          fontSize: '12px', fontWeight: 700, fontFamily: 'DM Mono, Courier New, monospace',
                           color: (t.realized_gains || 0) >= 0 ? 'var(--bull)' : 'var(--bear)',
                         }}>
                           {(t.realized_gains || 0) >= 0 ? '+' : '−'}Rs.{toIndian(Math.abs(t.realized_gains || 0))}
