@@ -16,17 +16,17 @@ export default function CloseTradeModal({ trade, onClose, onConfirm }) {
   const [error, setError] = useState('')
 
   const isLong = trade.direction === 'LONG'
-  const exitPriceNum = parseFloat(exitPrice) || 0
+  const exitPriceVal = parseFloat(exitPrice) || 0
   const totalQty = trade.quantity
   const partialQty = parseFloat(exitQty) || 0
   const remainingQty = totalQty - partialQty
 
   // P&L calculation
   const exitQtyForCalc = exitType === 'full' ? totalQty : partialQty
-  const pnl = exitPriceNum > 0
+  const pnl = exitPriceVal > 0
     ? isLong
-      ? (exitPriceNum - trade.entry_price) * exitQtyForCalc
-      : (trade.entry_price - exitPriceNum) * exitQtyForCalc
+      ? (exitPriceVal - trade.entry_price) * exitQtyForCalc
+      : (trade.entry_price - exitPriceVal) * exitQtyForCalc
     : null
 
   const pnlPct = pnl !== null && trade.invested_capital > 0
@@ -52,7 +52,7 @@ export default function CloseTradeModal({ trade, onClose, onConfirm }) {
         await onConfirm({
           type: 'full',
           updates: {
-            exit_price: exitPriceNum,
+            exit_price: exitPriceVal,
             exit_date: exitDate,
             exit_learning: exitLearning || null,
             mistakes: mistakes || null,
@@ -67,7 +67,7 @@ export default function CloseTradeModal({ trade, onClose, onConfirm }) {
           exitQty: partialQty,
           remainingQty,
           updates: {
-            exit_price: exitPriceNum,
+            exit_price: exitPriceVal,
             exit_date: exitDate,
             exit_learning: exitLearning || null,
             mistakes: mistakes || null,
@@ -191,7 +191,7 @@ export default function CloseTradeModal({ trade, onClose, onConfirm }) {
           </div>
 
           {/* P&L Preview */}
-          {pnl !== null && exitPriceNum > 0 && (
+          {pnl !== null && exitPriceVal > 0 && (
             <div style={{
               margin: '14px 0',
               padding: '14px',

@@ -249,10 +249,10 @@ export default function EditTradeModal({ trade, onClose, onSave }) {
               {/* P&L Preview */}
               {form.exit_price && form.entry_price && form.quantity && (
                 (() => {
-                  const exitPriceNum = parseFloat(form.exit_price)
+                  const exitPriceVal = parseFloat(form.exit_price)
                   const en = parseFloat(form.entry_price)
                   const qty = parseFloat(form.quantity)
-                  const pnl = form.direction === 'LONG' ? (exitPriceNum - en) * qty : (en - exitPriceNum) * qty
+                  const pnl = form.direction === 'LONG' ? (exitPriceVal - en) * qty : (en - exitPriceVal) * qty
                   const pct = investedCapital ? (pnl / investedCapital) * 100 : null
                   return (
                     <div style={{ marginTop: '14px', padding: '16px', borderRadius: '8px', background: pnl >= 0 ? '#f0fdf4' : '#fff1f2', border: `1px solid ${pnl >= 0 ? '#bbf7d0' : '#fecdd3'}`, textAlign: 'center' }}>
