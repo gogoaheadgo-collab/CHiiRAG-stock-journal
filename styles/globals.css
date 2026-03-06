@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&family=Noto+Sans:wght@400;700&subset=latin,currency&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&family=Noto+Sans:wght@400;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -385,11 +385,6 @@ body {
 }
 
 /* ── Rupee symbol fix ── */
-/* IBM Plex Mono doesn't have ₹, so we use Noto Sans as fallback for currency */
-body {
-  font-family: 'IBM Plex Mono', 'Noto Sans', monospace;
-}
-
-.rupee {
-  font-family: 'Noto Sans', 'Arial Unicode MS', sans-serif;
+.rupee-val, [style*="Noto Sans"] {
+  font-family: 'Noto Sans', 'Arial Unicode MS', sans-serif !important;
 }
