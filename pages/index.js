@@ -212,7 +212,9 @@ export default function Home() {
                   const lp = livePrices[trade.ticker]
                   const unrealised = isOpen && lp ? (trade.direction==='LONG' ? (lp.price-trade.entry_price)*trade.quantity : (trade.entry_price-lp.price)*trade.quantity) : null
                   const days = Math.max(0, differenceInDays(trade.exit_date ? new Date(trade.exit_date) : new Date(), new Date(trade.entry_date)))
-                  const mtfInterest = trade.mtf_value && trade.mtf_interest_rate ? (trade.mtf_value*trade.mtf_interest_rate*days)/36500 : null
+                  const mtfBase = trade.invested_capital && trade.actual_investment ? trade.invested_capital - trade.actual_investment : null
+                  const mtfDays = trade.status==='CLOSED'&&trade.exit_date ? Math.max(1,differenceInDays(new Date(trade.exit_date),new Date(trade.entry_date))) : days
+                  const mtfInterest = mtfBase && mtfBase>0 && trade.mtf_interest_rate ? (mtfBase*trade.mtf_interest_rate*mtfDays)/36500 : null
                   return (
                     <tr key={trade.id}>
                       <td><div style={{ fontWeight:700 }}>{trade.ticker}</div><div style={{ fontSize:'9px', color:'var(--muted)' }}>NSE</div></td>
