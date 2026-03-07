@@ -3,7 +3,8 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import AddTradeModal from '../components/AddTradeModal'
-import CloseTradeModal from '../components/CloseTradeModal'
+import ExitTradeModal from '../components/ExitTradeModal'
+import EditTradeModal from '../components/EditTradeModal'
 import { differenceInDays, format } from 'date-fns'
 
 // ─── Nav Pill ─────────────────────────────────────────────────────────────────
@@ -51,7 +52,9 @@ export default function AccountsPage() {
   const [filter, setFilter] = useState('ALL')
   const [livePrices, setLivePrices] = useState({})
   const [showAdd, setShowAdd] = useState(false)
-  const [closingTrade, setClosingTrade] = useState(null)
+  const [exitingTrade, setExitingTrade] = useState(null)
+  const [editingTrade, setEditingTrade] = useState(null)
+  const [openMenu, setOpenMenu] = useState(null)
   const [showNewAccount, setShowNewAccount] = useState(false)
   const [newAccountName, setNewAccountName] = useState('')
   const [countdown, setCountdown] = useState(60)
@@ -177,6 +180,72 @@ export default function AccountsPage() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ id }),
     })
+    await loadData()
+  }
+
+  const handleEdit = async (updates) => {
+    const token = await getToken()
+    await fetch('/api/trades', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: editingTrade.id, ...updates }),
+    })
+    await loadData()
+  }
+
+  const handleExit = async ({ exitPrice, exitQty, exitDate, realisedGain, remainingQty, isFullExit }) => {
+    const token = await getToken()
+    const trade = exitingTrade
+    const totalQty = parseFloat(trade.quantity)
+
+    if (isFullExit) {
+      await fetch('/api/trades', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          id: trade.id,
+          status: 'CLOSED',
+          exit_price: exitPrice,
+          exit_date: exitDate,
+          quantity: exitQty,
+          realized_gains: realisedGain,
+        }),
+      })
+    } else {
+      // Update original to closed partial
+      await fetch('/api/trades', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          id: trade.id,
+          status: 'CLOSED',
+          exit_price: exitPrice,
+          exit_date: exitDate,
+          quantity: exitQty,
+          invested_capital: exitPrice * exitQty,
+          realized_gains: realisedGain,
+        }),
+      })
+      // Create new open trade for remaining
+      await fetch('/api/trades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          account: trade.account,
+          ticker: trade.ticker,
+          direction: trade.direction,
+          entry_date: trade.entry_date,
+          entry_price: trade.entry_price,
+          quantity: remainingQty,
+          invested_capital: trade.entry_price * remainingQty,
+          actual_investment: trade.actual_investment ? (trade.actual_investment / totalQty) * remainingQty : null,
+          mtf_value: trade.mtf_value ? (trade.mtf_value / totalQty) * remainingQty : null,
+          mtf_interest_rate: trade.mtf_interest_rate,
+          notes: trade.notes,
+          status: 'OPEN',
+        }),
+      })
+    }
     await loadData()
   }
 
@@ -403,37 +472,32 @@ export default function AccountsPage() {
                 <div style={{ fontSize: '11px' }}>No trades in {activeAccount}. Click "+ New Trade" to add one.</div>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
+              <div style={{ overflowX: 'auto' }} onClick={() => setOpenMenu(null)}>
                 <table className="trade-table">
                   <thead>
                     <tr>
                       <th>Ticker</th>
-                      <th>Dir</th>
+                      <th>Direction</th>
                       <th>Entry Date</th>
-                      <th className="right">Entry Rs.</th>
+                      <th className="right">Entry ₹</th>
+                      <th className="right">CMP</th>
+                      <th className="right">Exit ₹</th>
                       <th className="right">Qty</th>
-                      <th className="right">Invested Rs.</th>
-                      <th className="right">Actual Inv Rs.</th>
-                      <th className="right">CMP Rs.</th>
-                      <th className="right">Exit Rs.</th>
-                      <th className="right">MTF Int Rs.</th>
-                      <th className="right">P&L Rs.</th>
-                      <th>Status</th>
-                      <th>Actions</th>
+                      <th className="right">Investment</th>
+                      <th className="right">Actual Inv</th>
+                      <th className="right">MTF Interest</th>
+                      <th className="right">Unrealised P&L</th>
+                      <th className="right">Realised P&L</th>
+                      <th style={{ textAlign: 'center' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map(trade => {
                       const isOpen = trade.status === 'OPEN'
                       const lp = livePrices[trade.ticker]
-
-                      const days = trade.entry_date
-                        ? Math.max(1, differenceInDays(new Date(), new Date(trade.entry_date)))
-                        : 0
+                      const days = trade.entry_date ? Math.max(1, differenceInDays(new Date(), new Date(trade.entry_date))) : 0
                       const mtfInterest = trade.mtf_value && trade.mtf_interest_rate
-                        ? (trade.mtf_value * trade.mtf_interest_rate * days) / 36500
-                        : null
-
+                        ? (trade.mtf_value * trade.mtf_interest_rate * days) / 36500 : null
                       const unrealised = isOpen && lp?.price && trade.entry_price && trade.quantity
                         ? trade.direction === 'LONG'
                           ? (lp.price - trade.entry_price) * trade.quantity
@@ -445,45 +509,65 @@ export default function AccountsPage() {
                           <td><span className="ticker-badge">{trade.ticker}</span></td>
                           <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                           <td className="muted">{trade.entry_date?.slice(0, 10)}</td>
-                          <td className="right" style={{ fontFamily: 'DM Mono, monospace' }}>Rs.{toIndian(trade.entry_price)}</td>
-                          <td className="right">{toIndian(trade.quantity)}</td>
-                          <td className="right">{trade.invested_capital ? `Rs.${toIndian(trade.invested_capital)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{trade.actual_investment ? `Rs.${toIndian(trade.actual_investment)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">₹{toIndian(trade.entry_price)}</td>
                           <td className="right">
                             {isOpen && lp ? (
                               <div>
-                                <div style={{ fontFamily: 'DM Mono, monospace' }}>Rs.{toIndian(lp.price)}</div>
-                                <div className={`cmp-price ${lp.change >= 0 ? 'profit' : 'loss'}`}>
+                                <div style={{ fontWeight: 600 }}>₹{toIndian(lp.price)}</div>
+                                <div style={{ fontSize: '10px', color: lp.change >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
                                   {lp.change >= 0 ? '+' : ''}{lp.changePercent?.toFixed(2)}%
                                 </div>
                               </div>
                             ) : <span className="neutral">—</span>}
                           </td>
-                          <td className="right">{trade.exit_price ? `Rs.${toIndian(trade.exit_price)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{trade.exit_price ? `₹${toIndian(trade.exit_price)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{toIndian(trade.quantity)}</td>
+                          <td className="right">{trade.invested_capital ? `₹${toIndian(trade.invested_capital)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{trade.actual_investment ? `₹${toIndian(trade.actual_investment)}` : <span className="neutral">—</span>}</td>
                           <td className="right">
-                            {mtfInterest ? (
-                              <div style={{ color: 'var(--gold)', fontFamily: 'DM Mono, monospace' }}>Rs.{toIndianDec(mtfInterest)}</div>
-                            ) : <span className="neutral">—</span>}
+                            {mtfInterest ? <span style={{ color: 'var(--gold)' }}>₹{toIndianDec(mtfInterest)}</span> : <span className="neutral">—</span>}
                           </td>
                           <td className="right">
-                            {isOpen && unrealised !== null ? (
-                              <div style={{ color: unrealised >= 0 ? 'var(--bull)' : 'var(--bear)', fontFamily: 'DM Mono, monospace' }}>
-                                {unrealised >= 0 ? '+' : '−'}Rs.{toIndian(Math.abs(unrealised))}
-                              </div>
-                            ) : trade.realized_gains != null ? (
-                              <div style={{ color: trade.realized_gains >= 0 ? 'var(--bull)' : 'var(--bear)', fontFamily: 'DM Mono, monospace' }}>
-                                {trade.realized_gains >= 0 ? '+' : '−'}Rs.{toIndian(Math.abs(trade.realized_gains))}
-                              </div>
-                            ) : <span className="neutral">—</span>}
+                            {unrealised !== null
+                              ? <span style={{ color: unrealised >= 0 ? 'var(--bull)' : 'var(--bear)', fontWeight: 600 }}>{unrealised >= 0 ? '+' : '−'}₹{toIndian(Math.abs(unrealised))}</span>
+                              : <span className="neutral">—</span>}
                           </td>
-                          <td><span className={`badge badge-${trade.status.toLowerCase()}`}>{trade.status}</span></td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              {isOpen && (
-                                <button onClick={() => setClosingTrade(trade)} className="icon-btn exit" title="Close trade">✓</button>
-                              )}
-                              <button onClick={() => handleDelete(trade.id)} className="icon-btn del" title="Delete">×</button>
-                            </div>
+                          <td className="right">
+                            {trade.realized_gains != null
+                              ? <span style={{ color: trade.realized_gains >= 0 ? 'var(--bull)' : 'var(--bear)', fontWeight: 600 }}>{trade.realized_gains >= 0 ? '+' : '−'}₹{toIndian(Math.abs(trade.realized_gains))}</span>
+                              : <span className="neutral">—</span>}
+                          </td>
+                          <td style={{ textAlign: 'center', position: 'relative' }}>
+                            <button
+                              onClick={e => { e.stopPropagation(); setOpenMenu(openMenu === trade.id ? null : trade.id) }}
+                              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', color: 'var(--muted)', fontSize: '14px', letterSpacing: '2px' }}
+                            >···</button>
+                            {openMenu === trade.id && (
+                              <div onClick={e => e.stopPropagation()} style={{
+                                position: 'absolute', right: 0, top: '100%', zIndex: 100,
+                                background: 'var(--bg)', border: '1px solid var(--border)',
+                                borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                                minWidth: '130px', padding: '4px',
+                              }}>
+                                <button onClick={() => { setEditingTrade(trade); setOpenMenu(null) }} style={{
+                                  display: 'block', width: '100%', padding: '8px 12px', background: 'none',
+                                  border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: '12px',
+                                  color: 'var(--text)', borderRadius: '5px', fontFamily: 'DM Mono, monospace',
+                                }}>✏️ Edit</button>
+                                {isOpen && (
+                                  <button onClick={() => { setExitingTrade(trade); setOpenMenu(null) }} style={{
+                                    display: 'block', width: '100%', padding: '8px 12px', background: 'none',
+                                    border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: '12px',
+                                    color: 'var(--bull, #16a34a)', borderRadius: '5px', fontFamily: 'DM Mono, monospace',
+                                  }}>↗ Exit</button>
+                                )}
+                                <button onClick={() => { handleDelete(trade.id); setOpenMenu(null) }} style={{
+                                  display: 'block', width: '100%', padding: '8px 12px', background: 'none',
+                                  border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: '12px',
+                                  color: 'var(--bear, #dc2626)', borderRadius: '5px', fontFamily: 'DM Mono, monospace',
+                                }}>🗑 Delete</button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )
@@ -504,11 +588,18 @@ export default function AccountsPage() {
           onSave={handleAddTrade}
         />
       )}
-      {closingTrade && (
-        <CloseTradeModal
-          trade={closingTrade}
-          onClose={() => setClosingTrade(null)}
-          onConfirm={handleClose}
+      {exitingTrade && (
+        <ExitTradeModal
+          trade={exitingTrade}
+          onClose={() => setExitingTrade(null)}
+          onConfirm={handleExit}
+        />
+      )}
+      {editingTrade && (
+        <EditTradeModal
+          trade={editingTrade}
+          onClose={() => setEditingTrade(null)}
+          onSave={handleEdit}
         />
       )}
     </>
