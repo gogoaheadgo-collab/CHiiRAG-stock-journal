@@ -4,7 +4,6 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
 import AddTradeModal from '../components/AddTradeModal'
-import ExitTradeModal from '../components/ExitTradeModal'
 import EditTradeModal from '../components/EditTradeModal'
 import ExecutionPanel from '../components/ExecutionPanel'
 
@@ -29,7 +28,6 @@ export default function AccountsPage() {
   const [filter, setFilter] = useState('ALL')
   const [livePrices, setLivePrices] = useState({})
   const [showAdd, setShowAdd] = useState(false)
-  const [exitingTrade, setExitingTrade] = useState(null)
   const [editingTrade, setEditingTrade] = useState(null)
   const [openMenu, setOpenMenu] = useState(null)
   const [expandedTrade, setExpandedTrade] = useState(null)
@@ -132,23 +130,16 @@ export default function AccountsPage() {
     await loadData()
   }
 
-  const handleExit = async ({ exitPrice, exitQty, exitDate, realisedGain, remainingQty, isFullExit }) => {
-    const token = await getToken()
-    const trade = exitingTrade
-    await fetch('/api/trades', { method:'PUT', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-      body:JSON.stringify({ id:trade.id, status:'CLOSED', exit_price:exitPrice, exit_date:exitDate, quantity:exitQty, realized_gains:realisedGain }) })
-    if (!isFullExit && remainingQty > 0) {
-      await fetch('/api/trades', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-        body:JSON.stringify({ account:trade.account, ticker:trade.ticker, direction:trade.direction, entry_date:trade.entry_date, entry_price:trade.entry_price, quantity:remainingQty, invested_capital:trade.entry_price*remainingQty, mtf_interest_rate:trade.mtf_interest_rate, notes:trade.notes, status:'OPEN' }) })
-    }
-    setExitingTrade(null)
-    await loadData()
-  }
-
   const handleEdit = async (updates) => {
     const token = await getToken()
     await fetch('/api/trades', { method:'PUT', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:editingTrade.id, ...updates }) })
     setEditingTrade(null)
+    await loadData()
+  }
+
+  const handleAutoClose = async (tradeId, updates) => {
+    const token = await getToken()
+    await fetch('/api/trades', { method:'PUT', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:tradeId, ...updates }) })
     await loadData()
   }
 
@@ -317,7 +308,6 @@ export default function AccountsPage() {
                               {openMenu === trade.id && (
                                 <div onClick={e => e.stopPropagation()} style={{ position:'absolute', right:0, top:'100%', zIndex:100, background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', minWidth:'130px', padding:'4px' }}>
                                   <button onClick={() => { setEditingTrade(trade); setOpenMenu(null) }} style={{ display:'block', width:'100%', padding:'8px 12px', background:'none', border:'none', textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--text)', borderRadius:'5px', fontFamily:'DM Mono, monospace' }}>✏️ Edit</button>
-                                  {isOpen && <button onClick={() => { setExitingTrade(trade); setOpenMenu(null) }} style={{ display:'block', width:'100%', padding:'8px 12px', background:'none', border:'none', textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--bull)', borderRadius:'5px', fontFamily:'DM Mono, monospace' }}>↗ Exit</button>}
                                   <button onClick={() => { handleDelete(trade.id); setOpenMenu(null) }} style={{ display:'block', width:'100%', padding:'8px 12px', background:'none', border:'none', textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--bear)', borderRadius:'5px', fontFamily:'DM Mono, monospace' }}>🗑 Delete</button>
                                 </div>
                               )}
@@ -326,7 +316,7 @@ export default function AccountsPage() {
                           {expandedTrade === trade.id && (
                             <tr key={`exec-${trade.id}`}>
                               <td colSpan={13} style={{ padding:0, background:'var(--surface)', borderBottom:'2px solid var(--accent)' }}>
-                                <ExecutionPanel trade={trade} executions={executions[trade.id]||[]} onAdd={(exec) => addExecution(trade.id, exec)} onDelete={(execId) => deleteExecution(execId, trade.id)} />
+                                <ExecutionPanel trade={trade} executions={executions[trade.id]||[]} onAdd={(exec) => addExecution(trade.id, exec)} onDelete={(execId) => deleteExecution(execId, trade.id)} onAutoClose={(updates) => handleAutoClose(trade.id, updates)} />
                               </td>
                             </tr>
                           )}
@@ -342,7 +332,6 @@ export default function AccountsPage() {
       </main>
 
       {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAddTrade} />}
-      {exitingTrade && <ExitTradeModal trade={exitingTrade} onClose={() => setExitingTrade(null)} onConfirm={handleExit} />}
       {editingTrade && <EditTradeModal trade={editingTrade} onClose={() => setEditingTrade(null)} onSave={handleEdit} />}
     </>
   )
