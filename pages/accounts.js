@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+oimport { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
