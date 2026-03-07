@@ -65,7 +65,10 @@ export default function AccountsPage() {
     ])
     const tData = await tRes.json()
     const aData = await aRes.json()
-    if (Array.isArray(tData)) setTrades(tData)
+    if (Array.isArray(tData)) {
+      setTrades(tData)
+      fetchAllExecutions(tData)
+    }
     if (Array.isArray(aData)) {
       setAccounts(aData)
       if (aData.length > 0 && !activeAccount) setActiveAccount(aData[0].name)
@@ -102,6 +105,16 @@ export default function AccountsPage() {
     const res = await fetch(`/api/executions?trade_id=${tradeId}`, { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
     if (Array.isArray(data)) setExecutions(prev => ({ ...prev, [tradeId]:data }))
+  }
+
+  const fetchAllExecutions = async (tradeList) => {
+    const token = await getToken()
+    const results = await Promise.all(
+      tradeList.map(t => fetch(`/api/executions?trade_id=${t.id}`, { headers:{ Authorization:`Bearer ${token}` } }).then(r=>r.json()))
+    )
+    const map = {}
+    tradeList.forEach((t,i) => { if (Array.isArray(results[i])) map[t.id] = results[i] })
+    setExecutions(prev => ({ ...prev, ...map }))
   }
 
   const addExecution = async (tradeId, execution) => {
@@ -271,6 +284,7 @@ export default function AccountsPage() {
                       <th>Ticker</th><th>Direction</th><th>Entry Date</th>
                       <th className="right">Entry ₹</th><th className="right">CMP</th>
                       <th className="right">Exit ₹</th><th className="right">Qty</th>
+                      <th className="right">Current Qty</th>
                       <th className="right">Investment</th><th className="right">Actual Inv</th>
                       <th className="right">MTF Interest</th>
                       <th className="right">Unrealised P&L</th><th className="right">Realised P&L</th>
@@ -279,30 +293,60 @@ export default function AccountsPage() {
                   </thead>
                   <tbody>
                     {filtered.map(trade => {
-                      const isOpen = trade.status === 'OPEN'
+                      const execs = executions[trade.id] || []
+                      const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
+                      const originalQty = Number(trade.quantity) || 0
+                      const currentQty = Math.max(0, originalQty - totalSoldQty)
+                      const isClosed = currentQty === 0
+                      const isOpen = !isClosed
                       const lp = livePrices[trade.ticker]
-                      const days = trade.entry_date ? Math.max(1, differenceInDays(new Date(), new Date(trade.entry_date))) : 0
-                      const mtfBase = trade.invested_capital && trade.actual_investment ? trade.invested_capital - trade.actual_investment : null
-                      const mtfDays = trade.status==='CLOSED' && trade.exit_date ? Math.max(1, differenceInDays(new Date(trade.exit_date), new Date(trade.entry_date))) : days
-                      const mtfInt = mtfBase && mtfBase > 0 && trade.mtf_interest_rate ? (mtfBase * trade.mtf_interest_rate * mtfDays) / 36500 : null
-                      const unr = isOpen && lp?.price && trade.entry_price && trade.quantity ? (trade.direction==='LONG' ? (lp.price-trade.entry_price)*trade.quantity : (trade.entry_price-lp.price)*trade.quantity) : null
+                      const entryPrice = Number(trade.entry_price) || 0
+                      const investment = Number(trade.invested_capital) || 0
+                      const actualInv = Number(trade.actual_investment) || 0
+                      const mtfBase = investment - actualInv
+
+                      // Realised P&L = sum of (sell price - entry price) * sell qty
+                      const realisedPnL = execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
+
+                      // Unrealised P&L = (CMP - entry price) * current qty
+                      const cmp = lp?.price
+                      const unrealisedPnL = cmp && currentQty > 0
+                        ? (trade.direction==='LONG' ? (cmp - entryPrice)*currentQty : (entryPrice - cmp)*currentQty)
+                        : null
+
+                      // MTF Interest: per sell execution (entry→sell date) + remaining (entry→today)
+                      const mtfInt = mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date
+                        ? execs.reduce((s,e) => {
+                            const days = Math.max(1, Math.floor((new Date(e.date) - new Date(trade.entry_date)) / 86400000))
+                            return s + mtfBase * (Number(e.quantity)/originalQty) * trade.mtf_interest_rate * days / 36500
+                          }, 0) + (currentQty > 0
+                            ? mtfBase * (currentQty/originalQty) * trade.mtf_interest_rate * Math.max(1, Math.floor((new Date() - new Date(trade.entry_date)) / 86400000)) / 36500
+                            : 0)
+                        : null
+
+                      // Exit price = weighted avg of all sell executions (only when fully closed)
+                      const exitPrice = isClosed && execs.length > 0
+                        ? execs.reduce((s,e) => s + Number(e.price)*Number(e.quantity), 0) / totalSoldQty
+                        : trade.exit_price || null
+
                       return (
                         <>
                           <tr key={trade.id} className={isOpen?'row-open':'row-closed'} onClick={() => handleRowClick(trade.id)} style={{ cursor:'pointer' }}>
                             <td><span className="ticker-badge">{trade.ticker}</span></td>
                             <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                             <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                            <td className="right">₹{toINR(trade.entry_price)}</td>
+                            <td className="right">₹{toINR(entryPrice)}</td>
                             <td className="right">
                               {isOpen && lp ? <div><div style={{ fontWeight:600 }}>₹{toINR(lp.price)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
                             </td>
-                            <td className="right">{trade.exit_price ? `₹${toINR(trade.exit_price)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{toINR(trade.quantity)}</td>
-                            <td className="right">{trade.invested_capital ? `₹${toINR(trade.invested_capital)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{trade.actual_investment ? `₹${toINR(trade.actual_investment)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{exitPrice ? `₹${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{toINR(originalQty)}</td>
+                            <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
+                            <td className="right">{investment ? `₹${toINR(investment)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{actualInv ? `₹${toINR(actualInv)}` : <span className="neutral">—</span>}</td>
                             <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>₹{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{unr !== null ? <span style={{ color:unr>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unr>=0?'+':'−'}₹{toINR(Math.abs(unr))}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{trade.realized_gains != null ? <span style={{ color:trade.realized_gains>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{trade.realized_gains>=0?'+':'−'}₹{toINR(Math.abs(trade.realized_gains))}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}₹{toINR(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{execs.length>0 ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}₹{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                             <td style={{ textAlign:'center', position:'relative' }} onClick={e => e.stopPropagation()}>
                               <button onClick={e => { e.preventDefault(); e.stopPropagation(); setOpenMenu(prev => prev===trade.id ? null : trade.id) }} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
                               {openMenu === trade.id && (
@@ -315,7 +359,7 @@ export default function AccountsPage() {
                           </tr>
                           {expandedTrade === trade.id && (
                             <tr key={`exec-${trade.id}`}>
-                              <td colSpan={13} style={{ padding:0, background:'var(--surface)', borderBottom:'2px solid var(--accent)' }}>
+                              <td colSpan={14} style={{ padding:0, background:'var(--surface)', borderBottom:'2px solid var(--accent)' }}>
                                 <ExecutionPanel trade={trade} executions={executions[trade.id]||[]} onAdd={(exec) => addExecution(trade.id, exec)} onDelete={(execId) => deleteExecution(execId, trade.id)} onAutoClose={(updates) => handleAutoClose(trade.id, updates)} />
                               </td>
                             </tr>
