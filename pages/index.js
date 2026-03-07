@@ -138,6 +138,7 @@ export default function Home() {
 
   return (
     <>
+      <div className="tricolor-bar" />
       <Head><title>CHiiRAG Stock Journal</title></Head>
       <header className="header">
         <NavPill active="Main Page" />
@@ -154,8 +155,8 @@ export default function Home() {
 
         {/* Stat Cards */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px,1fr))', gap:'10px', marginBottom:'20px' }}>
-          <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}₹${fmt(totalRealised)}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} />
-          <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}₹${fmt(totalUnrealised)}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} />
+          <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}Rs${fmt(totalRealised)}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} />
+          <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs${fmt(totalUnrealised)}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} />
           <StatCard label="Open Trades" value={openTrades.length} />
           <StatCard label="Win Rate" value={winRate!==null ? `${winRate.toFixed(1)}%` : '—'} color="var(--accent)" sub={`${wins.length}W · ${closedTrades.length-wins.length}L`} />
         </div>
@@ -195,9 +196,9 @@ export default function Home() {
                   <th>Ticker</th>
                   <th>Direction</th>
                   <th>Entry Date</th>
-                  <th className="right">Entry ₹</th>
+                  <th className="right">Entry Rs</th>
                   <th className="right">CMP</th>
-                  <th className="right">Exit ₹</th>
+                  <th className="right">Exit Rs</th>
                   <th className="right">Qty</th>
                   <th className="right">Investment</th>
                   <th className="right">Actual Inv</th>
@@ -220,20 +221,20 @@ export default function Home() {
                       <td><div style={{ fontWeight:700 }}>{trade.ticker}</div><div style={{ fontSize:'9px', color:'var(--muted)' }}>NSE</div></td>
                       <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                       <td style={{ color:'var(--muted)', fontSize:'11px' }}>{trade.entry_date ? format(new Date(trade.entry_date),'dd MMM yy') : '—'}</td>
-                      <td className="right">₹{trade.entry_price?.toLocaleString('en-IN')}</td>
+                      <td className="right">Rs{trade.entry_price?.toLocaleString('en-IN')}</td>
                       <td className="right">
                         {isOpen ? fetchingPrice[trade.ticker] ? <span style={{ color:'var(--muted)' }}>...</span>
-                          : lp ? <div><div style={{ fontWeight:600 }}>₹{lp.price?.toLocaleString('en-IN')}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div>
+                          : lp ? <div><div style={{ fontWeight:600 }}>Rs{lp.price?.toLocaleString('en-IN')}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div>
                           : <span style={{ color:'var(--muted)' }}>—</span>
                         : <span style={{ color:'var(--muted)' }}>—</span>}
                       </td>
-                      <td className="right">{trade.exit_price ? `₹${trade.exit_price.toLocaleString('en-IN')}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td className="right">{trade.exit_price ? `Rs${trade.exit_price.toLocaleString('en-IN')}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
                       <td className="right">{trade.quantity?.toLocaleString('en-IN')}</td>
-                      <td className="right">{trade.invested_capital ? `₹${trade.invested_capital.toLocaleString('en-IN',{maximumFractionDigits:0})}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                      <td className="right">{trade.actual_investment ? `₹${trade.actual_investment.toLocaleString('en-IN',{maximumFractionDigits:0})}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                      <td className="right">{mtfInterest!=null ? <span style={{ color:'var(--gold)' }}>₹{mtfInterest.toLocaleString('en-IN',{maximumFractionDigits:0})}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                      <td className="right">{unrealised!==null ? <span style={{ color:unrealised>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealised>=0?'+':'−'}₹{fmt(unrealised)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                      <td className="right">{trade.realized_gains!=null ? <span style={{ color:trade.realized_gains>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{trade.realized_gains>=0?'+':'−'}₹{fmt(trade.realized_gains)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td className="right">{trade.invested_capital ? `Rs${trade.invested_capital.toLocaleString('en-IN',{maximumFractionDigits:0})}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td className="right">{trade.actual_investment ? `Rs${trade.actual_investment.toLocaleString('en-IN',{maximumFractionDigits:0})}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td className="right">{mtfInterest!=null ? <span style={{ color:'var(--gold)' }}>Rs{mtfInterest.toLocaleString('en-IN',{maximumFractionDigits:0})}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td className="right">{unrealised!==null ? <span style={{ color:unrealised>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealised>=0?'+':'−'}Rs{fmt(unrealised)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td className="right">{trade.realized_gains!=null ? <span style={{ color:trade.realized_gains>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{trade.realized_gains>=0?'+':'−'}Rs{fmt(trade.realized_gains)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
                     </tr>
                   )
                 })}
