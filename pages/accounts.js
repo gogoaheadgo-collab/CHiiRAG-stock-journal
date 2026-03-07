@@ -119,13 +119,19 @@ export default function AccountsPage() {
 
   const addExecution = async (tradeId, execution) => {
     const token = await getToken()
-    await fetch('/api/executions', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ trade_id:tradeId, ...execution }) })
+    const res = await fetch('/api/executions', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ trade_id:tradeId, ...execution }) })
+    const text = await res.text()
+    let data
+    try { data = JSON.parse(text) } catch { throw new Error('Server error - check executions API exists') }
+    if (data.error) throw new Error(data.error)
     await fetchExecutions(tradeId)
   }
 
   const deleteExecution = async (execId, tradeId) => {
     const token = await getToken()
-    await fetch('/api/executions', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:execId }) })
+    const res = await fetch('/api/executions', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:execId }) })
+    const text = await res.text()
+    try { const d = JSON.parse(text); if (d.error) throw new Error(d.error) } catch {}
     await fetchExecutions(tradeId)
   }
 
