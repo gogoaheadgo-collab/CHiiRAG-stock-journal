@@ -1,3 +1,5 @@
+
+
 import { useState } from 'react'
 
 function ExecutionPanel({ trade, executions, onAdd, onDelete }) {
