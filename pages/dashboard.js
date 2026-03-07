@@ -15,6 +15,7 @@ function NavPill({ active }) {
       {[
         { label: 'Dashboard', path: '/dashboard' },
         { label: 'Accounts', path: '/accounts' },
+        { label: 'Main Page', path: '/' },
       ].map(({ label, path }) => (
         <button key={path} onClick={() => router.push(path)} style={{
           padding: '7px 22px', borderRadius: '6px', border: 'none', cursor: 'pointer',
