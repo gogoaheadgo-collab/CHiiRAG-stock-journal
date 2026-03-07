@@ -326,24 +326,18 @@ export default function Home() {
             <table className="trade-table">
               <thead>
                 <tr>
-                  <th>Account</th>
                   <th>Ticker</th>
-                  <th>Status</th>
-                  <th>Dir.</th>
+                  <th>Direction</th>
                   <th>Entry Date</th>
                   <th className="right">Entry ₹</th>
-                  <th className="right">CMP ₹</th>
+                  <th className="right">CMP</th>
                   <th className="right">Exit ₹</th>
                   <th className="right">Qty</th>
-                  <th className="right">Invested ₹</th>
-                  <th className="right">Pos. Size</th>
-                  <th className="right">Unrealised</th>
-                  <th className="right">Realised</th>
-                  <th>Duration</th>
-                  <th className="right">MTF Value ₹</th>
-                  <th className="right">MTF Interest ₹</th>
-                  <th>Exit Date</th>
-                  <th>Actions</th>
+                  <th className="right">Investment</th>
+                  <th className="right">Actual Inv</th>
+                  <th className="right">MTF Interest</th>
+                  <th className="right">Unrealised P&L</th>
+                  <th className="right">Realised P&L</th>
                 </tr>
               </thead>
               <tbody>
@@ -359,53 +353,24 @@ export default function Home() {
                       : (trade.entry_price - lp.price) * trade.quantity
                     : null
 
-                  const unrealisedPct = unrealised !== null && trade.invested_capital > 0
-                    ? (unrealised / trade.invested_capital) * 100 : null
-
-                  // Duration
-                  const start = new Date(trade.entry_date)
-                  const end = trade.exit_date ? new Date(trade.exit_date) : new Date()
-                  const days = Math.max(0, differenceInDays(end, start))
-
-                  // MTF Interest
+                  const days = Math.max(0, differenceInDays(
+                    trade.exit_date ? new Date(trade.exit_date) : new Date(),
+                    new Date(trade.entry_date)
+                  ))
                   const mtfInterest = trade.mtf_value && trade.mtf_interest_rate
-                    ? (trade.mtf_value * trade.mtf_interest_rate * days) / 36500
-                    : null
-
-                  // Position size (% of total invested)
-                  const posSize = totalInvested > 0 && trade.invested_capital
-                    ? (trade.invested_capital / totalInvested) * 100 : null
+                    ? (trade.mtf_value * trade.mtf_interest_rate * days) / 36500 : null
 
                   return (
                     <tr key={trade.id}>
-                      {/* Account */}
-                      <td>
-                        <span style={{ fontSize: '11px', color: 'var(--accent)', background: 'rgba(0,212,255,0.07)', padding: '2px 7px', borderRadius: '2px', border: '1px solid rgba(0,212,255,0.15)' }}>
-                          {trade.account || '—'}
-                        </span>
-                      </td>
-
-                      {/* Ticker */}
                       <td>
                         <div className="ticker-symbol">{trade.ticker}</div>
                         <div className="ticker-exchange">NSE</div>
                       </td>
-
-                      {/* Status */}
-                      <td><span className={`badge badge-${trade.status.toLowerCase()}`}>{trade.status}</span></td>
-
-                      {/* Direction */}
                       <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
-
-                      {/* Entry Date */}
                       <td style={{ color: 'var(--muted)', fontSize: '11px' }}>
                         {trade.entry_date ? format(new Date(trade.entry_date), 'dd MMM yy') : '—'}
                       </td>
-
-                      {/* Entry Price */}
                       <td className="right">₹{trade.entry_price?.toLocaleString('en-IN')}</td>
-
-                      {/* CMP */}
                       <td className="right">
                         {isOpen ? (
                           fetchingPrice[trade.ticker] ? (
@@ -420,97 +385,34 @@ export default function Home() {
                           ) : <span style={{ color: 'var(--muted)' }}>—</span>
                         ) : <span style={{ color: 'var(--muted)' }}>—</span>}
                       </td>
-
-                      {/* Exit Price */}
                       <td className="right">
                         {trade.exit_price ? `₹${trade.exit_price.toLocaleString('en-IN')}` : <span style={{ color: 'var(--muted)' }}>—</span>}
                       </td>
-
-                      {/* Qty */}
                       <td className="right">{trade.quantity?.toLocaleString('en-IN')}</td>
-
-                      {/* Invested Capital */}
                       <td className="right">
-                        {trade.invested_capital
-                          ? `₹${trade.invested_capital.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
-                          : '—'}
+                        {trade.invested_capital ? `₹${trade.invested_capital.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : <span style={{ color: 'var(--muted)' }}>—</span>}
                       </td>
-
-                      {/* Pos Size */}
                       <td className="right">
-                        {posSize !== null && isOpen
-                          ? <span style={{ color: 'var(--muted)' }}>{posSize.toFixed(1)}%</span>
+                        {trade.actual_investment ? `₹${trade.actual_investment.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : <span style={{ color: 'var(--muted)' }}>—</span>}
+                      </td>
+                      <td className="right">
+                        {mtfInterest != null
+                          ? <span style={{ color: 'var(--gold)', fontWeight: 500 }}>₹{mtfInterest.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                           : <span style={{ color: 'var(--muted)' }}>—</span>}
                       </td>
-
-                      {/* Unrealised Gains */}
                       <td className="right">
-                        {unrealised !== null ? (
-                          <div>
-                            <div className={unrealised >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 500 }}>
+                        {unrealised !== null
+                          ? <span className={unrealised >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 500 }}>
                               {unrealised >= 0 ? '+' : '−'}₹{Math.abs(unrealised).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                            </div>
-                            <div className={unrealisedPct >= 0 ? 'profit' : 'loss'} style={{ fontSize: '10px', opacity: 0.7 }}>
-                              {unrealisedPct >= 0 ? '+' : ''}{unrealisedPct?.toFixed(2)}%
-                            </div>
-                          </div>
-                        ) : <span style={{ color: 'var(--muted)' }}>—</span>}
-                      </td>
-
-                      {/* Realised Gains */}
-                      <td className="right">
-                        {trade.realized_gains != null ? (
-                          <span className={trade.realized_gains >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 500 }}>
-                            {trade.realized_gains >= 0 ? '+' : '−'}₹{Math.abs(trade.realized_gains).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                          </span>
-                        ) : <span style={{ color: 'var(--muted)' }}>—</span>}
-                      </td>
-
-                      {/* Duration */}
-                      <td style={{ color: 'var(--muted)', fontSize: '11px' }}>{days}d</td>
-
-                      {/* MTF Value */}
-                      <td className="right">
-                        {trade.mtf_value
-                          ? <span style={{ color: 'var(--gold)' }}>₹{trade.mtf_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                            </span>
                           : <span style={{ color: 'var(--muted)' }}>—</span>}
                       </td>
-
-                      {/* MTF Interest */}
                       <td className="right">
-                        {mtfInterest != null ? (
-                          <div>
-                            <div style={{ color: 'var(--gold)', fontWeight: 500 }}>
-                              ₹{mtfInterest.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                            </div>
-                            <div style={{ fontSize: '9.5px', color: 'var(--muted)' }}>
-                              {trade.mtf_interest_rate}% p.a.
-                            </div>
-                          </div>
-                        ) : <span style={{ color: 'var(--muted)' }}>—</span>}
-                      </td>
-
-                      {/* Exit Date */}
-                      <td style={{ color: 'var(--muted)', fontSize: '11px' }}>
-                        {trade.exit_date ? format(new Date(trade.exit_date), 'dd MMM yy') : '—'}
-                      </td>
-
-                      {/* Actions */}
-                      <td>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          {isOpen && (
-                            <button
-                              onClick={() => setClosingTrade(trade)}
-                              className="icon-btn exit"
-                              title="Exit trade"
-                            >✓</button>
-                          )}
-                          <button
-                            onClick={() => handleDelete(trade.id)}
-                            className="icon-btn del"
-                            title="Delete"
-                          >×</button>
-                        </div>
+                        {trade.realized_gains != null
+                          ? <span className={trade.realized_gains >= 0 ? 'profit' : 'loss'} style={{ fontWeight: 500 }}>
+                              {trade.realized_gains >= 0 ? '+' : '−'}₹{Math.abs(trade.realized_gains).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                            </span>
+                          : <span style={{ color: 'var(--muted)' }}>—</span>}
                       </td>
                     </tr>
                   )
@@ -526,7 +428,6 @@ export default function Home() {
       </main>
 
       {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAdd} />}
-      {closingTrade && <CloseTradeModal trade={closingTrade} onClose={() => setClosingTrade(null)} onConfirm={handleClose} />}
     </>
   )
 }
