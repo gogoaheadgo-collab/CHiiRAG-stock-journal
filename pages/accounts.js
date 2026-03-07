@@ -243,6 +243,12 @@ export default function AccountsPage() {
   }, [trades, activeAccount, session])
 
   useEffect(() => { const t = setInterval(() => setCountdown(c => c<=1?60:c-1), 1000); return ()=>clearInterval(t) }, [])
+
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenu(null)
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
   useEffect(() => { if (countdown===60 && session && activeAccount) { const s=[...new Set(trades.filter(t=>t.status==='OPEN'&&t.account===activeAccount).map(t=>t.ticker))]; s.forEach(fetchPrice) } }, [countdown])
 
   const handleAddTrade = async (tradeData) => {
@@ -333,7 +339,7 @@ export default function AccountsPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth:'1400px', margin:'0 auto', padding:'20px 16px' }} onClick={() => setOpenMenu(null)}>
+      <main style={{ maxWidth:'1400px', margin:'0 auto', padding:'20px 16px' }}>
 
         {/* Account Tabs */}
         <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'20px', flexWrap:'wrap' }}>
@@ -429,7 +435,7 @@ export default function AccountsPage() {
                           <td className="right">{unr!==null?<span style={{ color:unr>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unr>=0?'+':'−'}₹{toINR(Math.abs(unr))}</span>:<span className="neutral">—</span>}</td>
                           <td className="right">{trade.realized_gains!=null?<span style={{ color:trade.realized_gains>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{trade.realized_gains>=0?'+':'−'}₹{toINR(Math.abs(trade.realized_gains))}</span>:<span className="neutral">—</span>}</td>
                           <td style={{ textAlign:'center', position:'relative' }} onClick={e=>e.stopPropagation()}>
-                            <button onClick={e=>{e.stopPropagation();setOpenMenu(openMenu===trade.id?null:trade.id)}} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
+                            <button onClick={e=>{e.preventDefault();e.stopPropagation();setOpenMenu(prev=>prev===trade.id?null:trade.id)}} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
                             {openMenu===trade.id && (
                               <div onClick={e=>e.stopPropagation()} style={{ position:'absolute', right:0, top:'100%', zIndex:100, background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', minWidth:'130px', padding:'4px' }}>
                                 <button onClick={()=>{setEditingTrade(trade);setOpenMenu(null)}} style={{ display:'block', width:'100%', padding:'8px 12px', background:'none', border:'none', textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--text)', borderRadius:'5px', fontFamily:'DM Mono, monospace' }}>✏️ Edit</button>
@@ -449,7 +455,7 @@ export default function AccountsPage() {
         )}
       </main>
 
-      {showAdd && <AddTradeModal accounts={accounts} defaultAccount={activeAccount} onClose={() => setShowAdd(false)} onSave={handleAddTrade} />}
+      {showAdd && <AddTradeModal session={session} accounts={accounts} defaultAccount={activeAccount} onClose={() => setShowAdd(false)} onAdd={handleAddTrade} />}
       {exitingTrade && <ExitModal trade={exitingTrade} onClose={() => setExitingTrade(null)} onConfirm={handleExit} />}
       {editingTrade && <EditModal trade={editingTrade} onClose={() => setEditingTrade(null)} onSave={handleEdit} />}
     </>
