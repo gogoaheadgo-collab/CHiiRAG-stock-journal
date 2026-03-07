@@ -213,10 +213,20 @@ export default function AccountsPage() {
 
   return (
     <>
+      <div className="tricolor-bar" />
       <Head><title>Accounts — CHiiRAG Stock Journal</title></Head>
       <header className="header">
         <NavPill active="Accounts" />
-        <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
+        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+          <div className="india-flag-logo-sm">
+            <div style={{ flex:1, background:'#FF9933' }} />
+            <div style={{ flex:1, background:'#ffffff', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{ width:'8px', height:'8px', borderRadius:'50%', border:'1.5px solid #000080' }} />
+            </div>
+            <div style={{ flex:1, background:'#138808' }} />
+          </div>
+          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
+        </div>
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
           {openTrades.length > 0 && <span style={{ fontSize:'10px', color:'var(--muted)' }}>↻ {countdown}s</span>}
           <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding:'6px 14px', fontSize:'11px' }}>+ New Trade</button>
@@ -258,10 +268,10 @@ export default function AccountsPage() {
             {/* Stats */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px,1fr))', gap:'10px', marginBottom:'16px' }}>
               {[
-                { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}₹${toINR(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)' },
+                { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}Rs${toINR(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)' },
                 { label:'Open Positions', value:openTrades.length, color:'var(--accent)' },
                 { label:'Closed Trades', value:closedTrades.length },
-                { label:'MTF Interest', value:`₹${toINRd(totalMTF)}`, color:'var(--gold)' },
+                { label:'MTF Interest', value:`Rs${toINRd(totalMTF)}`, color:'var(--gold)' },
               ].map(s => (
                 <div key={s.label} className="stat-card">
                   <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'6px' }}>{s.label}</div>
@@ -288,8 +298,8 @@ export default function AccountsPage() {
                   <thead>
                     <tr>
                       <th>Ticker</th><th>Direction</th><th>Entry Date</th>
-                      <th className="right">Entry ₹</th><th className="right">CMP</th>
-                      <th className="right">Exit ₹</th><th className="right">Qty</th>
+                      <th className="right">Entry Rs</th><th className="right">CMP</th>
+                      <th className="right">Exit Rs</th><th className="right">Qty</th>
                       <th className="right">Current Qty</th>
                       <th className="right">Investment</th><th className="right">Actual Inv</th>
                       <th className="right">MTF Interest</th>
@@ -341,18 +351,18 @@ export default function AccountsPage() {
                             <td><span className="ticker-badge">{trade.ticker}</span></td>
                             <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                             <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                            <td className="right">₹{toINR(entryPrice)}</td>
+                            <td className="right">Rs{toINR(entryPrice)}</td>
                             <td className="right">
-                              {isOpen && lp ? <div><div style={{ fontWeight:600 }}>₹{toINR(lp.price)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
+                              {isOpen && lp ? <div><div style={{ fontWeight:600 }}>Rs{toINR(lp.price)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
                             </td>
-                            <td className="right">{exitPrice ? `₹${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{exitPrice ? `Rs${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
                             <td className="right">{toINR(originalQty)}</td>
                             <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                            <td className="right">{investment ? `₹${toINR(investment)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{actualInv ? `₹${toINR(actualInv)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>₹{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}₹{toINR(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{execs.length>0 ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}₹{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{investment ? `Rs${toINR(investment)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{actualInv ? `Rs${toINR(actualInv)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINR(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{execs.length>0 ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                             <td style={{ textAlign:'center', position:'relative' }} onClick={e => e.stopPropagation()}>
                               <button onClick={e => { e.preventDefault(); e.stopPropagation(); setOpenMenu(prev => prev===trade.id ? null : trade.id) }} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
                               {openMenu === trade.id && (
