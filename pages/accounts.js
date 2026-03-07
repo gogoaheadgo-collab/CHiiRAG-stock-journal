@@ -4,6 +4,7 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import AddTradeModal from '../components/AddTradeModal'
 import { differenceInDays } from 'date-fns'
+import ExecutionPanel from '../components/ExecutionPanel'
 
 function NavPill({ active }) {
   const router = useRouter()
@@ -185,6 +186,8 @@ function EditModal({ trade, onClose, onSave }) {
   )
 }
 
+
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function AccountsPage() {
   const router = useRouter()
@@ -199,6 +202,8 @@ export default function AccountsPage() {
   const [exitingTrade, setExitingTrade] = useState(null)
   const [editingTrade, setEditingTrade] = useState(null)
   const [openMenu, setOpenMenu] = useState(null)
+  const [expandedTrade, setExpandedTrade] = useState(null)
+  const [executions, setExecutions] = useState({})
   const [showNewAccount, setShowNewAccount] = useState(false)
   const [newAccountName, setNewAccountName] = useState('')
   const [countdown, setCountdown] = useState(60)
@@ -210,6 +215,31 @@ export default function AccountsPage() {
   }, [])
 
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
+
+  const fetchExecutions = async (tradeId) => {
+    const token = await getToken()
+    const res = await fetch(`/api/executions?trade_id=${tradeId}`, { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (Array.isArray(data)) setExecutions(prev => ({ ...prev, [tradeId]: data }))
+  }
+
+  const addExecution = async (tradeId, execution) => {
+    const token = await getToken()
+    await fetch('/api/executions', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ trade_id:tradeId, ...execution }) })
+    await fetchExecutions(tradeId)
+  }
+
+  const deleteExecution = async (execId, tradeId) => {
+    const token = await getToken()
+    await fetch('/api/executions', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:execId }) })
+    await fetchExecutions(tradeId)
+  }
+
+  const handleRowClick = (tradeId) => {
+    if (expandedTrade === tradeId) { setExpandedTrade(null); return }
+    setExpandedTrade(tradeId)
+    if (!executions[tradeId]) fetchExecutions(tradeId)
+  }
 
   const loadData = useCallback(async () => {
     if (!session) return
@@ -320,8 +350,11 @@ export default function AccountsPage() {
   const closedTrades = accountTrades.filter(t => t.status==='CLOSED')
   const totalRealised = closedTrades.reduce((s,t) => s+(t.realized_gains||0), 0)
   const totalMTF = openTrades.reduce((s,t) => {
-    if (!t.mtf_value||!t.mtf_interest_rate||!t.entry_date) return s
-    return s+(t.mtf_value*t.mtf_interest_rate*Math.max(1,differenceInDays(new Date(),new Date(t.entry_date))))/36500
+    if (!t.mtf_interest_rate||!t.entry_date||!t.invested_capital||!t.actual_investment) return s
+    const mtfBase2 = t.invested_capital - t.actual_investment
+    if (mtfBase2<=0) return s
+    const endDate = t.status==='CLOSED'&&t.exit_date ? new Date(t.exit_date) : new Date()
+    return s+(mtfBase2*t.mtf_interest_rate*Math.max(1,differenceInDays(endDate,new Date(t.entry_date))))/36500
   }, 0)
 
   if (!session) return null
@@ -416,10 +449,12 @@ export default function AccountsPage() {
                       const isOpen = trade.status==='OPEN'
                       const lp = livePrices[trade.ticker]
                       const days = trade.entry_date ? Math.max(1,differenceInDays(new Date(),new Date(trade.entry_date))) : 0
-                      const mtfInt = trade.mtf_value&&trade.mtf_interest_rate ? (trade.mtf_value*trade.mtf_interest_rate*days)/36500 : null
+                      const mtfBase = trade.invested_capital && trade.actual_investment ? trade.invested_capital - trade.actual_investment : null
+                      const mtfDays = trade.status==='CLOSED'&&trade.exit_date ? Math.max(1,differenceInDays(new Date(trade.exit_date),new Date(trade.entry_date))) : days
+                      const mtfInt = mtfBase && mtfBase>0 && trade.mtf_interest_rate ? (mtfBase*trade.mtf_interest_rate*mtfDays)/36500 : null
                       const unr = isOpen&&lp?.price&&trade.entry_price&&trade.quantity ? (trade.direction==='LONG'?(lp.price-trade.entry_price)*trade.quantity:(trade.entry_price-lp.price)*trade.quantity) : null
                       return (
-                        <tr key={trade.id} className={isOpen?'row-open':'row-closed'}>
+                        <tr key={trade.id} className={isOpen?'row-open':'row-closed'} onClick={() => handleRowClick(trade.id)} style={{ cursor:'pointer' }}>
                           <td><span className="ticker-badge">{trade.ticker}</span></td>
                           <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                           <td className="muted">{trade.entry_date?.slice(0,10)}</td>
@@ -445,6 +480,18 @@ export default function AccountsPage() {
                             )}
                           </td>
                         </tr>
+                        {expandedTrade===trade.id && (
+                          <tr key={`exec-${trade.id}`}>
+                            <td colSpan={13} style={{ padding:0, background:'var(--surface)', borderBottom:'2px solid var(--accent)' }}>
+                              <ExecutionPanel
+                                trade={trade}
+                                executions={executions[trade.id]||[]}
+                                onAdd={(exec) => addExecution(trade.id, exec)}
+                                onDelete={(execId) => deleteExecution(execId, trade.id)}
+                              />
+                            </td>
+                          </tr>
+                        )}
                       )
                     })}
                   </tbody>
