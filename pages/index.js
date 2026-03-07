@@ -18,6 +18,7 @@ function NavPill({ active }) {
       {[
         { label: 'Dashboard', path: '/dashboard' },
         { label: 'Accounts', path: '/accounts' },
+        { label: 'Main Page', path: '/' },
       ].map(({ label, path }) => (
         <button key={path} onClick={() => router.push(path)} style={{
           padding: '5px 18px', borderRadius: '5px', border: 'none', cursor: 'pointer',
@@ -249,7 +250,7 @@ export default function Home() {
 
       {/* ── Header ── */}
       <header className="header">
-        <NavPill active={null} />
+        <NavPill active="Main Page" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
             width: '30px', height: '30px', borderRadius: '6px',
