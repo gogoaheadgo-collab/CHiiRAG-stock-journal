@@ -446,7 +446,6 @@ export default function AccountsPage() {
                   </thead>
                   <tbody>
                     {filtered.map(trade => {
-                      const isOpen = trade.status==='OPEN'
                       const lp = livePrices[trade.ticker]
                       const days = trade.entry_date ? Math.max(1,differenceInDays(new Date(),new Date(trade.entry_date))) : 0
                       const mtfBase = trade.invested_capital && trade.actual_investment ? trade.invested_capital - trade.actual_investment : null
@@ -454,6 +453,7 @@ export default function AccountsPage() {
                       const mtfInt = mtfBase && mtfBase>0 && trade.mtf_interest_rate ? (mtfBase*trade.mtf_interest_rate*mtfDays)/36500 : null
                       const unr = isOpen&&lp?.price&&trade.entry_price&&trade.quantity ? (trade.direction==='LONG'?(lp.price-trade.entry_price)*trade.quantity:(trade.entry_price-lp.price)*trade.quantity) : null
                       return (
+                        <>
                         <tr key={trade.id} className={isOpen?'row-open':'row-closed'} onClick={() => handleRowClick(trade.id)} style={{ cursor:'pointer' }}>
                           <td><span className="ticker-badge">{trade.ticker}</span></td>
                           <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
@@ -480,18 +480,19 @@ export default function AccountsPage() {
                             )}
                           </td>
                         </tr>
-                        {expandedTrade===trade.id && (
-                          <tr key={`exec-${trade.id}`}>
-                            <td colSpan={13} style={{ padding:0, background:'var(--surface)', borderBottom:'2px solid var(--accent)' }}>
-                              <ExecutionPanel
-                                trade={trade}
-                                executions={executions[trade.id]||[]}
-                                onAdd={(exec) => addExecution(trade.id, exec)}
-                                onDelete={(execId) => deleteExecution(execId, trade.id)}
-                              />
-                            </td>
-                          </tr>
-                        )}
+                          {expandedTrade===trade.id && (
+                            <tr key={`exec-${trade.id}`}>
+                              <td colSpan={13} style={{ padding:0, background:'var(--surface)', borderBottom:'2px solid var(--accent)' }}>
+                                <ExecutionPanel
+                                  trade={trade}
+                                  executions={executions[trade.id]||[]}
+                                  onAdd={(exec) => addExecution(trade.id, exec)}
+                                  onDelete={(execId) => deleteExecution(execId, trade.id)}
+                                />
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       )
                     })}
                   </tbody>
