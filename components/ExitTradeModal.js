@@ -1,5 +1,3 @@
-
-
 import { useState } from 'react'
 
 export default function ExitTradeModal({ trade, onClose, onConfirm }) {
@@ -85,7 +83,7 @@ export default function ExitTradeModal({ trade, onClose, onConfirm }) {
               Exit Trade
             </div>
             <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
-              {trade.ticker} · {trade.direction} · {totalQty} shares @ ₹{entryPrice.toLocaleString('en-IN')}
+              {trade.ticker} · {trade.direction} · {totalQty} shares @ Rs{entryPrice.toLocaleString('en-IN')}
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--muted)', cursor: 'pointer' }}>×</button>
@@ -122,14 +120,14 @@ export default function ExitTradeModal({ trade, onClose, onConfirm }) {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--muted)' }}>Realised ({eq} shares)</span>
                 <span style={{ fontWeight: 700, color: col(realisedGain) }}>
-                  {sign(realisedGain)}₹{fmt(realisedGain)}
+                  {sign(realisedGain)}Rs{fmt(realisedGain)}
                 </span>
               </div>
               {!isFullExit && unrealisedGain !== null && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--muted)' }}>Unrealised ({remainingQty} remaining)</span>
                   <span style={{ fontWeight: 700, color: col(unrealisedGain) }}>
-                    {sign(unrealisedGain)}₹{fmt(unrealisedGain)}
+                    {sign(unrealisedGain)}Rs{fmt(unrealisedGain)}
                   </span>
                 </div>
               )}
