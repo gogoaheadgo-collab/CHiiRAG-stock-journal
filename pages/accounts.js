@@ -260,11 +260,25 @@ export default function AccountsPage() {
 
   const handleExit = async ({ exitPriceNum, exitQtyNum, exitDate, realisedGain, remainingQty, isFullExit }) => {
     const token = await getToken(); const trade = exitingTrade
-    await fetch('/api/trades', { method:'PUT', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-      body:JSON.stringify({ id:trade.id, status:'CLOSED', exit_price:exitPriceNum, exit_date:exitDate, quantity:exitQtyNum, realized_gains:realisedGain }) })
-    if (!isFullExit && remainingQty>0) {
-      await fetch('/api/trades', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-        body:JSON.stringify({ account:trade.account, ticker:trade.ticker, direction:trade.direction, entry_date:trade.entry_date, entry_price:trade.entry_price, quantity:remainingQty, invested_capital:trade.entry_price*remainingQty, mtf_value:trade.mtf_value?(trade.mtf_value/trade.quantity)*remainingQty:null, mtf_interest_rate:trade.mtf_interest_rate, notes:trade.notes, status:'OPEN' }) })
+    if (isFullExit) {
+      // Full exit — close the trade completely
+      await fetch('/api/trades', { method:'PUT', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+        body:JSON.stringify({ id:trade.id, status:'CLOSED', exit_price:exitPriceNum, exit_date:exitDate, quantity:exitQtyNum, realized_gains:realisedGain }) })
+    } else {
+      // Partial exit — update same row: remaining qty, keep OPEN, store realised gain, store exit info
+      const unrealisedGain = trade.direction==='LONG'
+        ? (exitPriceNum - trade.entry_price) * remainingQty
+        : (trade.entry_price - exitPriceNum) * remainingQty
+      await fetch('/api/trades', { method:'PUT', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+        body:JSON.stringify({
+          id: trade.id,
+          quantity: remainingQty,
+          invested_capital: trade.entry_price * remainingQty,
+          exit_price: exitPriceNum,
+          exit_date: exitDate,
+          realized_gains: (trade.realized_gains || 0) + realisedGain,
+          status: 'OPEN',
+        }) })
     }
     await loadData()
   }
