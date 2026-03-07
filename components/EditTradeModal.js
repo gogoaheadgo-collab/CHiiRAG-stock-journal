@@ -118,7 +118,7 @@ export default function EditTradeModal({ trade, onClose, onSave }) {
             <input type="date" value={form.entry_date} onChange={e => set('entry_date', e.target.value)} style={field} />
           </div>
           <div>
-            <label style={label}>Entry Price ₹ *</label>
+            <label style={label}>Entry Price Rs *</label>
             <input type="number" value={form.entry_price} onChange={e => set('entry_price', e.target.value)}
               placeholder="0.00" style={field} step="0.01" min="0" />
           </div>
@@ -132,7 +132,7 @@ export default function EditTradeModal({ trade, onClose, onSave }) {
         {investedCapital && (
           <div style={{ marginTop: '10px', padding: '8px 12px', background: 'var(--surface)', borderRadius: '6px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Invested Capital</span>
-            <span style={{ color: 'var(--accent)', fontWeight: 600, fontFamily: 'DM Mono, monospace' }}>₹{investedCapital.toLocaleString('en-IN')}</span>
+            <span style={{ color: 'var(--accent)', fontWeight: 600, fontFamily: 'DM Mono, monospace' }}>Rs{investedCapital.toLocaleString('en-IN')}</span>
           </div>
         )}
 
@@ -140,7 +140,7 @@ export default function EditTradeModal({ trade, onClose, onSave }) {
         <div style={section}>MTF Details <span style={{ color: 'var(--muted)', fontWeight: 400, textTransform: 'none', fontSize: '10px' }}>(optional)</span></div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div>
-            <label style={label}>MTF Value ₹</label>
+            <label style={label}>MTF Value Rs</label>
             <input type="number" value={form.mtf_value} onChange={e => set('mtf_value', e.target.value)}
               placeholder="MTF amount" style={field} step="0.01" min="0" />
           </div>
