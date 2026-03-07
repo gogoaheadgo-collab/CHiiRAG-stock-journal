@@ -77,7 +77,7 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', flexWrap:'wrap', gap:'8px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
           <span style={{ fontSize:'11px', fontWeight:700, color:'var(--accent)', letterSpacing:'0.12em', textTransform:'uppercase' }}>Sell Executions — {trade.ticker}</span>
-          <span style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>Entry ₹{entryPrice.toLocaleString('en-IN')} · Qty {fmt(totalQty)} · Remaining <strong style={{ color:remainingQty===0?'var(--bear)':'var(--bull)' }}>{fmt(remainingQty)}</strong></span>
+          <span style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>Entry Rs{entryPrice.toLocaleString('en-IN')} · Qty {fmt(totalQty)} · Remaining <strong style={{ color:remainingQty===0?'var(--bear)':'var(--bull)' }}>{fmt(remainingQty)}</strong></span>
           {mtfRate > 0 && <span style={{ fontSize:'10px', color:'var(--gold)', background:'rgba(245,158,11,0.1)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>MTF {mtfRate}% p.a.</span>}
         </div>
         {remainingQty > 0 && (
@@ -92,7 +92,7 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
         <div style={{ padding:'14px', background:'var(--surface)', borderRadius:'8px', border:'1px solid var(--border)', marginBottom:'14px' }} onClick={e=>e.stopPropagation()}>
           <div style={{ display:'flex', gap:'12px', flexWrap:'wrap', alignItems:'flex-end' }}>
             <div><label style={lbl}>Sell Qty * (max {fmt(remainingQty)})</label><input type="number" placeholder={String(remainingQty)} value={qty} onChange={e=>setQty(e.target.value)} style={fld} autoFocus /></div>
-            <div><label style={lbl}>Sell Price ₹ *</label><input type="number" placeholder="0.00" value={price} onChange={e=>setPrice(e.target.value)} style={fld} /></div>
+            <div><label style={lbl}>Sell Price Rs *</label><input type="number" placeholder="0.00" value={price} onChange={e=>setPrice(e.target.value)} style={fld} /></div>
             <div><label style={lbl}>Sell Date *</label><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ ...fld, width:'150px' }} /></div>
             <button onClick={handleSell} disabled={saving} style={{ padding:'7px 24px', background:'var(--bear)', border:'none', borderRadius:'5px', color:'#fff', fontSize:'13px', fontWeight:700, cursor:saving?'not-allowed':'pointer', fontFamily:'DM Mono, monospace', opacity:saving?0.7:1 }}>
               {saving ? 'Saving...' : 'Sell'}
@@ -101,8 +101,8 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
           {/* Preview */}
           {realisedPreview !== null && (
             <div style={{ marginTop:'10px', display:'flex', gap:'20px', fontSize:'11px', fontFamily:'DM Mono, monospace', flexWrap:'wrap' }}>
-              <span>Realised P&L: <strong style={{ color:pnlColor(realisedPreview) }}>{pnlSign(realisedPreview)}₹{fmtd(Math.abs(realisedPreview))}</strong></span>
-              {sellMTFPreview > 0 && <span>MTF this sell: <strong style={{ color:'var(--gold)' }}>₹{fmtd(sellMTFPreview)}</strong></span>}
+              <span>Realised P&L: <strong style={{ color:pnlColor(realisedPreview) }}>{pnlSign(realisedPreview)}Rs{fmtd(Math.abs(realisedPreview))}</strong></span>
+              {sellMTFPreview > 0 && <span>MTF this sell: <strong style={{ color:'var(--gold)' }}>Rs{fmtd(sellMTFPreview)}</strong></span>}
               {qtyNum >= remainingQty && <span style={{ color:'var(--bear)', fontWeight:700 }}>⚠ Full Exit — trade closes</span>}
             </div>
           )}
@@ -117,7 +117,7 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
           <thead>
             <tr style={{ borderBottom:'1px solid var(--border)' }}>
-              {['#','Sell Date','Qty','Sell ₹','Value ₹','Realised P&L','MTF Interest ₹',''].map((h,i) => (
+              {['#','Sell Date','Qty','Sell Rs','Value Rs','Realised P&L','MTF Interest Rs',''].map((h,i) => (
                 <th key={i} style={{ padding:'6px 10px', textAlign:h===''||h==='#'?'center':'right', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', whiteSpace:'nowrap' }}>{h}</th>
               ))}
             </tr>
@@ -132,10 +132,10 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
                   <td style={{ padding:'8px 10px', textAlign:'center', color:'var(--muted)', fontSize:'11px' }}>{i+1}</td>
                   <td style={{ padding:'8px 10px', textAlign:'right', color:'var(--muted)', whiteSpace:'nowrap', fontFamily:'DM Mono, monospace' }}>{exec.date}</td>
                   <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:600 }}>{fmt(exec.quantity)}</td>
-                  <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>₹{Number(exec.price).toLocaleString('en-IN')}</td>
-                  <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>₹{fmt(val)}</td>
-                  <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:600, color:pnlColor(realised) }}>{pnlSign(realised)}₹{fmtd(Math.abs(realised))}</td>
-                  <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace', color:'var(--gold)' }}>{mtfInterest>0?`₹${fmtd(mtfInterest)}`:<span style={{ color:'var(--muted)' }}>—</span>}</td>
+                  <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>Rs{Number(exec.price).toLocaleString('en-IN')}</td>
+                  <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>Rs{fmt(val)}</td>
+                  <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:600, color:pnlColor(realised) }}>{pnlSign(realised)}Rs{fmtd(Math.abs(realised))}</td>
+                  <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace', color:'var(--gold)' }}>{mtfInterest>0?`Rs${fmtd(mtfInterest)}`:<span style={{ color:'var(--muted)' }}>—</span>}</td>
                   <td style={{ padding:'8px 10px', textAlign:'center' }}>
                     <button onClick={e=>{e.stopPropagation();onDelete(exec.id)}} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'16px', lineHeight:1, padding:'0 4px' }}>×</button>
                   </td>
@@ -148,9 +148,9 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
               <td colSpan={8} style={{ padding:'10px 12px' }}>
                 <div style={{ display:'flex', gap:'24px', fontSize:'11px', fontFamily:'DM Mono, monospace', flexWrap:'wrap' }}>
                   <span><span style={{ color:'var(--muted)' }}>Total Sold: </span><span style={{ fontWeight:700 }}>{fmt(soldQty)} shares</span></span>
-                  <span><span style={{ color:'var(--muted)' }}>Realised P&L: </span><span style={{ color:pnlColor(totalRealised), fontWeight:700 }}>{pnlSign(totalRealised)}₹{fmtd(Math.abs(totalRealised))}</span></span>
-                  {totalMTF > 0 && <span><span style={{ color:'var(--muted)' }}>Total MTF Interest: </span><span style={{ color:'var(--gold)', fontWeight:700 }}>₹{fmtd(totalMTF)}</span></span>}
-                  {remainingMTF > 0 && <span><span style={{ color:'var(--muted)' }}>Remaining MTF (till today): </span><span style={{ color:'var(--gold)', fontWeight:700 }}>₹{fmtd(remainingMTF)}</span></span>}
+                  <span><span style={{ color:'var(--muted)' }}>Realised P&L: </span><span style={{ color:pnlColor(totalRealised), fontWeight:700 }}>{pnlSign(totalRealised)}Rs{fmtd(Math.abs(totalRealised))}</span></span>
+                  {totalMTF > 0 && <span><span style={{ color:'var(--muted)' }}>Total MTF Interest: </span><span style={{ color:'var(--gold)', fontWeight:700 }}>Rs{fmtd(totalMTF)}</span></span>}
+                  {remainingMTF > 0 && <span><span style={{ color:'var(--muted)' }}>Remaining MTF (till today): </span><span style={{ color:'var(--gold)', fontWeight:700 }}>Rs{fmtd(remainingMTF)}</span></span>}
                 </div>
               </td>
             </tr>
