@@ -23,9 +23,6 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
-  const [suggestions, setSuggestions] = useState([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [searchLoading, setSearchLoading] = useState(false)
 
   // Derived calcs
   const investedCapital = form.entry_price && form.quantity
@@ -42,18 +39,6 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
     })
     const data = await res.json()
     if (Array.isArray(data)) setAccounts(data)
-  }
-
-  const searchTicker = async (query) => {
-    if (!query || query.length < 1) { setSuggestions([]); return }
-    setSearchLoading(true)
-    try {
-      const res = await fetch(`/api/ticker-search?q=${encodeURIComponent(query)}`)
-      const data = await res.json()
-      setSuggestions(Array.isArray(data) ? data : [])
-      setShowSuggestions(true)
-    } catch {}
-    setSearchLoading(false)
   }
 
   const handleAddAccount = async () => {
