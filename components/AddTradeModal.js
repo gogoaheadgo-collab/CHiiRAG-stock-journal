@@ -20,6 +20,12 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
   const [loading, setLoading] = useState(false)
   const [accountLoading, setAccountLoading] = useState(false)
   const [error, setError] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
 
   // Derived calcs
   const investedCapital = form.entry_price && form.quantity
@@ -36,6 +42,18 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
     })
     const data = await res.json()
     if (Array.isArray(data)) setAccounts(data)
+  }
+
+  const searchTicker = async (query) => {
+    if (!query || query.length < 1) { setSuggestions([]); return }
+    setSearchLoading(true)
+    try {
+      const res = await fetch(`/api/ticker-search?q=${encodeURIComponent(query)}`)
+      const data = await res.json()
+      setSuggestions(Array.isArray(data) ? data : [])
+      setShowSuggestions(true)
+    } catch {}
+    setSearchLoading(false)
   }
 
   const handleAddAccount = async () => {
@@ -72,6 +90,25 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
   }
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const searchTicker = async (query) => {
+    set('ticker', query)
+    if (query.length < 2) { setSuggestions([]); setShowSuggestions(false); return }
+    setSearchLoading(true)
+    try {
+      const res = await fetch(`/api/ticker-search?q=${encodeURIComponent(query)}`)
+      const data = await res.json()
+      setSuggestions(Array.isArray(data) ? data : [])
+      setShowSuggestions(true)
+    } catch { setSuggestions([]) }
+    setSearchLoading(false)
+  }
+
+  const selectTicker = (item) => {
+    set('ticker', item.ticker)
+    setSuggestions([])
+    setShowSuggestions(false)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -186,16 +223,34 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
               )}
             </div>
 
-            {/* Ticker */}
-            <div>
-              <label className="field-label">Ticker *</label>
+            {/* Ticker with autocomplete */}
+            <div style={{ position:'relative' }}>
+              <label className="field-label">Ticker * {searchLoading && <span style={{ color:'var(--muted)', fontWeight:400 }}>searching...</span>}</label>
               <input
                 value={form.ticker}
-                onChange={e => set('ticker', e.target.value)}
-                placeholder="RELIANCE, TCS..."
+                onChange={e => searchTicker(e.target.value.toUpperCase())}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                placeholder="Type to search: RELI, TCS..."
                 className="field"
                 style={{ textTransform: 'uppercase' }}
+                autoComplete="off"
               />
+              {showSuggestions && suggestions.length > 0 && (
+                <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:999, background:'var(--bg)', border:'1px solid var(--accent)', borderRadius:'6px', boxShadow:'0 8px 24px rgba(0,0,0,0.15)', maxHeight:'220px', overflowY:'auto', marginTop:'2px' }}>
+                  {suggestions.map((item, i) => (
+                    <div key={i} onMouseDown={() => selectTicker(item)} style={{ padding:'8px 12px', cursor:'pointer', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}
+                      onMouseEnter={e => e.currentTarget.style.background='var(--surface)'}
+                      onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                      <div>
+                        <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'13px', color:'var(--accent)' }}>{item.ticker}</div>
+                        <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'1px' }}>{item.shortName}</div>
+                      </div>
+                      <div style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color:'var(--muted)', background:'var(--surface)', padding:'2px 6px', borderRadius:'3px' }}>{item.exchange}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Direction */}
