@@ -10,7 +10,6 @@ const EMPTY = {
   mtf_value: '',
   mtf_interest_rate: '',
   notes: '',
-  yahoo_symbol: '',
 }
 
 export default function AddTradeModal({ session, onClose, onAdd }) {
@@ -109,7 +108,6 @@ export default function AddTradeModal({ session, onClose, onAdd }) {
       await onAdd({
         account: form.account,
         ticker: form.ticker.toUpperCase().trim(),
-        yahoo_symbol: form.yahoo_symbol || null,
         direction: form.direction,
         entry_date: form.entry_date,
         entry_price: parseFloat(form.entry_price),
