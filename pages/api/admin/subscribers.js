@@ -23,22 +23,36 @@ export default async function handler(req, res) {
     const { data: executions } = await adminSupabase.from('executions').select('*')
     const { data: profiles } = await adminSupabase.from('profiles').select('*')
 
-    // Build unique user list from trades (works even without profiles table)
+    // Build user list — try auth.admin first (gets ALL users incl 0-trade), fallback to profiles+trades
     const userMap = {}
 
-    // Add from profiles if available
+    // 1. Try to get all users from Supabase auth admin API
+    try {
+      const { data: authData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 })
+      ;(authData?.users || []).forEach(u => {
+        userMap[u.id] = {
+          id: u.id,
+          email: u.email,
+          full_name: u.user_metadata?.full_name || u.user_metadata?.name || null,
+          avatar_url: u.user_metadata?.avatar_url || null,
+          created_at: u.created_at,
+        }
+      })
+    } catch {}
+
+    // 2. Fallback: profiles table
     ;(profiles || []).forEach(p => {
-      userMap[p.id] = { id: p.id, email: p.email, full_name: p.full_name, avatar_url: p.avatar_url, created_at: p.created_at }
+      if (!userMap[p.id]) userMap[p.id] = { id: p.id, email: p.email, full_name: p.full_name, avatar_url: p.avatar_url, created_at: p.created_at }
     })
 
-    // Add any users found in trades but not in profiles
+    // 3. Fallback: users found in trades
     ;(trades || []).forEach(t => {
       if (!userMap[t.user_id]) {
         userMap[t.user_id] = { id: t.user_id, email: t.account || 'Unknown', full_name: null, avatar_url: null, created_at: t.entry_date }
       }
     })
 
-    // Make sure admin is included
+    // 4. Ensure admin is always present
     if (!userMap[user.id]) {
       userMap[user.id] = { id: user.id, email: user.email, full_name: user.user_metadata?.full_name || null, avatar_url: user.user_metadata?.avatar_url || null, created_at: user.created_at }
     }
