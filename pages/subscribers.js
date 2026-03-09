@@ -155,7 +155,7 @@ export default function SubscribersPage() {
         <NavPill active="Subscribers" isAdmin={true} />
         <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
           <span style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>ADMIN</span>
-          <button onClick={() => supabase.auth.signOut()} className="btn btn-ghost" style={{ fontSize:'11px', padding:'5px 14px' }}>Sign Out</button>
+          <button onClick={async () => { await supabase.auth.signOut(); window.location.href = '/' }} className="btn btn-ghost" style={{ fontSize:'11px', padding:'5px 14px' }}>Sign Out</button>
         </div>
       </header>
 
