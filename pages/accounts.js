@@ -46,10 +46,10 @@ export default function AccountsPage() {
   const [showNewAccount, setShowNewAccount] = useState(false)
   const [newAccountName, setNewAccountName] = useState('')
   const [countdown, setCountdown] = useState(60)
-  const [mirroredAccounts, setMirroredAccounts] = useState([]) // [{subscriber_id, subscriber_name}]
-  const [mirroredTrades, setMirroredTrades] = useState({}) // subscriber_id -> trades[]
-  const [mirroredExecs, setMirroredExecs] = useState({}) // subscriber_id -> execs[]
-  const [activeMirror, setActiveMirror] = useState(null) // subscriber_id or null
+  const [mirroredAccounts, setMirroredAccounts] = useState([])
+  const [mirroredTrades, setMirroredTrades] = useState({})
+  const [mirroredExecs, setMirroredExecs] = useState({})
+  const [activeMirror, setActiveMirror] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); if (!session) router.push('/') })
@@ -70,26 +70,15 @@ export default function AccountsPage() {
 
   const isAdmin = session?.user?.email === 'gogoaheadgo@gmail.com'
 
-  const loadMirroredAccounts = async () => {
-    const token = await getToken()
-    console.log('loadMirroredAccounts token:', token ? 'OK' : 'MISSING')
-    if (!token) return
-    const res = await fetch('/api/admin/mirror', { headers:{ Authorization:`Bearer ${token}` } })
-    const data = await res.json()
-    console.log('mirror API response:', data)
-    if (!Array.isArray(data)) return
-    setMirroredAccounts(data)
-    data.forEach(m => loadMirroredTrades(m.subscriber_id, token))
-  }
+  const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
 
-  const loadMirroredTrades = async (subscriber_id, token) => {
+  const loadMirroredTrades = useCallback(async (subscriber_id, token) => {
     const t = token || await getToken()
     const res = await fetch(`/api/admin/subscriber-trades?user_id=${subscriber_id}`, { headers:{ Authorization:`Bearer ${t}` } })
     const data = await res.json()
     if (data.trades) {
       setMirroredTrades(prev => ({ ...prev, [subscriber_id]: data.trades }))
       setMirroredExecs(prev => ({ ...prev, [subscriber_id]: data.executions || [] }))
-      // fetch live prices for open trades
       const tickers = [...new Set(data.trades.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
       tickers.forEach(async ticker => {
         try {
@@ -99,9 +88,17 @@ export default function AccountsPage() {
         } catch {}
       })
     }
-  }
+  }, [])
 
-  const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
+  const loadMirroredAccounts = useCallback(async () => {
+    const token = await getToken()
+    if (!token) return
+    const res = await fetch('/api/admin/mirror', { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (!Array.isArray(data)) return
+    setMirroredAccounts(data)
+    data.forEach(m => loadMirroredTrades(m.subscriber_id, token))
+  }, [loadMirroredTrades])
 
   const loadData = useCallback(async () => {
     if (!session) return
@@ -119,7 +116,7 @@ export default function AccountsPage() {
     }
     if (Array.isArray(aData)) {
       setAccounts(aData)
-      if (aData.length > 0 && !activeAccount) setActiveAccount(aData[0].name)
+      if (aData.length > 0) setActiveAccount(prev => prev || aData[0].name)
     }
     setLoading(false)
   }, [session]) // eslint-disable-line
@@ -127,34 +124,29 @@ export default function AccountsPage() {
   useEffect(() => { if (session) loadData() }, [session, loadData])
 
   useEffect(() => {
-    if (!session) return
-    if (session.user?.email === 'gogoaheadgo@gmail.com') {
-      loadMirroredAccounts()
-      // Reload when user comes back to this tab (e.g. after linking on subscribers page)
-      const onFocus = () => loadMirroredAccounts()
-      window.addEventListener('focus', onFocus)
-      return () => window.removeEventListener('focus', onFocus)
-    }
-  }, [session])
+    if (!session || !isAdmin) return
+    loadMirroredAccounts()
+    const onFocus = () => loadMirroredAccounts()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [session, isAdmin, loadMirroredAccounts])
 
-  // Real-time sync — when any trade changes, refresh mirrored trades
   useEffect(() => {
-    if (session?.user?.email !== 'gogoaheadgo@gmail.com' || mirroredAccounts.length === 0) return
+    if (!isAdmin || mirroredAccounts.length === 0) return
     const channel = supabase.channel('mirrored-trades-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'trades' }, () => {
+      .on('postgres_changes', { event:'*', schema:'public', table:'trades' }, () => {
         mirroredAccounts.forEach(m => loadMirroredTrades(m.subscriber_id))
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'executions' }, () => {
+      .on('postgres_changes', { event:'*', schema:'public', table:'executions' }, () => {
         mirroredAccounts.forEach(m => loadMirroredTrades(m.subscriber_id))
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
-  }, [isAdmin, mirroredAccounts])
+  }, [isAdmin, mirroredAccounts, loadMirroredTrades])
 
   const fetchPrice = useCallback(async (ticker) => {
     try {
-      const token = await getToken()
-      const res = await fetch(`/api/stock/${ticker}`, { headers:{ Authorization:`Bearer ${token}` } })
+      const res = await fetch(`/api/stock/${ticker}`)
       const data = await res.json()
       if (data.price) setLivePrices(prev => ({ ...prev, [ticker]:data }))
     } catch {}
@@ -195,22 +187,19 @@ export default function AccountsPage() {
     const res = await fetch('/api/executions', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ trade_id:tradeId, ...execution }) })
     const text = await res.text()
     let data
-    try { data = JSON.parse(text) } catch { throw new Error('Server error - check executions API exists') }
+    try { data = JSON.parse(text) } catch { throw new Error('Server error') }
     if (data.error) throw new Error(data.error)
     await fetchExecutions(tradeId)
   }
 
   const deleteExecution = async (execId, tradeId) => {
     const token = await getToken()
-    const res = await fetch('/api/executions', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:execId }) })
-    const text = await res.text()
-    try { const d = JSON.parse(text); if (d.error) throw new Error(d.error) } catch {}
+    await fetch('/api/executions', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:execId }) })
     await fetchExecutions(tradeId)
   }
 
   const handleRowClick = (tradeId) => {
-    if (expandedTrade === tradeId) { setExpandedTrade(null); return }
-    setExpandedTrade(tradeId)
+    setExpandedTrade(prev => prev===tradeId ? null : tradeId)
     if (!executions[tradeId]) fetchExecutions(tradeId)
   }
 
@@ -269,18 +258,21 @@ export default function AccountsPage() {
   const toINR = (n) => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
   const toINRd = (n) => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:2 })
 
+  // Per-account filtered trades
   const accountTrades = trades.filter(t => t.account === activeAccount)
   const filtered = accountTrades.filter(t => filter==='ALL' || t.status===filter)
   const openTrades = accountTrades.filter(t => t.status==='OPEN')
   const closedTrades = accountTrades.filter(t => t.status==='CLOSED')
 
-  // Merge all mirrored trades for combined stats
+  // ── AGGREGATE STATS: ALL own accounts + ALL mirrored ──
+  const allOwnExecs = Object.values(executions).flat()
   const allMirroredTrades = Object.values(mirroredTrades).flat()
   const allMirroredExecs = Object.values(mirroredExecs).flat()
+  const hasMirrored = allMirroredTrades.length > 0
 
   const calcMTF = (tradeList) => tradeList.reduce((s,t) => {
     if (!t.mtf_interest_rate || !t.entry_date || !t.invested_capital || !t.actual_investment) return s
-    const base = t.invested_capital - t.actual_investment
+    const base = Number(t.invested_capital) - Number(t.actual_investment)
     if (base <= 0) return s
     const end = t.status==='CLOSED' && t.exit_date ? new Date(t.exit_date) : new Date()
     return s + (base * t.mtf_interest_rate * Math.max(1, differenceInDays(end, new Date(t.entry_date)))) / 36500
@@ -291,12 +283,24 @@ export default function AccountsPage() {
     return sum + execs.reduce((s,e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
   }, 0)
 
-  // Own account stats (from executions for accuracy)
-  const ownExecs = executions[accountTrades.map(t=>t.id).join()] || []
-  const totalRealised = calcRealised(accountTrades, Object.values(executions).flat()) + calcRealised(allMirroredTrades, allMirroredExecs)
-  const totalMTF = calcMTF(accountTrades) + calcMTF(allMirroredTrades)
-  const totalOpen = openTrades.length + allMirroredTrades.filter(t=>t.status==='OPEN').length
-  const totalClosed = closedTrades.length + allMirroredTrades.filter(t=>t.status==='CLOSED').length
+  const totalRealised = calcRealised(trades, allOwnExecs) + calcRealised(allMirroredTrades, allMirroredExecs)
+  const totalMTF = calcMTF(trades) + calcMTF(allMirroredTrades)
+  const totalOpen = trades.filter(t=>t.status==='OPEN').length + allMirroredTrades.filter(t=>t.status==='OPEN').length
+  const totalClosed = trades.filter(t=>t.status==='CLOSED').length + allMirroredTrades.filter(t=>t.status==='CLOSED').length
+
+  const calcUnrealised = (tradeList, execList) => tradeList
+    .filter(t => t.status === 'OPEN')
+    .reduce((sum, t) => {
+      const cmp = livePrices[t.ticker]?.price
+      if (!cmp) return sum
+      const soldQty = execList.filter(e => e.trade_id === t.id).reduce((s,e) => s + Number(e.quantity), 0)
+      const currentQty = Math.max(0, Number(t.quantity) - soldQty)
+      const entry = Number(t.entry_price) || 0
+      const pnl = t.direction === 'SHORT' ? (entry - cmp) * currentQty : (cmp - entry) * currentQty
+      return sum + pnl
+    }, 0)
+
+  const totalUnrealised = calcUnrealised(trades, allOwnExecs) + calcUnrealised(allMirroredTrades, allMirroredExecs)
 
   if (!session) return null
 
@@ -325,12 +329,30 @@ export default function AccountsPage() {
 
       <main style={{ maxWidth:'1400px', margin:'0 auto', padding:'20px 16px' }}>
 
+        {/* ── AGGREGATE STATS (always visible) ── */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px,1fr))', gap:'10px', marginBottom:'20px' }}>
+          {[
+            { label:'Unrealised P&L', value:`${totalUnrealised>=0?'+':'−'}Rs${toINRd(Math.abs(totalUnrealised))}`, color:totalUnrealised>=0?'var(--bull)':'var(--bear)' },
+            { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}Rs${toINRd(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)' },
+            { label:'Open Positions', value:totalOpen, color:'var(--accent)' },
+            { label:'Closed Trades', value:totalClosed },
+            { label:'MTF Interest', value:`Rs${toINRd(totalMTF)}`, color:'var(--gold)' },
+          ].map(s => (
+            <div key={s.label} className="stat-card">
+              <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'6px' }}>
+                {s.label}{hasMirrored ? <span style={{ marginLeft:'4px', fontSize:'8px', color:'var(--gold)', opacity:0.7 }}>+mirrored</span> : null}
+              </div>
+              <div style={{ fontSize:'20px', fontWeight:700, fontFamily:'Bookman Old Style, serif', color:s.color||'var(--text)' }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
         {/* Account Tiles */}
         <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'20px', flexWrap:'wrap' }}>
           {accounts.map(acc => (
-            <div key={acc.id} style={{ border:`2px solid ${activeAccount===acc.name?'var(--accent)':'var(--border)'}`, background:activeAccount===acc.name?'var(--accent-dim)':'var(--surface)', borderRadius:'10px', minWidth:'120px' }}>
-              <button onClick={() => setActiveAccount(acc.name)} style={{ width:'100%', padding:'14px 16px 10px', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}>
-                <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:activeAccount===acc.name?'var(--accent)':'var(--text)' }}>{acc.name}</div>
+            <div key={acc.id} style={{ border:`2px solid ${activeAccount===acc.name&&!activeMirror?'var(--accent)':'var(--border)'}`, background:activeAccount===acc.name&&!activeMirror?'var(--accent-dim)':'var(--surface)', borderRadius:'10px', minWidth:'120px' }}>
+              <button onClick={() => { setActiveAccount(acc.name); setActiveMirror(null) }} style={{ width:'100%', padding:'14px 16px 10px', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}>
+                <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:activeAccount===acc.name&&!activeMirror?'var(--accent)':'var(--text)' }}>{acc.name}</div>
                 <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'3px' }}>{trades.filter(t=>t.account===acc.name).length} trades</div>
               </button>
               <div style={{ display:'flex', borderTop:'1px solid var(--border)' }}>
@@ -350,7 +372,8 @@ export default function AccountsPage() {
           )}
           {/* Mirrored Account Tiles */}
           {mirroredAccounts.map(m => (
-            <div key={m.subscriber_id} onClick={() => { setActiveMirror(activeMirror===m.subscriber_id ? null : m.subscriber_id); setActiveAccount(activeMirror===m.subscriber_id ? accounts[0]?.name : null) }}
+            <div key={m.subscriber_id}
+              onClick={() => setActiveMirror(prev => prev===m.subscriber_id ? null : m.subscriber_id)}
               style={{ border:`2px solid ${activeMirror===m.subscriber_id?'var(--gold)':'var(--border)'}`, background:activeMirror===m.subscriber_id?'rgba(245,158,11,0.08)':'var(--surface)', borderRadius:'10px', minWidth:'120px', cursor:'pointer', padding:'14px 16px 10px' }}>
               <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:activeMirror===m.subscriber_id?'var(--gold)':'var(--muted)' }}>
                 {(m.subscriber_name||m.subscriber_email||'').split(' ')[0]}'s
@@ -362,26 +385,89 @@ export default function AccountsPage() {
           ))}
         </div>
 
-        {loading ? <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)' }}>Loading...</div>
-        : activeMirror ? null
-        : !activeAccount ? <div style={{ textAlign:'center', padding:'80px', color:'var(--muted)' }}>No accounts yet.</div>
-        : (
-          <>
-            {/* Stats */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px,1fr))', gap:'10px', marginBottom:'16px' }}>
-              {[
-                { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}Rs${toINRd(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)', sub: allMirroredTrades.length>0?'incl. mirrored':'' },
-                { label:'Open Positions', value:totalOpen, color:'var(--accent)' },
-                { label:'Closed Trades', value:totalClosed },
-                { label:'MTF Interest', value:`Rs${toINRd(totalMTF)}`, color:'var(--gold)', sub: allMirroredTrades.length>0?'incl. mirrored':'' },
-              ].map(s => (
-                <div key={s.label} className="stat-card">
-                  <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'6px' }}>{s.label}</div>
-                  <div style={{ fontSize:'20px', fontWeight:700, fontFamily:'Bookman Old Style, serif', color:s.color||'var(--text)' }}>{s.value}</div>
+        {/* ── MAIN CONTENT AREA ── */}
+        {loading ? (
+          <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)' }}>Loading...</div>
+        ) : activeMirror ? (
+          // Mirrored portfolio view
+          (() => {
+            const mirrorInfo = mirroredAccounts.find(m => m.subscriber_id === activeMirror)
+            const mTrades = mirroredTrades[activeMirror] || []
+            const mExecs = mirroredExecs[activeMirror] || []
+            return (
+              <div>
+                <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+                  <span style={{ fontSize:'13px', fontWeight:700, color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>
+                    {mirrorInfo?.subscriber_name}'s Portfolio
+                  </span>
+                  <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>READ ONLY · LIVE SYNC</span>
+                  <button onClick={() => loadMirroredTrades(activeMirror)} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'11px', padding:'2px 8px' }}>↻ Refresh</button>
                 </div>
-              ))}
-            </div>
-
+                {mTrades.length === 0 ? (
+                  <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No trades found.</div>
+                ) : (
+                  <div style={{ overflowX:'auto', border:'1px solid var(--border)', borderRadius:'8px' }}>
+                    <table className="trade-table" style={{ width:'100%' }}>
+                      <thead>
+                        <tr>
+                          <th>Ticker</th><th>Direction</th><th>Account</th><th>Entry Date</th>
+                          <th className="right">Entry Rs</th><th className="right">CMP</th>
+                          <th className="right">Exit Rs</th><th className="right">Qty</th>
+                          <th className="right">Curr Qty</th><th className="right">Investment</th>
+                          <th className="right">MTF Interest</th>
+                          <th className="right">Unrealised P&L</th><th className="right">Realised P&L</th>
+                          <th className="right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mTrades.map(trade => {
+                          const execs = mExecs.filter(e => e.trade_id === trade.id)
+                          const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
+                          const originalQty = Number(trade.quantity) || 0
+                          const currentQty = Math.max(0, originalQty - totalSoldQty)
+                          const entryPrice = Number(trade.entry_price) || 0
+                          const investment = Number(trade.invested_capital) || 0
+                          const actualInv = Number(trade.actual_investment) || 0
+                          const mtfBase = investment - actualInv
+                          const lp = livePrices[trade.ticker]
+                          const cmp = lp?.price
+                          const realisedPnL = execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
+                          const unrealisedPnL = cmp && currentQty > 0 ? (trade.direction==='LONG' ? (cmp-entryPrice)*currentQty : (entryPrice-cmp)*currentQty) : null
+                          const mtfInt = mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date
+                            ? execs.reduce((s,e) => { const days = Math.max(1, Math.floor((new Date(e.date)-new Date(trade.entry_date))/86400000)); return s + mtfBase*(Number(e.quantity)/originalQty)*trade.mtf_interest_rate*days/36500 }, 0)
+                              + (currentQty > 0 ? mtfBase*(currentQty/originalQty)*trade.mtf_interest_rate*Math.max(1,Math.floor((new Date()-new Date(trade.entry_date))/86400000))/36500 : 0)
+                            : null
+                          const exitPrice = currentQty===0 && execs.length>0 ? execs.reduce((s,e)=>s+Number(e.price)*Number(e.quantity),0)/totalSoldQty : trade.exit_price||null
+                          return (
+                            <tr key={trade.id}>
+                              <td><span className="ticker-badge">{trade.ticker}</span></td>
+                              <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
+                              <td className="muted" style={{ fontSize:'11px' }}>{trade.account||'—'}</td>
+                              <td className="muted">{trade.entry_date?.slice(0,10)}</td>
+                              <td className="right">Rs{toINR(entryPrice)}</td>
+                              <td className="right">{cmp ? <div><div style={{ fontWeight:600 }}>Rs{toINR(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}</td>
+                              <td className="right">{exitPrice ? `Rs${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                              <td className="right">{toINR(originalQty)}</td>
+                              <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
+                              <td className="right">{investment ? `Rs${toINR(investment)}` : <span className="neutral">—</span>}</td>
+                              <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
+                              <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINR(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                              <td className="right">{execs.length>0 ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                              <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )
+          })()
+        ) : !activeAccount ? (
+          <div style={{ textAlign:'center', padding:'80px', color:'var(--muted)' }}>No accounts yet.</div>
+        ) : (
+          <>
             {/* Filter */}
             <div style={{ display:'flex', gap:'6px', marginBottom:'14px' }}>
               {['ALL','OPEN','CLOSED'].map(f => (
@@ -391,7 +477,6 @@ export default function AccountsPage() {
               ))}
             </div>
 
-            {/* Table */}
             {filtered.length === 0 ? (
               <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)', border:'1px dashed var(--border)', borderRadius:'8px' }}>No trades. Click "+ New Trade" to add one.</div>
             ) : (
@@ -422,17 +507,11 @@ export default function AccountsPage() {
                       const investment = Number(trade.invested_capital) || 0
                       const actualInv = Number(trade.actual_investment) || 0
                       const mtfBase = investment - actualInv
-
-                      // Realised P&L = sum of (sell price - entry price) * sell qty
                       const realisedPnL = execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
-
-                      // Unrealised P&L = (CMP - entry price) * current qty
                       const cmp = lp?.price
                       const unrealisedPnL = cmp && currentQty > 0
                         ? (trade.direction==='LONG' ? (cmp - entryPrice)*currentQty : (entryPrice - cmp)*currentQty)
                         : null
-
-                      // MTF Interest: per sell execution (entry→sell date) + remaining (entry→today)
                       const mtfInt = mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date
                         ? execs.reduce((s,e) => {
                             const days = Math.max(1, Math.floor((new Date(e.date) - new Date(trade.entry_date)) / 86400000))
@@ -441,12 +520,9 @@ export default function AccountsPage() {
                             ? mtfBase * (currentQty/originalQty) * trade.mtf_interest_rate * Math.max(1, Math.floor((new Date() - new Date(trade.entry_date)) / 86400000)) / 36500
                             : 0)
                         : null
-
-                      // Exit price = weighted avg of all sell executions (only when fully closed)
                       const exitPrice = isClosed && execs.length > 0
                         ? execs.reduce((s,e) => s + Number(e.price)*Number(e.quantity), 0) / totalSoldQty
                         : trade.exit_price || null
-
                       return (
                         <>
                           <tr key={trade.id} className={isOpen?'row-open':'row-closed'} onClick={() => handleRowClick(trade.id)} style={{ cursor:'pointer' }}>
@@ -492,82 +568,6 @@ export default function AccountsPage() {
           </>
         )}
       </main>
-
-      {/* Mirrored Account View */}
-      {activeMirror && (() => {
-        const mirrorInfo = mirroredAccounts.find(m => m.subscriber_id === activeMirror)
-        const mTrades = mirroredTrades[activeMirror] || []
-        const mExecs = mirroredExecs[activeMirror] || []
-        return (
-          <div style={{ marginTop:'24px' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
-              <span style={{ fontSize:'13px', fontWeight:700, color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>
-                {mirrorInfo?.subscriber_name}'s Portfolio
-              </span>
-              <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>READ ONLY · LIVE SYNC</span>
-              <button onClick={() => loadMirroredTrades(activeMirror)} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'11px', padding:'2px 8px' }}>↻ Refresh</button>
-            </div>
-            {mTrades.length === 0 ? (
-              <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No trades found.</div>
-            ) : (
-              <div style={{ overflowX:'auto', border:'1px solid var(--border)', borderRadius:'8px' }}>
-                <table className="trade-table" style={{ width:'100%' }}>
-                  <thead>
-                    <tr>
-                      <th>Ticker</th><th>Direction</th><th>Account</th><th>Entry Date</th>
-                      <th className="right">Entry Rs</th><th className="right">CMP</th>
-                      <th className="right">Exit Rs</th><th className="right">Qty</th>
-                      <th className="right">Curr Qty</th><th className="right">Investment</th>
-                      <th className="right">MTF Interest</th>
-                      <th className="right">Unrealised P&L</th><th className="right">Realised P&L</th>
-                      <th className="right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mTrades.map(trade => {
-                      const execs = mExecs.filter(e => e.trade_id === trade.id)
-                      const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
-                      const originalQty = Number(trade.quantity) || 0
-                      const currentQty = Math.max(0, originalQty - totalSoldQty)
-                      const entryPrice = Number(trade.entry_price) || 0
-                      const investment = Number(trade.invested_capital) || 0
-                      const actualInv = Number(trade.actual_investment) || 0
-                      const mtfBase = investment - actualInv
-                      const lp = livePrices[trade.ticker]
-                      const cmp = lp?.price
-                      const realisedPnL = execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
-                      const unrealisedPnL = cmp && currentQty > 0 ? (trade.direction==='LONG' ? (cmp-entryPrice)*currentQty : (entryPrice-cmp)*currentQty) : null
-                      const mtfInt = mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date
-                        ? execs.reduce((s,e) => { const days = Math.max(1, Math.floor((new Date(e.date)-new Date(trade.entry_date))/86400000)); return s + mtfBase*(Number(e.quantity)/originalQty)*trade.mtf_interest_rate*days/36500 }, 0)
-                          + (currentQty > 0 ? mtfBase*(currentQty/originalQty)*trade.mtf_interest_rate*Math.max(1,Math.floor((new Date()-new Date(trade.entry_date))/86400000))/36500 : 0)
-                        : null
-                      const exitPrice = currentQty===0 && execs.length>0 ? execs.reduce((s,e)=>s+Number(e.price)*Number(e.quantity),0)/totalSoldQty : trade.exit_price||null
-                      return (
-                        <tr key={trade.id}>
-                          <td><span className="ticker-badge">{trade.ticker}</span></td>
-                          <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
-                          <td className="muted" style={{ fontSize:'11px' }}>{trade.account||'—'}</td>
-                          <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                          <td className="right">Rs {toINR(entryPrice)}</td>
-                          <td className="right">{cmp ? <div><div style={{ fontWeight:600 }}>Rs {toINR(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}</td>
-                          <td className="right">{exitPrice ? `Rs ${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{toINR(originalQty)}</td>
-                          <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                          <td className="right">{investment ? `Rs ${toINR(investment)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs {toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                          <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs {toINR(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                          <td className="right">{execs.length>0 ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs {toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                          <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )
-      })()}
 
       {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAddTrade} />}
       {editingTrade && <EditTradeModal trade={editingTrade} onClose={() => setEditingTrade(null)} onSave={handleEdit} />}
