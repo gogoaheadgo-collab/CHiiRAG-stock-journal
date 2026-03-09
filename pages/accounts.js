@@ -10,15 +10,20 @@ import ExecutionPanel from '../components/ExecutionPanel'
 function NavPill({ active, isAdmin }) {
   const router = useRouter()
   const items = [
-    {label:'Dashboard',path:'/dashboard'},
-    {label:'Accounts',path:'/accounts'},
-    {label:'Main Page',path:'/'},
-    ...(isAdmin ? [{label:'Subscribers',path:'/subscribers'}] : []),
+    ...(isAdmin ? [{ label:'Dashboard', path:'/dashboard' }] : []),
+    { label:'Accounts', path:'/accounts' },
+    { label:'Main Page', path:'/' },
+    ...(isAdmin ? [{ label:'Subscribers', path:'/subscribers' }] : []),
   ]
   return (
     <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px' }}>
       {items.map(({label,path}) => (
-        <button key={path} onClick={() => router.push(path)} style={{ padding:'7px 22px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600, background:active===label?'var(--accent)':'transparent', color:active===label?'#fff':'var(--muted)' }}>{label}</button>
+        <button key={path} onClick={() => router.push(path)} style={{
+          padding:'7px 22px', borderRadius:'6px', border:'none', cursor:'pointer',
+          fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600,
+          background:active===label?'var(--accent)':'transparent',
+          color:active===label?'#fff':'var(--muted)',
+        }}>{label}</button>
       ))}
     </div>
   )
