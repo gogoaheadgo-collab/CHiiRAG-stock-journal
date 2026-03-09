@@ -65,7 +65,23 @@ export default function SubscribersPage() {
     const token = await getToken()
     const res = await fetch('/api/admin/subscribers', { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
-    if (Array.isArray(data)) setSubscribers(data)
+    if (Array.isArray(data)) {
+      // Make sure admin appears in the list too
+      const adminInList = data.some(s => s.email === ADMIN_EMAIL)
+      if (!adminInList && session?.user) {
+        const adminProfile = {
+          id: session.user.id,
+          email: session.user.email,
+          full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'Admin',
+          avatar_url: session.user.user_metadata?.avatar_url || null,
+          created_at: session.user.created_at,
+          totalTrades: 0, openTrades: 0, closedTrades: 0, totalInvestment: 0, realisedPnL: 0,
+        }
+        setSubscribers([adminProfile, ...data])
+      } else {
+        setSubscribers(data)
+      }
+    }
     setLoading(false)
   }
 
@@ -167,6 +183,7 @@ export default function SubscribersPage() {
                             : <div style={{ width:'28px', height:'28px', borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', color:'#fff', fontWeight:700 }}>{(sub.full_name||sub.email||'?')[0].toUpperCase()}</div>
                           }
                           <span style={{ fontWeight:600, fontSize:'13px' }}>{sub.full_name || '—'}</span>
+                          {sub.isAdmin && <span style={{ fontSize:'9px', background:'var(--gold)', color:'#000', padding:'1px 6px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700, letterSpacing:'0.08em' }}>ADMIN</span>}
                         </div>
                       </td>
                       <td className="muted" style={{ fontSize:'11px', fontFamily:'DM Mono, monospace' }}>{sub.email}</td>
