@@ -160,7 +160,7 @@ export default function EditTradeModal({ trade, onClose, onSave, session, isAdmi
         {totalBuyingValue && (
           <div style={{ marginTop:'10px', padding:'10px 14px', background:'var(--bg)', borderRadius:'6px', border:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <span style={{ fontSize:'10px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase' }}>Total Buying Value</span>
-            <span style={{ color:'var(--accent)', fontWeight:700, fontFamily:'DM Mono, monospace', fontSize:'14px' }}>Rs. {totalBuyingValue.toLocaleString('en-IN', { maximumFractionDigits:2 })}</span>
+            <span style={{ color:'var(--accent)', fontWeight:700, fontFamily:'DM Mono, monospace', fontSize:'14px' }}>Rs. {totalBuyingValue.toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })}</span>
           </div>
         )}
 
@@ -181,7 +181,7 @@ export default function EditTradeModal({ trade, onClose, onSave, session, isAdmi
           <div style={{ marginTop:'8px', padding:'10px 14px', background:'rgba(245,158,11,0.06)', borderRadius:'6px', border:'1px solid rgba(245,158,11,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'8px' }}>
             <div>
               <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'2px' }}>MTF Borrowed Amount</div>
-              <div style={{ color:'var(--gold)', fontWeight:700, fontFamily:'DM Mono, monospace' }}>Rs. {mtfBorrowed.toLocaleString('en-IN', { maximumFractionDigits:2 })}</div>
+              <div style={{ color:'var(--gold)', fontWeight:700, fontFamily:'DM Mono, monospace' }}>Rs. {mtfBorrowed.toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })}</div>
             </div>
             {dailyInterest && (
               <div style={{ textAlign:'right' }}>
