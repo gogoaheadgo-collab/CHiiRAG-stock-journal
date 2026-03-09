@@ -255,7 +255,7 @@ export default function AccountsPage() {
   const handleDeleteAccount = async (acc) => {
     if (!confirm(`Delete account "${acc.name}"? All trades will be deleted.`)) return
     const token = await getToken()
-    await fetch('/api/accounts', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:acc.id }) })
+    await fetch('/api/accounts', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:acc.id, name:acc.name }) })
     setActiveAccount(accounts.find(a => a.name !== acc.name)?.name || null)
     await loadData()
   }
