@@ -5,18 +5,20 @@ import { supabase } from '../lib/supabase'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, addMonths } from 'date-fns'
 
 // ─── Nav Component ─────────────────────────────────────────────────────────────
-function NavPill({ active }) {
+function NavPill({ active, isAdmin }) {
   const router = useRouter()
+  const items = [
+    { label: 'Dashboard', path: '/dashboard' },
+    { label: 'Accounts', path: '/accounts' },
+    { label: 'Main Page', path: '/' },
+    ...(isAdmin ? [{ label: 'Subscribers', path: '/subscribers' }] : []),
+  ]
   return (
     <div style={{
       display: 'flex', background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: '8px', padding: '3px', gap: '2px',
     }}>
-      {[
-        { label: 'Dashboard', path: '/dashboard' },
-        { label: 'Accounts', path: '/accounts' },
-        { label: 'Main Page', path: '/' },
-      ].map(({ label, path }) => (
+      {items.map(({ label, path }) => (
         <button key={path} onClick={() => router.push(path)} style={{
           padding: '7px 22px', borderRadius: '6px', border: 'none', cursor: 'pointer',
           fontSize: '11px', fontFamily: 'DM Mono, Courier New, monospace', fontWeight: 600,
@@ -141,6 +143,7 @@ function PnLCalendar({ trades }) {
 export default function Dashboard() {
   const router = useRouter()
   const [session, setSession] = useState(null)
+  const isAdmin = session?.user?.email === 'gogoaheadgo@gmail.com'
   const [loading, setLoading] = useState(true)
   const [trades, setTrades] = useState([])
   const [liveOpenPrices, setLiveOpenPrices] = useState({})
@@ -219,11 +222,21 @@ export default function Dashboard() {
       <Head><title>Dashboard — Chiirag Stock Journal</title></Head>
 
       {/* Header */}
-      <header className="header">
-        <NavPill active="Dashboard" />
-        <div style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)', letterSpacing: '-0.02em' }}>
-          CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK Journal</span>
+      <div className="tricolor-bar" />
+      <header className="header" style={{ top:'4px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+          <div className="india-flag-logo-sm" style={{ display:'flex', flexDirection:'column' }}>
+            <div style={{ flex:1, background:'#FF9933' }} />
+            <div style={{ flex:1, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{ width:'8px', height:'8px', borderRadius:'50%', border:'1.5px solid #000080' }} />
+            </div>
+            <div style={{ flex:1, background:'#138808' }} />
+          </div>
+          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>
+            CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span>
+          </div>
         </div>
+        <NavPill active="Dashboard" isAdmin={isAdmin} />
         <button onClick={signOut} className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: '11px' }}>Sign Out</button>
       </header>
 
