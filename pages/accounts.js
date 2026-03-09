@@ -72,9 +72,11 @@ export default function AccountsPage() {
 
   const loadMirroredAccounts = async () => {
     const token = await getToken()
+    console.log('loadMirroredAccounts token:', token ? 'OK' : 'MISSING')
     if (!token) return
     const res = await fetch('/api/admin/mirror', { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
+    console.log('mirror API response:', data)
     if (!Array.isArray(data)) return
     setMirroredAccounts(data)
     data.forEach(m => loadMirroredTrades(m.subscriber_id, token))
@@ -553,5 +555,3 @@ export default function AccountsPage() {
     </>
   )
 }
-
-
