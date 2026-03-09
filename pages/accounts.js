@@ -270,8 +270,11 @@ export default function AccountsPage() {
   const hasMirrored = allMirroredTrades.length > 0
 
   const calcMTF = (tradeList) => tradeList.reduce((s,t) => {
-    if (!t.mtf_interest_rate || !t.entry_date || !t.invested_capital || !t.actual_investment) return s
-    const base = Number(t.invested_capital) - Number(t.actual_investment)
+    if (!t.mtf_interest_rate || !t.entry_date) return s
+    const totalVal = Number(t.invested_capital) || (Number(t.entry_price) * Number(t.quantity))
+    if (!totalVal) return s
+    const margin = Number(t.actual_investment) || 0
+    const base = margin > 0 ? totalVal - margin : totalVal
     if (base <= 0) return s
     const end = t.status==='CLOSED' && t.exit_date ? new Date(t.exit_date) : new Date()
     return s + (base * t.mtf_interest_rate * Math.max(1, differenceInDays(end, new Date(t.entry_date)))) / 36500
@@ -425,7 +428,7 @@ export default function AccountsPage() {
                           const originalQty = Number(trade.quantity) || 0
                           const currentQty = Math.max(0, originalQty - totalSoldQty)
                           const entryPrice = Number(trade.entry_price) || 0
-                          const investment = Number(trade.invested_capital) || 0
+                          const investment = Number(trade.invested_capital) || (Number(trade.entry_price)*Number(trade.quantity))
                           const actualInv = Number(trade.actual_investment) || 0
                           const mtfBase = investment - actualInv
                           const lp = livePrices[trade.ticker]
@@ -503,7 +506,7 @@ export default function AccountsPage() {
                       const isOpen = !isClosed
                       const lp = livePrices[trade.ticker]
                       const entryPrice = Number(trade.entry_price) || 0
-                      const investment = Number(trade.invested_capital) || 0
+                      const investment = Number(trade.invested_capital) || (Number(trade.entry_price)*Number(trade.quantity))
                       const actualInv = Number(trade.actual_investment) || 0
                       const mtfBase = investment - actualInv
                       const realisedPnL = execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
@@ -569,7 +572,7 @@ export default function AccountsPage() {
       </main>
 
       {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAddTrade} />}
-      {editingTrade && <EditTradeModal trade={editingTrade} onClose={() => setEditingTrade(null)} onSave={handleEdit} />}
+      {editingTrade && <EditTradeModal trade={editingTrade} onClose={() => setEditingTrade(null)} onSave={handleEdit} session={session} isAdmin={isAdmin} />}
     </>
   )
 }
