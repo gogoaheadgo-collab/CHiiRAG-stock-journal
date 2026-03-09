@@ -8,19 +8,19 @@ import { differenceInDays, format } from 'date-fns'
 function NavPill({ active, isAdmin }) {
   const router = useRouter()
   const items = [
-    { label:'Dashboard', path:'/dashboard' },
+    ...(isAdmin ? [{ label:'Dashboard', path:'/dashboard' }] : []),
     { label:'Accounts', path:'/accounts' },
     { label:'Main Page', path:'/' },
     ...(isAdmin ? [{ label:'Subscribers', path:'/subscribers' }] : []),
   ]
   return (
     <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px' }}>
-      {items.map(({ label, path }) => (
+      {items.map(({label,path}) => (
         <button key={path} onClick={() => router.push(path)} style={{
           padding:'7px 22px', borderRadius:'6px', border:'none', cursor:'pointer',
-          fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600, letterSpacing:'0.05em',
-          background: active===label ? 'var(--accent)' : 'transparent',
-          color: active===label ? '#fff' : 'var(--muted)', transition:'all 0.15s',
+          fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600,
+          background:active===label?'var(--accent)':'transparent',
+          color:active===label?'#fff':'var(--muted)',
         }}>{label}</button>
       ))}
     </div>
@@ -80,8 +80,20 @@ export default function Home() {
   const isAdmin = session?.user?.email === 'gogoaheadgo@gmail.com'
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); setAuthLoading(false); if(session) saveProfile(session) })
-    const { data:{ subscription } } = supabase.auth.onAuthStateChange((_, s) => { setSession(s); setAuthLoading(false); if(s) saveProfile(s) })
+    supabase.auth.getSession().then(({ data:{ session } }) => {
+      setSession(session); setAuthLoading(false)
+      if(session) {
+        saveProfile(session)
+        if(session.user.email !== 'gogoaheadgo@gmail.com') router.push('/accounts')
+      }
+    })
+    const { data:{ subscription } } = supabase.auth.onAuthStateChange((_, s) => {
+      setSession(s); setAuthLoading(false)
+      if(s) {
+        saveProfile(s)
+        if(s.user.email !== 'gogoaheadgo@gmail.com') router.push('/accounts')
+      }
+    })
     return () => subscription.unsubscribe()
 
   async function saveProfile(sess) {
