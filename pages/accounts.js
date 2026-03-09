@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
@@ -261,6 +261,66 @@ export default function AccountsPage() {
   }
 
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
+
+  // ── EXIT DROPDOWN ──
+  const [showExitMenu, setShowExitMenu] = useState(false)
+  const exitRef = React.useRef(null)
+
+  React.useEffect(() => {
+    const handler = (e) => { if (exitRef.current && !exitRef.current.contains(e.target)) setShowExitMenu(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleDeleteMyAccount = async () => {
+    if (isAdmin) return
+    const confirmed = window.confirm('⚠️ PERMANENTLY DELETE YOUR ACCOUNT?\n\nThis will erase ALL your trades, executions, and account history.\n\nThis CANNOT be undone.')
+    if (!confirmed) return
+    const typed = window.prompt('Type DELETE to confirm:')
+    if (typed !== 'DELETE') { alert('Cancelled.'); return }
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/delete-account', { method:'DELETE', headers:{ Authorization:`Bearer ${token}` } })
+      const data = await res.json()
+      if (data.error) { alert('Error: ' + data.error); return }
+      await supabase.auth.signOut()
+      window.location.href = '/'
+    } catch (e) { alert('Error: ' + e.message) }
+  }
+
+  const ExitMenu = () => (
+    <div ref={exitRef} style={{ position:'relative' }}>
+      <button onClick={() => setShowExitMenu(p => !p)} className="btn btn-ghost"
+        style={{ padding:'6px 12px', fontSize:'11px', display:'flex', alignItems:'center', gap:'5px' }}>
+        EXIT <span style={{ fontSize:'9px' }}>{showExitMenu ? '▲' : '▼'}</span>
+      </button>
+      {showExitMenu && (
+        <div style={{ position:'absolute', right:0, top:'calc(100% + 6px)', background:'var(--surface)',
+          border:'1px solid var(--border)', borderRadius:'8px', minWidth:'190px',
+          boxShadow:'0 8px 24px rgba(0,0,0,0.5)', zIndex:1000, overflow:'hidden' }}>
+          <button onClick={() => { setShowExitMenu(false); signOut() }}
+            style={{ display:'block', width:'100%', padding:'11px 16px', background:'none', border:'none',
+              textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--text)',
+              fontFamily:'DM Mono, monospace', borderBottom:'1px solid var(--border)' }}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+            onMouseLeave={e => e.currentTarget.style.background='none'}>
+            🚪&nbsp; Sign Out
+          </button>
+          {!isAdmin && (
+            <button onClick={() => { setShowExitMenu(false); handleDeleteMyAccount() }}
+              style={{ display:'block', width:'100%', padding:'11px 16px', background:'none', border:'none',
+                textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--bear)',
+                fontFamily:'DM Mono, monospace' }}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,0.08)'}
+              onMouseLeave={e => e.currentTarget.style.background='none'}>
+              🗑&nbsp; Delete My Account
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
   const toINR = (n) => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
   const toINRd = (n) => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
   const toPrice = (n) => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
@@ -347,7 +407,7 @@ export default function AccountsPage() {
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
           {openTrades.length > 0 && <span style={{ fontSize:'10px', color:'var(--muted)' }}>↻ {countdown}s</span>}
           <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding:'6px 14px', fontSize:'11px' }}>+ New Trade</button>
-          <button onClick={signOut} className="btn btn-ghost" style={{ padding:'6px 10px', fontSize:'11px' }}>Sign Out</button>
+          <ExitMenu />
         </div>
       </header>
 
