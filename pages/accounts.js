@@ -273,14 +273,30 @@ export default function AccountsPage() {
   const filtered = accountTrades.filter(t => filter==='ALL' || t.status===filter)
   const openTrades = accountTrades.filter(t => t.status==='OPEN')
   const closedTrades = accountTrades.filter(t => t.status==='CLOSED')
-  const totalRealised = closedTrades.reduce((s,t) => s+(t.realized_gains||0), 0)
-  const totalMTF = accountTrades.reduce((s,t) => {
+
+  // Merge all mirrored trades for combined stats
+  const allMirroredTrades = Object.values(mirroredTrades).flat()
+  const allMirroredExecs = Object.values(mirroredExecs).flat()
+
+  const calcMTF = (tradeList) => tradeList.reduce((s,t) => {
     if (!t.mtf_interest_rate || !t.entry_date || !t.invested_capital || !t.actual_investment) return s
     const base = t.invested_capital - t.actual_investment
     if (base <= 0) return s
     const end = t.status==='CLOSED' && t.exit_date ? new Date(t.exit_date) : new Date()
     return s + (base * t.mtf_interest_rate * Math.max(1, differenceInDays(end, new Date(t.entry_date)))) / 36500
   }, 0)
+
+  const calcRealised = (tradeList, execList) => tradeList.reduce((sum, t) => {
+    const execs = execList.filter(e => e.trade_id === t.id)
+    return sum + execs.reduce((s,e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+  }, 0)
+
+  // Own account stats (from executions for accuracy)
+  const ownExecs = executions[accountTrades.map(t=>t.id).join()] || []
+  const totalRealised = calcRealised(accountTrades, Object.values(executions).flat()) + calcRealised(allMirroredTrades, allMirroredExecs)
+  const totalMTF = calcMTF(accountTrades) + calcMTF(allMirroredTrades)
+  const totalOpen = openTrades.length + allMirroredTrades.filter(t=>t.status==='OPEN').length
+  const totalClosed = closedTrades.length + allMirroredTrades.filter(t=>t.status==='CLOSED').length
 
   if (!session) return null
 
@@ -354,10 +370,10 @@ export default function AccountsPage() {
             {/* Stats */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px,1fr))', gap:'10px', marginBottom:'16px' }}>
               {[
-                { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}Rs${toINR(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)' },
-                { label:'Open Positions', value:openTrades.length, color:'var(--accent)' },
-                { label:'Closed Trades', value:closedTrades.length },
-                { label:'MTF Interest', value:`Rs${toINRd(totalMTF)}`, color:'var(--gold)' },
+                { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}Rs${toINRd(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)', sub: allMirroredTrades.length>0?'incl. mirrored':'' },
+                { label:'Open Positions', value:totalOpen, color:'var(--accent)' },
+                { label:'Closed Trades', value:totalClosed },
+                { label:'MTF Interest', value:`Rs${toINRd(totalMTF)}`, color:'var(--gold)', sub: allMirroredTrades.length>0?'incl. mirrored':'' },
               ].map(s => (
                 <div key={s.label} className="stat-card">
                   <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'6px' }}>{s.label}</div>
