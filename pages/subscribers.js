@@ -194,11 +194,14 @@ export default function SubscribersPage() {
                 </thead>
                 <tbody>
                   {subscribers.map(sub => (
-                    <tr key={sub.id} onClick={() => loadSubscriberTrades(sub)} style={{ background: selected?.id===sub.id ? 'rgba(14,165,233,0.08)' : '', cursor:'pointer', transition:'background 0.15s', borderLeft: selected?.id===sub.id ? '3px solid var(--accent)' : '3px solid transparent' }}
-                      onMouseEnter={e => { if (selected?.id!==sub.id) e.currentTarget.style.background='rgba(255,255,255,0.03)' }}
+                    <tr key={sub.id}
+                      onClick={() => selected?.id===sub.id ? setSelected(null) : loadSubscriberTrades(sub)}
+                      style={{ background: selected?.id===sub.id ? 'rgba(14,165,233,0.08)' : '', cursor:'pointer', transition:'background 0.15s' }}
+                      onMouseEnter={e => { if (selected?.id!==sub.id) e.currentTarget.style.background='rgba(14,165,233,0.04)' }}
                       onMouseLeave={e => { if (selected?.id!==sub.id) e.currentTarget.style.background='' }}>
                       <td>
                         <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                          <span style={{ fontSize:'10px', color:'var(--accent)', width:'10px', flexShrink:0 }}>{selected?.id===sub.id ? '▼' : '▶'}</span>
                           {sub.avatar_url
                             ? <img src={sub.avatar_url} alt="" style={{ width:'28px', height:'28px', borderRadius:'50%', border:'1px solid var(--border)' }} />
                             : <div style={{ width:'28px', height:'28px', borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', color:'#fff', fontWeight:700 }}>{(sub.full_name||sub.email||'?')[0].toUpperCase()}</div>
