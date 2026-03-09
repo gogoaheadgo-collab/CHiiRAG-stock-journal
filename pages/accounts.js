@@ -7,11 +7,17 @@ import AddTradeModal from '../components/AddTradeModal'
 import EditTradeModal from '../components/EditTradeModal'
 import ExecutionPanel from '../components/ExecutionPanel'
 
-function NavPill({ active }) {
+function NavPill({ active, isAdmin }) {
   const router = useRouter()
+  const items = [
+    {label:'Dashboard',path:'/dashboard'},
+    {label:'Accounts',path:'/accounts'},
+    {label:'Main Page',path:'/'},
+    ...(isAdmin ? [{label:'Subscribers',path:'/subscribers'}] : []),
+  ]
   return (
     <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px' }}>
-      {[{label:'Dashboard',path:'/dashboard'},{label:'Accounts',path:'/accounts'},{label:'Main Page',path:'/'}].map(({label,path}) => (
+      {items.map(({label,path}) => (
         <button key={path} onClick={() => router.push(path)} style={{ padding:'7px 22px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600, background:active===label?'var(--accent)':'transparent', color:active===label?'#fff':'var(--muted)' }}>{label}</button>
       ))}
     </div>
@@ -37,8 +43,8 @@ export default function AccountsPage() {
   const [countdown, setCountdown] = useState(60)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); if (!session) router.push('/') })
-    const { data:{ subscription } } = supabase.auth.onAuthStateChange((_,s) => { setSession(s); if (!s) router.push('/') })
+    supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); if (!session) router.push('/'); else saveProfile(session) })
+    const { data:{ subscription } } = supabase.auth.onAuthStateChange((_,s) => { setSession(s); if (!s) router.push('/'); else saveProfile(s) })
     return () => subscription.unsubscribe()
   }, [])
 
@@ -52,6 +58,18 @@ export default function AccountsPage() {
     const t = setInterval(() => setCountdown(c => c<=1?60:c-1), 1000)
     return () => clearInterval(t)
   }, [])
+
+  const isAdmin = session?.user?.email === 'gogoaheadgo@gmail.com'
+
+  const saveProfile = async (sess) => {
+    if (!sess?.user) return
+    await supabase.from('profiles').upsert({
+      id: sess.user.id,
+      email: sess.user.email,
+      full_name: sess.user.user_metadata?.full_name || sess.user.user_metadata?.name || null,
+      avatar_url: sess.user.user_metadata?.avatar_url || null,
+    }, { onConflict: 'id' })
+  }
 
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
 
@@ -216,7 +234,7 @@ export default function AccountsPage() {
       <div className="tricolor-bar" />
       <Head><title>Accounts — CHiiRAG Stock Journal</title></Head>
       <header className="header">
-        <NavPill active="Accounts" />
+        <NavPill active="Accounts" isAdmin={isAdmin} />
         <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
           <div className="india-flag-logo-sm">
             <div style={{ flex:1, background:'#FF9933' }} />
