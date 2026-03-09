@@ -9,9 +9,8 @@ const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 function NavPill({ active, isAdmin }) {
   const router = useRouter()
   const items = [
-    ...(isAdmin ? [{ label:'Dashboard', path:'/dashboard' }] : []),
+    { label:'Dashboard', path:'/dashboard' },
     { label:'Accounts', path:'/accounts' },
-    { label:'Main Page', path:'/' },
     ...(isAdmin ? [{ label:'Subscribers', path:'/subscribers' }] : []),
   ]
   return (
@@ -190,13 +189,14 @@ export default function SubscribersPage() {
                     <th className="right">Total Investment</th>
                     <th className="right">Realised P&L</th>
                     <th className="right">Joined</th>
-                    <th style={{ textAlign:'center' }}>View</th>
-                      <th style={{ textAlign:'center' }}>Mirror</th>
+                    <th style={{ textAlign:'center' }}>Mirror</th>
                   </tr>
                 </thead>
                 <tbody>
                   {subscribers.map(sub => (
-                    <tr key={sub.id} style={{ background: selected?.id===sub.id ? 'rgba(14,165,233,0.05)' : '' }}>
+                    <tr key={sub.id} onClick={() => loadSubscriberTrades(sub)} style={{ background: selected?.id===sub.id ? 'rgba(14,165,233,0.08)' : '', cursor:'pointer', transition:'background 0.15s', borderLeft: selected?.id===sub.id ? '3px solid var(--accent)' : '3px solid transparent' }}
+                      onMouseEnter={e => { if (selected?.id!==sub.id) e.currentTarget.style.background='rgba(255,255,255,0.03)' }}
+                      onMouseLeave={e => { if (selected?.id!==sub.id) e.currentTarget.style.background='' }}>
                       <td>
                         <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
                           {sub.avatar_url
@@ -218,12 +218,7 @@ export default function SubscribersPage() {
                           : <span className="neutral">—</span>}
                       </td>
                       <td className="right muted" style={{ fontSize:'11px' }}>{sub.created_at?.slice(0,10)}</td>
-                      <td style={{ textAlign:'center' }}>
-                        <button onClick={() => loadSubscriberTrades(sub)} className="btn btn-ghost" style={{ fontSize:'11px', padding:'4px 14px', color:'var(--accent)', borderColor:'var(--accent)' }}>
-                          {selected?.id===sub.id ? 'Viewing ▾' : 'View →'}
-                        </button>
-                      </td>
-                      <td style={{ textAlign:'center' }}>
+                      <td style={{ textAlign:'center' }} onClick={e => e.stopPropagation()}>
                         {sub.isAdmin ? <span className="neutral" style={{ fontSize:'11px' }}>—</span> : (
                           <button onClick={() => toggleMirror(sub)} className="btn btn-ghost" style={{ fontSize:'11px', padding:'4px 14px', color: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', borderColor: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', fontWeight:700 }}>
                             {mirrored[sub.id] ? '× Unlink' : '+ Fetch'}
