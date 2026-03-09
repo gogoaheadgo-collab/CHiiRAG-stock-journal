@@ -9,16 +9,19 @@ const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 export default async function handler(req, res) {
   const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Unauthorized' })
-  const { data: { user }, error } = await supabase.auth.getUser(token)
-  if (error || !user || user.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Admin only' })
+  if (!token) return res.status(401).json({ error: 'No token' })
 
-  // Pull ALL users directly from auth.users via admin API — no profiles table needed
-  const { data: { users: authUsers }, error: usersError } = await adminSupabase.auth.admin.listUsers()
-  if (usersError) return res.status(500).json({ error: usersError.message })
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
+  if (authErr || !user) return res.status(401).json({ error: 'Auth failed', detail: authErr?.message })
+  if (user.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Admin only', yourEmail: user.email })
 
-  // Pull ALL trades and executions
-  const { data: trades } = await adminSupabase.from('trades').select('*')
+  // Check service role key exists
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set in Vercel env vars' })
+
+  const { data: { users: authUsers }, error: usersErr } = await adminSupabase.auth.admin.listUsers()
+  if (usersErr) return res.status(500).json({ error: 'listUsers failed', detail: usersErr.message })
+
+  const { data: trades, error: tradesErr } = await adminSupabase.from('trades').select('*')
   const { data: executions } = await adminSupabase.from('executions').select('*')
 
   const summary = (authUsers || []).map(u => {
@@ -30,8 +33,7 @@ export default async function handler(req, res) {
       return sum + execs.reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
     }, 0)
     return {
-      id: u.id,
-      email: u.email,
+      id: u.id, email: u.email,
       full_name: u.user_metadata?.full_name || u.user_metadata?.name || null,
       avatar_url: u.user_metadata?.avatar_url || u.user_metadata?.picture || null,
       created_at: u.created_at,
