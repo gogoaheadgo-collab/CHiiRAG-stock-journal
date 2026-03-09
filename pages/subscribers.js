@@ -65,23 +65,11 @@ export default function SubscribersPage() {
     const token = await getToken()
     const res = await fetch('/api/admin/subscribers', { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
-    if (Array.isArray(data)) {
-      // Make sure admin appears in the list too
-      const adminInList = data.some(s => s.email === ADMIN_EMAIL)
-      if (!adminInList && session?.user) {
-        const adminProfile = {
-          id: session.user.id,
-          email: session.user.email,
-          full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'Admin',
-          avatar_url: session.user.user_metadata?.avatar_url || null,
-          created_at: session.user.created_at,
-          totalTrades: 0, openTrades: 0, closedTrades: 0, totalInvestment: 0, realisedPnL: 0,
-        }
-        setSubscribers([adminProfile, ...data])
-      } else {
-        setSubscribers(data)
-      }
+    if (data.error) {
+      console.error('Subscribers API error:', data)
+      alert('API Error: ' + JSON.stringify(data))
     }
+    if (Array.isArray(data)) setSubscribers(data)
     setLoading(false)
   }
 
