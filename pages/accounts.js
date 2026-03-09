@@ -52,8 +52,8 @@ export default function AccountsPage() {
   const [activeMirror, setActiveMirror] = useState(null) // subscriber_id or null
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); if (!session) router.push('/'); else saveProfile(session) })
-    const { data:{ subscription } } = supabase.auth.onAuthStateChange((_,s) => { setSession(s); if (!s) router.push('/'); else saveProfile(s) })
+    supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); if (!session) router.push('/') })
+    const { data:{ subscription } } = supabase.auth.onAuthStateChange((_,s) => { setSession(s); if (!s) router.push('/') })
     return () => subscription.unsubscribe()
   }, [])
 
@@ -99,16 +99,6 @@ export default function AccountsPage() {
         } catch {}
       })
     }
-  }
-
-  const saveProfile = async (sess) => {
-    if (!sess?.user) return
-    await supabase.from('profiles').upsert({
-      id: sess.user.id,
-      email: sess.user.email,
-      full_name: sess.user.user_metadata?.full_name || sess.user.user_metadata?.name || null,
-      avatar_url: sess.user.user_metadata?.avatar_url || null,
-    }, { onConflict: 'id' })
   }
 
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
@@ -342,9 +332,22 @@ export default function AccountsPage() {
           ) : (
             <button onClick={() => setShowNewAccount(true)} style={{ padding:'7px 14px', borderRadius:'6px', border:'1px dashed var(--border)', background:'transparent', color:'var(--muted)', cursor:'pointer', fontSize:'11px', fontFamily:'DM Mono, monospace' }}>+ New Account</button>
           )}
+          {/* Mirrored Account Tiles */}
+          {mirroredAccounts.map(m => (
+            <div key={m.subscriber_id} onClick={() => { setActiveMirror(activeMirror===m.subscriber_id ? null : m.subscriber_id); setActiveAccount(activeMirror===m.subscriber_id ? accounts[0]?.name : null) }}
+              style={{ border:`2px solid ${activeMirror===m.subscriber_id?'var(--gold)':'var(--border)'}`, background:activeMirror===m.subscriber_id?'rgba(245,158,11,0.08)':'var(--surface)', borderRadius:'10px', minWidth:'120px', cursor:'pointer', padding:'14px 16px 10px' }}>
+              <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:activeMirror===m.subscriber_id?'var(--gold)':'var(--muted)' }}>
+                {(m.subscriber_name||m.subscriber_email||'').split(' ')[0]}'s
+              </div>
+              <div style={{ fontSize:'10px', color:'var(--gold)', marginTop:'3px', opacity:0.7 }}>
+                {(mirroredTrades[m.subscriber_id]||[]).length} trades · LIVE
+              </div>
+            </div>
+          ))}
         </div>
 
         {loading ? <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)' }}>Loading...</div>
+        : activeMirror ? null
         : !activeAccount ? <div style={{ textAlign:'center', padding:'80px', color:'var(--muted)' }}>No accounts yet.</div>
         : (
           <>
