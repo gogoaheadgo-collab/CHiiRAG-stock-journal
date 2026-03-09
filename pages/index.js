@@ -158,10 +158,17 @@ export default function Home() {
       <div className="tricolor-bar" />
       <Head><title>CHiiRAG Stock Journal</title></Head>
       <header className="header">
-        <NavPill active="Main Page" isAdmin={isAdmin} />
-        <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>
-          CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span>
+        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+          <div className="india-flag-logo-sm" style={{ display:'flex', flexDirection:'column' }}>
+            <div style={{ flex:1, background:'#FF9933' }} />
+            <div style={{ flex:1, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{ width:'8px', height:'8px', borderRadius:'50%', border:'1.5px solid #000080' }} />
+            </div>
+            <div style={{ flex:1, background:'#138808' }} />
+          </div>
+          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
         </div>
+        <NavPill active="Main Page" isAdmin={isAdmin} />
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
           <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding:'6px 14px', fontSize:'11px' }}>+ New Trade</button>
           <button onClick={signOut} className="btn btn-ghost" style={{ padding:'6px 12px', fontSize:'11px' }}>Sign Out</button>
