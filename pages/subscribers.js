@@ -48,6 +48,7 @@ export default function SubscribersPage() {
       setSession(session)
       if (!session) { router.push('/'); return }
       if (session.user.email !== ADMIN_EMAIL) { router.push('/accounts'); return }
+      loadSubscribers(session)
     })
     const { data:{ subscription } } = supabase.auth.onAuthStateChange((_,s) => {
       setSession(s)
@@ -56,13 +57,14 @@ export default function SubscribersPage() {
     return () => subscription.unsubscribe()
   }, [])
 
-  useEffect(() => { if (session?.user?.email === ADMIN_EMAIL) loadSubscribers() }, [session])
+  useEffect(() => { if (session?.user?.email === ADMIN_EMAIL) loadSubscribers(session) }, [session])
 
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
 
-  const loadSubscribers = async () => {
+  const loadSubscribers = async (sess) => {
     setLoading(true)
-    const token = await getToken()
+    const token = sess?.access_token || (await supabase.auth.getSession()).data.session?.access_token
+    if (!token) { setLoading(false); return }
     const res = await fetch('/api/admin/subscribers', { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
     if (data.error) {
@@ -77,7 +79,8 @@ export default function SubscribersPage() {
     setSelected(sub)
     setSubLoading(true)
     setSubTrades([]); setSubExecs([]); setLivePrices({}); setAccountFilter('ALL')
-    const token = await getToken()
+    const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token
+    if (!token) { setSubLoading(false); return }
     const res = await fetch(`/api/admin/subscriber-trades?user_id=${sub.id}`, { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
     if (data.trades) {
