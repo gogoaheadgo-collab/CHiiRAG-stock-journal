@@ -193,9 +193,16 @@ export default function Dashboard() {
 
   const allOwnExecs = Object.values(executions).flat()
   const ownTradeIds = new Set(trades.map(t => t.id))
-  const allMirroredTrades = isAdmin ? Object.values(mirroredTrades).flat().filter(t => !ownTradeIds.has(t.id)) : []
+  const ownUserId = session?.user?.id
+  // Exclude mirrored subscribers who are the same user as admin (prevents double-count)
+  const otherMirroredTrades = isAdmin
+    ? Object.entries(mirroredTrades).filter(([subId]) => subId !== ownUserId).flatMap(([, ts]) => ts)
+    : []
+  const allMirroredTrades = otherMirroredTrades.filter(t => !ownTradeIds.has(t.id))
   const mirroredTradeIds = new Set(allMirroredTrades.map(t => t.id))
-  const allMirroredExecs = isAdmin ? Object.values(mirroredExecs).flat().filter(e => mirroredTradeIds.has(e.trade_id)) : []
+  const allMirroredExecs = isAdmin
+    ? Object.entries(mirroredExecs).filter(([subId]) => subId !== ownUserId).flatMap(([, es]) => es).filter(e => mirroredTradeIds.has(e.trade_id))
+    : []
   const allTrades = [...trades, ...allMirroredTrades]
   const allExecs = [...allOwnExecs, ...allMirroredExecs]
 
@@ -217,12 +224,20 @@ export default function Dashboard() {
   const winRate = closedTrades.length>0 ? (wins.length/closedTrades.length*100).toFixed(1) : '0.0'
   const totalInvested = openTrades.reduce((s,t)=>s+(Number(t.actual_investment)||Number(t.invested_capital)||0),0)
 
+  // Build per-account breakdown — each own account separately + each mirrored subscriber
+  const ownAccountNames = [...new Set(trades.map(t => t.account).filter(Boolean))]
   const subscriberBreakdown = isAdmin ? [
-    { name:'My Trades', trades, execs:allOwnExecs },
+    ...ownAccountNames.map(accName => ({
+      name: accName,
+      trades: trades.filter(t => t.account === accName),
+      execs: allOwnExecs.filter(e => trades.filter(t=>t.account===accName).some(t=>t.id===e.trade_id)),
+      isOwn: true,
+    })),
     ...mirroredAccounts.map(m=>({
       name:(m.subscriber_name||m.subscriber_email||'').split(' ')[0]+"'s",
-      trades:mirroredTrades[m.subscriber_id]||[],
-      execs:mirroredExecs[m.subscriber_id]||[],
+      trades: allMirroredTrades.filter(t => (mirroredTrades[m.subscriber_id]||[]).some(mt=>mt.id===t.id)),
+      execs: allMirroredExecs.filter(e => (mirroredTrades[m.subscriber_id]||[]).some(mt=>mt.id===e.trade_id)),
+      isOwn: false,
     }))
   ] : []
 
@@ -288,11 +303,15 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {subscriberBreakdown.map(({ name, trades:t, execs:e }) => {
+                      {subscriberBreakdown.map(({ name, trades:t, execs:e, isOwn }) => {
                         const unr = calcUnrealised(t,e), rel = calcRealised(t,e), mtf = calcMTF(t)
                         return (
                           <tr key={name} style={{ borderBottom:'1px solid var(--border)' }}>
-                            <td style={{ padding:'8px 12px', fontWeight:700, fontFamily:'DM Mono, monospace', color:'var(--text)' }}>{name}</td>
+                            <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>
+                              <span style={{ fontWeight:700 }}>{name}</span>
+                              {isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'var(--accent-dim)', color:'var(--accent)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MINE</span>}
+                              {!isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MIRRORED</span>}
+                            </td>
                             <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>{t.filter(x=>x.status==='OPEN').length}</td>
                             <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{t.filter(x=>x.status==='CLOSED').length}</td>
                             <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:unr>=0?'var(--bull)':'var(--bear)' }}>{unr>=0?'+':'−'}Rs{toINR(Math.abs(unr))}</td>
