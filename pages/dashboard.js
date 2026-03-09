@@ -164,7 +164,7 @@ export default function Dashboard() {
     load()
   }, [session])
 
-  const signOut = () => supabase.auth.signOut().then(() => router.push('/'))
+  const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
   const toINR = n => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
   const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
 
