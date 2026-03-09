@@ -255,7 +255,8 @@ export default function AccountsPage() {
 
   const signOut = () => supabase.auth.signOut().then(() => router.push('/'))
   const toINR = (n) => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
-  const toINRd = (n) => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:2 })
+  const toINRd = (n) => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
+  const toPrice = (n) => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
 
   // Per-account filtered trades
   const accountTrades = trades.filter(t => t.account === activeAccount)
@@ -446,14 +447,14 @@ export default function AccountsPage() {
                               <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                               <td className="muted" style={{ fontSize:'11px' }}>{trade.account||'—'}</td>
                               <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                              <td className="right">Rs{toINR(entryPrice)}</td>
-                              <td className="right">{cmp ? <div><div style={{ fontWeight:600 }}>Rs{toINR(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}</td>
+                              <td className="right">Rs{toINRd(entryPrice)}</td>
+                              <td className="right">{cmp ? <div><div style={{ fontWeight:600 }}>Rs{toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}</td>
                               <td className="right">{exitPrice ? `Rs${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
                               <td className="right">{toINR(originalQty)}</td>
                               <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                              <td className="right">{investment ? `Rs${toINR(investment)}` : <span className="neutral">—</span>}</td>
+                              <td className="right">{investment ? `Rs${toINRd(investment)}` : <span className="neutral">—</span>}</td>
                               <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                              <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINR(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                              <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
                               <td className="right">{execs.length>0 ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                               <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
                             </tr>
@@ -531,17 +532,17 @@ export default function AccountsPage() {
                             <td><span className="ticker-badge">{trade.ticker}</span></td>
                             <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                             <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                            <td className="right">Rs{toINR(entryPrice)}</td>
+                            <td className="right">Rs{toINRd(entryPrice)}</td>
                             <td className="right">
-                              {isOpen && lp ? <div><div style={{ fontWeight:600 }}>Rs{toINR(lp.price)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
+                              {isOpen && lp ? <div><div style={{ fontWeight:600 }}>Rs{toINRd(lp.price)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
                             </td>
                             <td className="right">{exitPrice ? `Rs${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
                             <td className="right">{toINR(originalQty)}</td>
                             <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                            <td className="right">{investment ? `Rs${toINR(investment)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{actualInv ? `Rs${toINR(actualInv)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{investment ? `Rs${toINRd(investment)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{actualInv ? `Rs${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
                             <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINR(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
                             <td className="right">{execs.length>0 ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                             <td style={{ textAlign:'center', position:'relative' }} onClick={e => e.stopPropagation()}>
                               <button onClick={e => { e.preventDefault(); e.stopPropagation(); setOpenMenu(prev => prev===trade.id ? null : trade.id) }} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
@@ -571,7 +572,7 @@ export default function AccountsPage() {
         )}
       </main>
 
-      {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAddTrade} />}
+      {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAddTrade} isAdmin={isAdmin} />}
       {editingTrade && <EditTradeModal trade={editingTrade} onClose={() => setEditingTrade(null)} onSave={handleEdit} session={session} isAdmin={isAdmin} />}
     </>
   )
