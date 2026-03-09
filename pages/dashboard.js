@@ -47,6 +47,7 @@ function PnLCalendar({ trades }) {
     dailyPnL[key] = (dailyPnL[key]||0) + (t._realised||0)
   })
   const toINR = n => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
+  const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
   return (
     <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
