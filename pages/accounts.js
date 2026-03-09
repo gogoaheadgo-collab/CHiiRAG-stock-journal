@@ -283,7 +283,9 @@ export default function AccountsPage() {
 
   const calcRealised = (tradeList, execList) => tradeList.reduce((sum, t) => {
     const execs = execList.filter(e => e.trade_id === t.id)
-    return sum + execs.reduce((s,e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+    if (execs.length > 0)
+      return sum + execs.reduce((s,e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+    return sum + (Number(t.realized_gains) || 0)
   }, 0)
 
   const totalRealised = calcRealised(trades, allOwnExecs) + calcRealised(allMirroredTrades, allMirroredExecs)
@@ -434,7 +436,9 @@ export default function AccountsPage() {
                           const mtfBase = investment - actualInv
                           const lp = livePrices[trade.ticker]
                           const cmp = lp?.price
-                          const realisedPnL = execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
+                          const realisedPnL = execs.length > 0
+                        ? execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
+                        : (Number(trade.realized_gains) || 0)
                           const unrealisedPnL = cmp && currentQty > 0 ? (trade.direction==='LONG' ? (cmp-entryPrice)*currentQty : (entryPrice-cmp)*currentQty) : null
                           const mtfInt = mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date
                             ? execs.reduce((s,e) => { const days = Math.max(1, Math.floor((new Date(e.date)-new Date(trade.entry_date))/86400000)); return s + mtfBase*(Number(e.quantity)/originalQty)*trade.mtf_interest_rate*days/36500 }, 0)
@@ -455,7 +459,7 @@ export default function AccountsPage() {
                               <td className="right">{investment ? `Rs${toINRd(investment)}` : <span className="neutral">—</span>}</td>
                               <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
                               <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                              <td className="right">{execs.length>0 ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                              <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                               <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
                             </tr>
                           )
@@ -510,7 +514,9 @@ export default function AccountsPage() {
                       const investment = Number(trade.invested_capital) || (Number(trade.entry_price)*Number(trade.quantity))
                       const actualInv = Number(trade.actual_investment) || 0
                       const mtfBase = investment - actualInv
-                      const realisedPnL = execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
+                      const realisedPnL = execs.length > 0
+                        ? execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
+                        : (Number(trade.realized_gains) || 0)
                       const cmp = lp?.price
                       const unrealisedPnL = cmp && currentQty > 0
                         ? (trade.direction==='LONG' ? (cmp - entryPrice)*currentQty : (entryPrice - cmp)*currentQty)
@@ -543,7 +549,7 @@ export default function AccountsPage() {
                             <td className="right">{actualInv ? `Rs${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
                             <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
                             <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{execs.length>0 ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                             <td style={{ textAlign:'center', position:'relative' }} onClick={e => e.stopPropagation()}>
                               <button onClick={e => { e.preventDefault(); e.stopPropagation(); setOpenMenu(prev => prev===trade.id ? null : trade.id) }} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
                               {openMenu === trade.id && (
