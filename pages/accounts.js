@@ -10,9 +10,8 @@ import ExecutionPanel from '../components/ExecutionPanel'
 function NavPill({ active, isAdmin }) {
   const router = useRouter()
   const items = [
-    ...(isAdmin ? [{ label:'Dashboard', path:'/dashboard' }] : []),
+    { label:'Dashboard', path:'/dashboard' },
     { label:'Accounts', path:'/accounts' },
-    { label:'Main Page', path:'/' },
     ...(isAdmin ? [{ label:'Subscribers', path:'/subscribers' }] : []),
   ]
   return (
