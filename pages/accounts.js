@@ -267,8 +267,11 @@ export default function AccountsPage() {
 
   // ── AGGREGATE STATS: ALL own accounts + ALL mirrored ──
   const allOwnExecs = Object.values(executions).flat()
-  const allMirroredTrades = Object.values(mirroredTrades).flat()
-  const allMirroredExecs = Object.values(mirroredExecs).flat()
+  const ownTradeIds = new Set(trades.map(t => t.id))
+  // Deduplicate: exclude any mirrored trade that has same ID as own trade (prevents double-count)
+  const allMirroredTrades = Object.values(mirroredTrades).flat().filter(t => !ownTradeIds.has(t.id))
+  const mirroredTradeIds = new Set(allMirroredTrades.map(t => t.id))
+  const allMirroredExecs = Object.values(mirroredExecs).flat().filter(e => mirroredTradeIds.has(e.trade_id))
   const hasMirrored = allMirroredTrades.length > 0
   // Fetch live prices for ALL open trades across all accounts (not just active account)
   // so unrealised stat card is correct
