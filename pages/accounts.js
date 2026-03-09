@@ -111,7 +111,9 @@ export default function AccountsPage() {
     const aData = await aRes.json()
     if (Array.isArray(tData)) {
       setTrades(tData)
-      fetchAllExecutions(tData)
+      // Await executions so stat cards are never stale
+      await fetchAllExecutions(tData)
+      // executions fully replaced by fetchAllExecutions above
     }
     if (Array.isArray(aData)) {
       setAccounts(aData)
@@ -179,7 +181,7 @@ export default function AccountsPage() {
     )
     const map = {}
     tradeList.forEach((t,i) => { if (Array.isArray(results[i])) map[t.id] = results[i] })
-    setExecutions(prev => ({ ...prev, ...map }))
+    setExecutions(map) // full replace — removes orphaned execs from deleted trades
   }
 
   const addExecution = async (tradeId, execution) => {
@@ -215,6 +217,8 @@ export default function AccountsPage() {
     const token = await getToken()
     await fetch('/api/trades', { method:'PUT', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:editingTrade.id, ...updates }) })
     setEditingTrade(null)
+    // Clear cached executions for this trade so recalculation uses fresh data
+    setExecutions(prev => { const n = {...prev}; delete n[editingTrade.id]; return n })
     await loadData()
   }
 
@@ -228,6 +232,8 @@ export default function AccountsPage() {
     if (!confirm('Delete this trade?')) return
     const token = await getToken()
     await fetch('/api/trades', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id }) })
+    // Remove executions for deleted trade immediately
+    setExecutions(prev => { const n = {...prev}; delete n[id]; return n })
     await loadData()
   }
 
@@ -268,10 +274,17 @@ export default function AccountsPage() {
   // ── AGGREGATE STATS: ALL own accounts + ALL mirrored ──
   const allOwnExecs = Object.values(executions).flat()
   const ownTradeIds = new Set(trades.map(t => t.id))
-  // Deduplicate: exclude any mirrored trade that has same ID as own trade (prevents double-count)
-  const allMirroredTrades = Object.values(mirroredTrades).flat().filter(t => !ownTradeIds.has(t.id))
+  const ownUserId = session?.user?.id
+  // Exclude mirrored subscribers who are the same user as admin (prevents double-count)
+  const otherMirroredTrades = Object.entries(mirroredTrades)
+    .filter(([subId]) => subId !== ownUserId)
+    .flatMap(([, ts]) => ts)
+  const allMirroredTrades = otherMirroredTrades.filter(t => !ownTradeIds.has(t.id))
   const mirroredTradeIds = new Set(allMirroredTrades.map(t => t.id))
-  const allMirroredExecs = Object.values(mirroredExecs).flat().filter(e => mirroredTradeIds.has(e.trade_id))
+  const allMirroredExecs = Object.entries(mirroredExecs)
+    .filter(([subId]) => subId !== ownUserId)
+    .flatMap(([, es]) => es)
+    .filter(e => mirroredTradeIds.has(e.trade_id))
   const hasMirrored = allMirroredTrades.length > 0
   // Fetch live prices for ALL open trades across all accounts (not just active account)
   // so unrealised stat card is correct
