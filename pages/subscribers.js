@@ -79,15 +79,17 @@ export default function SubscribersPage() {
     setSelected(sub)
     setSubLoading(true)
     setSubTrades([]); setSubExecs([]); setLivePrices({}); setAccountFilter('ALL')
-    const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token
-    if (!token) { setSubLoading(false); return }
-    const res = await fetch(`/api/admin/subscriber-trades?user_id=${sub.id}`, { headers:{ Authorization:`Bearer ${token}` } })
-    const data = await res.json()
-    if (data.trades) {
-      setSubTrades(data.trades)
+    try {
+      const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token
+      if (!token) { setSubLoading(false); return }
+      const res = await fetch(`/api/admin/subscriber-trades?user_id=${sub.id}`, { headers:{ Authorization:`Bearer ${token}` } })
+      const text = await res.text()
+      let data
+      try { data = JSON.parse(text) } catch { console.error('Parse error:', text); setSubLoading(false); return }
+      if (data.error) { console.error('API error:', data); setSubLoading(false); return }
+      setSubTrades(data.trades || [])
       setSubExecs(data.executions || [])
-      // fetch live prices
-      const tickers = [...new Set(data.trades.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
+      const tickers = [...new Set((data.trades||[]).filter(t=>t.status==='OPEN').map(t=>t.ticker))]
       tickers.forEach(async ticker => {
         try {
           const r = await fetch(`/api/stock/${ticker}`)
@@ -95,7 +97,7 @@ export default function SubscribersPage() {
           if (d.price) setLivePrices(prev => ({ ...prev, [ticker]: d }))
         } catch {}
       })
-    }
+    } catch(e) { console.error('loadSubscriberTrades error:', e) }
     setSubLoading(false)
   }
 
