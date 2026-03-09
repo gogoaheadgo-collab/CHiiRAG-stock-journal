@@ -135,13 +135,19 @@ export default function AccountsPage() {
   useEffect(() => { if (session) loadData() }, [session, loadData])
 
   useEffect(() => {
-    if (!session || !isAdmin) return
-    loadMirroredAccounts()
-  }, [session, isAdmin])
+    if (!session) return
+    if (session.user?.email === 'gogoaheadgo@gmail.com') {
+      loadMirroredAccounts()
+      // Reload when user comes back to this tab (e.g. after linking on subscribers page)
+      const onFocus = () => loadMirroredAccounts()
+      window.addEventListener('focus', onFocus)
+      return () => window.removeEventListener('focus', onFocus)
+    }
+  }, [session])
 
   // Real-time sync — when any trade changes, refresh mirrored trades
   useEffect(() => {
-    if (!isAdmin || mirroredAccounts.length === 0) return
+    if (session?.user?.email !== 'gogoaheadgo@gmail.com' || mirroredAccounts.length === 0) return
     const channel = supabase.channel('mirrored-trades-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trades' }, () => {
         mirroredAccounts.forEach(m => loadMirroredTrades(m.subscriber_id))
