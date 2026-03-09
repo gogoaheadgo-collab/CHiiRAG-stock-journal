@@ -1,4 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
+
+// Service role key bypasses RLS — can read all users data
+const adminSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+// Anon client just for verifying the requesting user is admin
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
@@ -8,18 +15,15 @@ export default async function handler(req, res) {
   const { data: { user }, error } = await supabase.auth.getUser(token)
   if (error || !user || user.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Admin only' })
 
-  // Get ALL profiles (includes admin since admin also upserts their profile on login)
-  const { data: profiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: true })
+  // Use admin client to read ALL data across all users
+  const { data: profiles } = await adminSupabase.from('profiles').select('*').order('created_at', { ascending: true })
+  const { data: trades } = await adminSupabase.from('trades').select('*')
+  const { data: executions } = await adminSupabase.from('executions').select('*')
 
-  // If admin profile missing from profiles table, inject it
   let allProfiles = profiles || []
   if (!allProfiles.find(p => p.email === ADMIN_EMAIL)) {
-    allProfiles = [{ id: user.id, email: user.email, full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'Admin', avatar_url: user.user_metadata?.avatar_url || null, created_at: user.created_at }, ...allProfiles]
+    allProfiles = [{ id: user.id, email: user.email, full_name: user.user_metadata?.full_name || 'Admin', avatar_url: user.user_metadata?.avatar_url || null, created_at: user.created_at }, ...allProfiles]
   }
-
-  // Get ALL trades and executions across all users
-  const { data: trades } = await supabase.from('trades').select('*')
-  const { data: executions } = await supabase.from('executions').select('*')
 
   const summary = allProfiles.map(profile => {
     const userTrades = (trades || []).filter(t => t.user_id === profile.id)
