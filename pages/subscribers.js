@@ -1,0 +1,301 @@
+import { useState, useEffect } from 'react'
+import Head from 'next/head'
+import { useRouter } from 'next/router'
+import { supabase } from '../lib/supabase'
+import { differenceInDays } from 'date-fns'
+
+const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
+
+function NavPill({ active, isAdmin }) {
+  const router = useRouter()
+  const items = [
+    { label:'Dashboard', path:'/dashboard' },
+    { label:'Accounts', path:'/accounts' },
+    { label:'Main Page', path:'/' },
+    ...(isAdmin ? [{ label:'Subscribers', path:'/subscribers' }] : []),
+  ]
+  return (
+    <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px' }}>
+      {items.map(({ label, path }) => (
+        <button key={path} onClick={() => router.push(path)} style={{
+          padding:'7px 22px', borderRadius:'6px', border:'none', cursor:'pointer',
+          fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600,
+          background: active===label ? 'var(--accent)' : 'transparent',
+          color: active===label ? '#fff' : 'var(--muted)',
+        }}>{label}</button>
+      ))}
+    </div>
+  )
+}
+
+function toINR(n) { return Number(n).toLocaleString('en-IN', { maximumFractionDigits:0 }) }
+function toINRd(n) { return Number(n).toLocaleString('en-IN', { maximumFractionDigits:2 }) }
+
+export default function SubscribersPage() {
+  const router = useRouter()
+  const [session, setSession] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [subscribers, setSubscribers] = useState([])
+  const [selected, setSelected] = useState(null)
+  const [subTrades, setSubTrades] = useState([])
+  const [subExecs, setSubExecs] = useState([])
+  const [subLoading, setSubLoading] = useState(false)
+  const [livePrices, setLivePrices] = useState({})
+  const [accountFilter, setAccountFilter] = useState('ALL')
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data:{ session } }) => {
+      setSession(session)
+      if (!session) { router.push('/'); return }
+      if (session.user.email !== ADMIN_EMAIL) { router.push('/accounts'); return }
+    })
+    const { data:{ subscription } } = supabase.auth.onAuthStateChange((_,s) => {
+      setSession(s)
+      if (!s) router.push('/')
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => { if (session?.user?.email === ADMIN_EMAIL) loadSubscribers() }, [session])
+
+  const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
+
+  const loadSubscribers = async () => {
+    setLoading(true)
+    const token = await getToken()
+    const res = await fetch('/api/admin/subscribers', { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (Array.isArray(data)) setSubscribers(data)
+    setLoading(false)
+  }
+
+  const loadSubscriberTrades = async (sub) => {
+    setSelected(sub)
+    setSubLoading(true)
+    setSubTrades([]); setSubExecs([]); setLivePrices({}); setAccountFilter('ALL')
+    const token = await getToken()
+    const res = await fetch(`/api/admin/subscriber-trades?user_id=${sub.id}`, { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (data.trades) {
+      setSubTrades(data.trades)
+      setSubExecs(data.executions || [])
+      // fetch live prices
+      const tickers = [...new Set(data.trades.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
+      tickers.forEach(async ticker => {
+        try {
+          const r = await fetch(`/api/stock/${ticker}`)
+          const d = await r.json()
+          if (d.price) setLivePrices(prev => ({ ...prev, [ticker]: d }))
+        } catch {}
+      })
+    }
+    setSubLoading(false)
+  }
+
+  const pnlColor = (n) => n >= 0 ? 'var(--bull)' : 'var(--bear)'
+  const pnlSign = (n) => n >= 0 ? '+' : '−'
+
+  // Accounts of selected subscriber
+  const accounts = [...new Set(subTrades.map(t => t.account).filter(Boolean))]
+  const filtered = accountFilter === 'ALL' ? subTrades : subTrades.filter(t => t.account === accountFilter)
+
+  return (
+    <>
+      <Head><title>Subscribers — CHiiRAG Journal</title></Head>
+      <div className="tricolor-bar" />
+
+      <header className="header" style={{ top:'4px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+          <div className="india-flag-logo-sm" style={{ display:'flex', flexDirection:'column' }}>
+            <div style={{ flex:1, background:'#FF9933' }} />
+            <div style={{ flex:1, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{ width:'8px', height:'8px', borderRadius:'50%', border:'1.5px solid #000080' }} />
+            </div>
+            <div style={{ flex:1, background:'#138808' }} />
+          </div>
+          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>
+            CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span>
+          </div>
+        </div>
+        <NavPill active="Subscribers" isAdmin={true} />
+        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+          <span style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>ADMIN</span>
+          <button onClick={() => supabase.auth.signOut()} className="btn btn-ghost" style={{ fontSize:'11px', padding:'5px 14px' }}>Sign Out</button>
+        </div>
+      </header>
+
+      <main style={{ paddingTop:'80px', maxWidth:'1400px', margin:'0 auto', padding:'80px 24px 40px' }}>
+
+        {/* Subscriber Summary Table */}
+        <div style={{ marginBottom:'32px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'16px' }}>
+            <h2 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'20px', fontWeight:700, color:'var(--text)', margin:0 }}>
+              Subscribers
+            </h2>
+            <span style={{ fontSize:'11px', color:'var(--muted)', background:'var(--surface)', padding:'2px 10px', borderRadius:'20px', fontFamily:'DM Mono, monospace' }}>
+              {subscribers.length} users
+            </span>
+          </div>
+
+          {loading ? (
+            <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>Loading subscribers...</div>
+          ) : subscribers.length === 0 ? (
+            <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No subscribers yet. Share your URL with family and friends!</div>
+          ) : (
+            <div className="table-wrap">
+              <table className="trades-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th className="right">Total Trades</th>
+                    <th className="right">Open</th>
+                    <th className="right">Closed</th>
+                    <th className="right">Total Investment</th>
+                    <th className="right">Realised P&L</th>
+                    <th className="right">Joined</th>
+                    <th style={{ textAlign:'center' }}>View</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subscribers.map(sub => (
+                    <tr key={sub.id} style={{ background: selected?.id===sub.id ? 'rgba(14,165,233,0.05)' : '' }}>
+                      <td>
+                        <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                          {sub.avatar_url
+                            ? <img src={sub.avatar_url} alt="" style={{ width:'28px', height:'28px', borderRadius:'50%', border:'1px solid var(--border)' }} />
+                            : <div style={{ width:'28px', height:'28px', borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', color:'#fff', fontWeight:700 }}>{(sub.full_name||sub.email||'?')[0].toUpperCase()}</div>
+                          }
+                          <span style={{ fontWeight:600, fontSize:'13px' }}>{sub.full_name || '—'}</span>
+                        </div>
+                      </td>
+                      <td className="muted" style={{ fontSize:'11px', fontFamily:'DM Mono, monospace' }}>{sub.email}</td>
+                      <td className="right">{sub.totalTrades}</td>
+                      <td className="right"><span style={{ color:'var(--bull)', fontWeight:600 }}>{sub.openTrades}</span></td>
+                      <td className="right"><span style={{ color:'var(--muted)' }}>{sub.closedTrades}</span></td>
+                      <td className="right">{sub.totalInvestment ? `Rs ${toINR(sub.totalInvestment)}` : '—'}</td>
+                      <td className="right">
+                        {sub.realisedPnL !== 0
+                          ? <span style={{ color:pnlColor(sub.realisedPnL), fontWeight:600 }}>{pnlSign(sub.realisedPnL)}Rs {toINRd(Math.abs(sub.realisedPnL))}</span>
+                          : <span className="neutral">—</span>}
+                      </td>
+                      <td className="right muted" style={{ fontSize:'11px' }}>{sub.created_at?.slice(0,10)}</td>
+                      <td style={{ textAlign:'center' }}>
+                        <button onClick={() => loadSubscriberTrades(sub)} className="btn btn-ghost" style={{ fontSize:'11px', padding:'4px 14px', color:'var(--accent)', borderColor:'var(--accent)' }}>
+                          {selected?.id===sub.id ? 'Viewing ▾' : 'View →'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Selected Subscriber's Portfolio */}
+        {selected && (
+          <div style={{ borderTop:'2px solid var(--accent)', paddingTop:'24px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'16px', marginBottom:'16px', flexWrap:'wrap' }}>
+              <h3 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'18px', fontWeight:700, margin:0 }}>
+                {selected.full_name || selected.email}'s Portfolio
+              </h3>
+              <button onClick={() => setSelected(null)} style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'18px' }}>×</button>
+
+              {/* Account filter tabs */}
+              {accounts.length > 0 && (
+                <div style={{ display:'flex', gap:'6px', marginLeft:'auto', flexWrap:'wrap' }}>
+                  {['ALL', ...accounts].map(a => (
+                    <button key={a} onClick={() => setAccountFilter(a)} className="tab" style={{
+                      background: accountFilter===a ? 'var(--accent)' : 'var(--surface)',
+                      color: accountFilter===a ? '#fff' : 'var(--muted)',
+                      border:'1px solid var(--border)', borderRadius:'6px',
+                      padding:'4px 14px', fontSize:'11px', cursor:'pointer', fontFamily:'DM Mono, monospace'
+                    }}>{a}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {subLoading ? (
+              <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>Loading portfolio...</div>
+            ) : filtered.length === 0 ? (
+              <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No trades found.</div>
+            ) : (
+              <div className="table-wrap">
+                <table className="trades-table">
+                  <thead>
+                    <tr>
+                      <th>Ticker</th><th>Direction</th><th>Account</th><th>Entry Date</th>
+                      <th className="right">Entry Rs</th><th className="right">CMP</th>
+                      <th className="right">Exit Rs</th><th className="right">Qty</th>
+                      <th className="right">Current Qty</th>
+                      <th className="right">Investment</th>
+                      <th className="right">MTF Interest</th>
+                      <th className="right">Unrealised P&L</th>
+                      <th className="right">Realised P&L</th>
+                      <th className="right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(trade => {
+                      const execs = subExecs.filter(e => e.trade_id === trade.id)
+                      const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
+                      const originalQty = Number(trade.quantity) || 0
+                      const currentQty = Math.max(0, originalQty - totalSoldQty)
+                      const entryPrice = Number(trade.entry_price) || 0
+                      const investment = Number(trade.invested_capital) || 0
+                      const actualInv = Number(trade.actual_investment) || 0
+                      const mtfBase = investment - actualInv
+                      const lp = livePrices[trade.ticker]
+                      const cmp = lp?.price
+
+                      const realisedPnL = execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
+                      const unrealisedPnL = cmp && currentQty > 0
+                        ? (trade.direction==='LONG' ? (cmp-entryPrice)*currentQty : (entryPrice-cmp)*currentQty)
+                        : null
+
+                      const mtfInt = mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date
+                        ? execs.reduce((s,e) => {
+                            const days = Math.max(1, Math.floor((new Date(e.date) - new Date(trade.entry_date)) / 86400000))
+                            return s + mtfBase * (Number(e.quantity)/originalQty) * trade.mtf_interest_rate * days / 36500
+                          }, 0) + (currentQty > 0
+                            ? mtfBase * (currentQty/originalQty) * trade.mtf_interest_rate * Math.max(1, Math.floor((new Date() - new Date(trade.entry_date)) / 86400000)) / 36500
+                            : 0)
+                        : null
+
+                      const exitPrice = currentQty === 0 && execs.length > 0
+                        ? execs.reduce((s,e) => s + Number(e.price)*Number(e.quantity), 0) / totalSoldQty
+                        : trade.exit_price || null
+
+                      return (
+                        <tr key={trade.id}>
+                          <td><span className="ticker-badge">{trade.ticker}</span></td>
+                          <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
+                          <td className="muted" style={{ fontSize:'11px' }}>{trade.account || '—'}</td>
+                          <td className="muted">{trade.entry_date?.slice(0,10)}</td>
+                          <td className="right">Rs {toINR(entryPrice)}</td>
+                          <td className="right">
+                            {cmp ? <div><div style={{ fontWeight:600 }}>Rs {toINR(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
+                          </td>
+                          <td className="right">{exitPrice ? `Rs ${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{toINR(originalQty)}</td>
+                          <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
+                          <td className="right">{investment ? `Rs ${toINR(investment)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs {toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
+                          <td className="right">{unrealisedPnL !== null ? <span style={{ color:pnlColor(unrealisedPnL), fontWeight:600 }}>{pnlSign(unrealisedPnL)}Rs {toINR(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                          <td className="right">{execs.length > 0 ? <span style={{ color:pnlColor(realisedPnL), fontWeight:600 }}>{pnlSign(realisedPnL)}Rs {toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                          <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+    </>
+  )
+}
