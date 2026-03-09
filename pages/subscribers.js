@@ -41,6 +41,7 @@ export default function SubscribersPage() {
   const [subExecs, setSubExecs] = useState([])
   const [subLoading, setSubLoading] = useState(false)
   const [livePrices, setLivePrices] = useState({})
+  const [mirrored, setMirrored] = useState({}) // subscriber_id -> true
   const [accountFilter, setAccountFilter] = useState('ALL')
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function SubscribersPage() {
       if (!session) { router.push('/'); return }
       if (session.user.email !== ADMIN_EMAIL) { router.push('/accounts'); return }
       loadSubscribers(session)
+      loadMirrored(session)
     })
     const { data:{ subscription } } = supabase.auth.onAuthStateChange((_,s) => {
       setSession(s)
@@ -60,6 +62,31 @@ export default function SubscribersPage() {
   useEffect(() => { if (session?.user?.email === ADMIN_EMAIL) loadSubscribers(session) }, [session])
 
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
+
+  const loadMirrored = async (sess) => {
+    const token = sess?.access_token || (await supabase.auth.getSession()).data.session?.access_token
+    if (!token) return
+    const res = await fetch('/api/admin/mirror', { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (Array.isArray(data)) {
+      const map = {}
+      data.forEach(m => { map[m.subscriber_id] = true })
+      setMirrored(map)
+    }
+  }
+
+  const toggleMirror = async (sub) => {
+    const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token
+    if (!token) return
+    const isMirrored = mirrored[sub.id]
+    if (isMirrored) {
+      await fetch('/api/admin/mirror', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body: JSON.stringify({ subscriber_id: sub.id }) })
+      setMirrored(prev => { const n = {...prev}; delete n[sub.id]; return n })
+    } else {
+      await fetch('/api/admin/mirror', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body: JSON.stringify({ subscriber_id: sub.id, subscriber_name: sub.full_name || sub.email, subscriber_email: sub.email }) })
+      setMirrored(prev => ({ ...prev, [sub.id]: true }))
+    }
+  }
 
   const loadSubscribers = async (sess) => {
     setLoading(true)
@@ -164,6 +191,7 @@ export default function SubscribersPage() {
                     <th className="right">Realised P&L</th>
                     <th className="right">Joined</th>
                     <th style={{ textAlign:'center' }}>View</th>
+                      <th style={{ textAlign:'center' }}>Mirror</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -194,6 +222,13 @@ export default function SubscribersPage() {
                         <button onClick={() => loadSubscriberTrades(sub)} className="btn btn-ghost" style={{ fontSize:'11px', padding:'4px 14px', color:'var(--accent)', borderColor:'var(--accent)' }}>
                           {selected?.id===sub.id ? 'Viewing ▾' : 'View →'}
                         </button>
+                      </td>
+                      <td style={{ textAlign:'center' }}>
+                        {sub.isAdmin ? <span className="neutral" style={{ fontSize:'11px' }}>—</span> : (
+                          <button onClick={() => toggleMirror(sub)} className="btn btn-ghost" style={{ fontSize:'11px', padding:'4px 14px', color: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', borderColor: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', fontWeight:700 }}>
+                            {mirrored[sub.id] ? '× Unlink' : '+ Fetch'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
