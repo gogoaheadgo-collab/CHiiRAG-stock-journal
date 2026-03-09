@@ -192,8 +192,10 @@ export default function Dashboard() {
   }, 0)
 
   const allOwnExecs = Object.values(executions).flat()
-  const allMirroredTrades = isAdmin ? Object.values(mirroredTrades).flat() : []
-  const allMirroredExecs = isAdmin ? Object.values(mirroredExecs).flat() : []
+  const ownTradeIds = new Set(trades.map(t => t.id))
+  const allMirroredTrades = isAdmin ? Object.values(mirroredTrades).flat().filter(t => !ownTradeIds.has(t.id)) : []
+  const mirroredTradeIds = new Set(allMirroredTrades.map(t => t.id))
+  const allMirroredExecs = isAdmin ? Object.values(mirroredExecs).flat().filter(e => mirroredTradeIds.has(e.trade_id)) : []
   const allTrades = [...trades, ...allMirroredTrades]
   const allExecs = [...allOwnExecs, ...allMirroredExecs]
 
