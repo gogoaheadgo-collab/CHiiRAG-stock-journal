@@ -151,8 +151,8 @@ export default function SubscribersPage() {
           ) : subscribers.length === 0 ? (
             <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No subscribers yet. Share your URL with family and friends!</div>
           ) : (
-            <div className="table-wrap">
-              <table className="trades-table">
+            <div className="table-container" style={{ overflowX:"auto", borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"8px" }}>
+              <table className="trade-table">
                 <thead>
                   <tr>
                     <th>User</th>
@@ -232,8 +232,8 @@ export default function SubscribersPage() {
             ) : filtered.length === 0 ? (
               <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No trades found.</div>
             ) : (
-              <div className="table-wrap">
-                <table className="trades-table">
+              <div className="table-container" style={{ overflowX:"auto", borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"8px" }}>
+                <table className="trade-table">
                   <thead>
                     <tr>
                       <th>Ticker</th><th>Direction</th><th>Account</th><th>Entry Date</th>
