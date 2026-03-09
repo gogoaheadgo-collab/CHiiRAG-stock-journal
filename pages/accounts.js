@@ -234,17 +234,17 @@ export default function AccountsPage() {
       <div className="tricolor-bar" />
       <Head><title>Accounts — CHiiRAG Stock Journal</title></Head>
       <header className="header">
-        <NavPill active="Accounts" isAdmin={isAdmin} />
         <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-          <div className="india-flag-logo-sm">
+          <div className="india-flag-logo-sm" style={{ display:'flex', flexDirection:'column' }}>
             <div style={{ flex:1, background:'#FF9933' }} />
-            <div style={{ flex:1, background:'#ffffff', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <div style={{ flex:1, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
               <div style={{ width:'8px', height:'8px', borderRadius:'50%', border:'1.5px solid #000080' }} />
             </div>
             <div style={{ flex:1, background:'#138808' }} />
           </div>
           <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
         </div>
+        <NavPill active="Accounts" isAdmin={isAdmin} />
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
           {openTrades.length > 0 && <span style={{ fontSize:'10px', color:'var(--muted)' }}>↻ {countdown}s</span>}
           <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding:'6px 14px', fontSize:'11px' }}>+ New Trade</button>
