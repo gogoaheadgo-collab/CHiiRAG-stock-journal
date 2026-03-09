@@ -5,11 +5,17 @@ import { supabase } from '../lib/supabase'
 import AddTradeModal from '../components/AddTradeModal'
 import { differenceInDays, format } from 'date-fns'
 
-function NavPill({ active }) {
+function NavPill({ active, isAdmin }) {
   const router = useRouter()
+  const items = [
+    { label:'Dashboard', path:'/dashboard' },
+    { label:'Accounts', path:'/accounts' },
+    { label:'Main Page', path:'/' },
+    ...(isAdmin ? [{ label:'Subscribers', path:'/subscribers' }] : []),
+  ]
   return (
     <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px' }}>
-      {[{ label:'Dashboard', path:'/dashboard' },{ label:'Accounts', path:'/accounts' },{ label:'Main Page', path:'/' }].map(({ label, path }) => (
+      {items.map(({ label, path }) => (
         <button key={path} onClick={() => router.push(path)} style={{
           padding:'7px 22px', borderRadius:'6px', border:'none', cursor:'pointer',
           fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600, letterSpacing:'0.05em',
@@ -71,11 +77,22 @@ export default function Home() {
   const [showAdd, setShowAdd] = useState(false)
   const [tradesLoading, setTradesLoading] = useState(false)
   const [accounts, setAccounts] = useState([])
+  const isAdmin = session?.user?.email === 'gogoaheadgo@gmail.com'
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); setAuthLoading(false) })
-    const { data:{ subscription } } = supabase.auth.onAuthStateChange((_, s) => { setSession(s); setAuthLoading(false) })
+    supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); setAuthLoading(false); if(session) saveProfile(session) })
+    const { data:{ subscription } } = supabase.auth.onAuthStateChange((_, s) => { setSession(s); setAuthLoading(false); if(s) saveProfile(s) })
     return () => subscription.unsubscribe()
+
+  async function saveProfile(sess) {
+    if (!sess?.user) return
+    await supabase.from('profiles').upsert({
+      id: sess.user.id,
+      email: sess.user.email,
+      full_name: sess.user.user_metadata?.full_name || sess.user.user_metadata?.name || null,
+      avatar_url: sess.user.user_metadata?.avatar_url || null,
+    }, { onConflict: 'id' })
+  }
   }, [])
 
   const loadTrades = useCallback(async () => {
@@ -141,7 +158,7 @@ export default function Home() {
       <div className="tricolor-bar" />
       <Head><title>CHiiRAG Stock Journal</title></Head>
       <header className="header">
-        <NavPill active="Main Page" />
+        <NavPill active="Main Page" isAdmin={isAdmin} />
         <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>
           CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span>
         </div>
