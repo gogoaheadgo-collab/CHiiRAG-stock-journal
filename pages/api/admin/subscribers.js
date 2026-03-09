@@ -12,38 +12,61 @@ export default async function handler(req, res) {
   if (!token) return res.status(401).json({ error: 'No token' })
 
   const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
-  if (authErr || !user) return res.status(401).json({ error: 'Auth failed', detail: authErr?.message })
-  if (user.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Admin only', yourEmail: user.email })
+  if (authErr || !user) return res.status(401).json({ error: 'Auth failed' })
+  if (user.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Admin only' })
 
-  // Check service role key exists
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set in Vercel env vars' })
+  try {
+    // Get all trades and executions using service role (bypasses RLS)
+    const { data: trades, error: tErr } = await adminSupabase.from('trades').select('*')
+    if (tErr) return res.status(500).json({ error: 'trades fetch failed', detail: tErr.message })
 
-  const { data: { users: authUsers }, error: usersErr } = await adminSupabase.auth.admin.listUsers()
-  if (usersErr) return res.status(500).json({ error: 'listUsers failed', detail: usersErr.message })
+    const { data: executions } = await adminSupabase.from('executions').select('*')
+    const { data: profiles } = await adminSupabase.from('profiles').select('*')
 
-  const { data: trades, error: tradesErr } = await adminSupabase.from('trades').select('*')
-  const { data: executions } = await adminSupabase.from('executions').select('*')
+    // Build unique user list from trades (works even without profiles table)
+    const userMap = {}
 
-  const summary = (authUsers || []).map(u => {
-    const userTrades = (trades || []).filter(t => t.user_id === u.id)
-    const userExecs = (executions || []).filter(e => e.user_id === u.id)
-    const totalInvestment = userTrades.reduce((s, t) => s + (Number(t.invested_capital) || 0), 0)
-    const realisedPnL = userTrades.reduce((sum, t) => {
-      const execs = userExecs.filter(e => e.trade_id === t.id)
-      return sum + execs.reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
-    }, 0)
-    return {
-      id: u.id, email: u.email,
-      full_name: u.user_metadata?.full_name || u.user_metadata?.name || null,
-      avatar_url: u.user_metadata?.avatar_url || u.user_metadata?.picture || null,
-      created_at: u.created_at,
-      totalTrades: userTrades.length,
-      openTrades: userTrades.filter(t => t.status === 'OPEN').length,
-      closedTrades: userTrades.filter(t => t.status === 'CLOSED').length,
-      totalInvestment, realisedPnL,
-      isAdmin: u.email === ADMIN_EMAIL,
+    // Add from profiles if available
+    ;(profiles || []).forEach(p => {
+      userMap[p.id] = { id: p.id, email: p.email, full_name: p.full_name, avatar_url: p.avatar_url, created_at: p.created_at }
+    })
+
+    // Add any users found in trades but not in profiles
+    ;(trades || []).forEach(t => {
+      if (!userMap[t.user_id]) {
+        userMap[t.user_id] = { id: t.user_id, email: t.account || 'Unknown', full_name: null, avatar_url: null, created_at: t.entry_date }
+      }
+    })
+
+    // Make sure admin is included
+    if (!userMap[user.id]) {
+      userMap[user.id] = { id: user.id, email: user.email, full_name: user.user_metadata?.full_name || null, avatar_url: user.user_metadata?.avatar_url || null, created_at: user.created_at }
     }
-  })
 
-  return res.status(200).json(summary)
+    const summary = Object.values(userMap).map(u => {
+      const userTrades = (trades || []).filter(t => t.user_id === u.id)
+      const userExecs = (executions || []).filter(e => e.user_id === u.id)
+      const totalInvestment = userTrades.reduce((s, t) => s + (Number(t.invested_capital) || 0), 0)
+      const realisedPnL = userTrades.reduce((sum, t) => {
+        const execs = userExecs.filter(e => e.trade_id === t.id)
+        if (execs.length > 0) {
+          return sum + execs.reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+        }
+        // fallback to realized_gains on trade itself (older trades)
+        return sum + (Number(t.realized_gains) || 0)
+      }, 0)
+      return {
+        id: u.id, email: u.email, full_name: u.full_name, avatar_url: u.avatar_url, created_at: u.created_at,
+        totalTrades: userTrades.length,
+        openTrades: userTrades.filter(t => t.status === 'OPEN').length,
+        closedTrades: userTrades.filter(t => t.status === 'CLOSED').length,
+        totalInvestment, realisedPnL,
+        isAdmin: u.email === ADMIN_EMAIL,
+      }
+    })
+
+    return res.status(200).json(summary)
+  } catch (e) {
+    return res.status(500).json({ error: e.message })
+  }
 }
