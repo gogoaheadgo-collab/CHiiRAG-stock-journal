@@ -82,17 +82,11 @@ export default function Home() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session } }) => {
       setSession(session); setAuthLoading(false)
-      if(session) {
-        saveProfile(session)
-        if(session.user.email !== 'gogoaheadgo@gmail.com') router.push('/accounts')
-      }
+      if(session) saveProfile(session)
     })
     const { data:{ subscription } } = supabase.auth.onAuthStateChange((_, s) => {
       setSession(s); setAuthLoading(false)
-      if(s) {
-        saveProfile(s)
-        if(s.user.email !== 'gogoaheadgo@gmail.com') router.push('/accounts')
-      }
+      if(s) saveProfile(s)
     })
     return () => subscription.unsubscribe()
 
