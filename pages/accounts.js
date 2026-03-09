@@ -152,14 +152,15 @@ export default function AccountsPage() {
   }, [])
 
   useEffect(() => {
-    if (!session || !activeAccount) return
-    const symbols = [...new Set(trades.filter(t => t.status==='OPEN' && t.account===activeAccount).map(t => t.ticker))]
+    if (!session || !trades.length) return
+    // Fetch prices for ALL open trades across all accounts for correct stat cards
+    const symbols = [...new Set(trades.filter(t => t.status==='OPEN').map(t => t.ticker))]
     symbols.forEach(fetchPrice)
-  }, [trades, activeAccount, session]) // eslint-disable-line
+  }, [trades, session]) // eslint-disable-line
 
   useEffect(() => {
-    if (countdown===60 && session && activeAccount) {
-      const symbols = [...new Set(trades.filter(t => t.status==='OPEN' && t.account===activeAccount).map(t => t.ticker))]
+    if (countdown===60 && session && trades.length) {
+      const symbols = [...new Set(trades.filter(t => t.status==='OPEN').map(t => t.ticker))]
       symbols.forEach(fetchPrice)
     }
   }, [countdown]) // eslint-disable-line
@@ -269,6 +270,8 @@ export default function AccountsPage() {
   const allMirroredTrades = Object.values(mirroredTrades).flat()
   const allMirroredExecs = Object.values(mirroredExecs).flat()
   const hasMirrored = allMirroredTrades.length > 0
+  // Fetch live prices for ALL open trades across all accounts (not just active account)
+  // so unrealised stat card is correct
 
   const calcMTF = (tradeList) => tradeList.reduce((s,t) => {
     if (!t.mtf_interest_rate || !t.entry_date) return s
