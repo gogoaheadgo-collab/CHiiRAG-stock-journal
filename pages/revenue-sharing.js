@@ -123,7 +123,8 @@ export default function RevenueSharingPage() {
     const mtfBase     = actualInv > 0 ? investment - actualInv : 0
 
     // MTF interest
-    let mtfInt = 0
+    let mtfInt = 0         // total (open + closed) — for display only
+    let mtfIntClosed = 0   // closed portion only — used in Net P&L Admin
     if (mtfBase > 0 && mtfRate && trade.entry_date) {
       const soldMtf = tradeExecs.reduce((s, e) => {
         const days = Math.max(1, Math.floor((new Date(e.date) - new Date(trade.entry_date)) / 86400000))
@@ -135,6 +136,7 @@ export default function RevenueSharingPage() {
       const remMtf = trade.status === 'OPEN'
         ? mtfBase * (remQty / originalQty) * mtfRate * remDays / 36500
         : 0
+      mtfIntClosed = soldMtf + (trade.status === 'CLOSED' ? remMtf : 0)
       mtfInt = soldMtf + remMtf
     }
 
@@ -152,14 +154,14 @@ export default function RevenueSharingPage() {
     const adminRatio = investment > 0 && actualInv > 0 ? (investment - actualInv) / investment : 0
 
     const grossPnLAdmin = grossPnL * adminRatio   // admin's share of gross profit
-    const netPnLAdmin   = grossPnLAdmin - mtfInt  // minus MTF interest admin bears
+    const netPnLAdmin   = grossPnLAdmin - mtfIntClosed  // only closed MTF interest
 
     const exitPrice = tradeExecs.length > 0
       ? tradeExecs.reduce((s, e) => s + Number(e.price) * Number(e.quantity), 0) /
         tradeExecs.reduce((s, e) => s + Number(e.quantity), 0)
       : Number(trade.exit_price) || null
 
-    return { investment, actualInv, mtfInt, grossPnL, grossPnLAdmin, netPnLAdmin, exitPrice, originalQty, entryPrice, adminRatio }
+    return { investment, actualInv, mtfInt, mtfIntClosed, grossPnL, grossPnLAdmin, netPnLAdmin, exitPrice, originalQty, entryPrice, adminRatio }
   }
 
   // ── Summary stats ──
@@ -171,16 +173,20 @@ export default function RevenueSharingPage() {
         grossPnL:      acc.grossPnL      + r.grossPnL,
         grossPnLAdmin: acc.grossPnLAdmin + r.grossPnLAdmin,
         netPnLAdmin:   acc.netPnLAdmin   + r.netPnLAdmin,
-        mtfInt:        acc.mtfInt        + r.mtfInt,
+        mtfInt:        acc.mtfInt        + r.mtfInt,           // total MTF (open+closed)
+        mtfIntClosed:  acc.mtfIntClosed  + r.mtfIntClosed,    // closed only
+        mtfIntOpen:    acc.mtfIntOpen    + (r.mtfInt - r.mtfIntClosed), // open only
         count:         acc.count         + 1,
       }
-    }, { grossPnL:0, grossPnLAdmin:0, netPnLAdmin:0, mtfInt:0, count:0 })
+    }, { grossPnL:0, grossPnLAdmin:0, netPnLAdmin:0, mtfInt:0, mtfIntClosed:0, mtfIntOpen:0, count:0 })
   }
 
   // ── Render table ──
   const TradeTable = ({ trades, execs }) => {
-    const mtfTrades = trades.filter(t => Number(t.actual_investment) > 0)
-    if (mtfTrades.length === 0) return (
+    const [statusFilter, setStatusFilter] = React.useState('ALL')
+    const allMtfTrades = trades.filter(t => Number(t.actual_investment) > 0)
+    const mtfTrades = statusFilter === 'ALL' ? allMtfTrades : allMtfTrades.filter(t => t.status === statusFilter)
+    if (allMtfTrades.length === 0) return (
       <div style={{ color:'var(--muted)', fontSize:'13px', padding:'24px', textAlign:'center' }}>
         No MTF trades found. Revenue sharing applies only to trades with "Actual Investment" set.
       </div>
@@ -193,7 +199,8 @@ export default function RevenueSharingPage() {
           {[
             { label:'Gross P&L (Trade)', value:`${summary.grossPnL>=0?'+':'−'}Rs${toINRd(Math.abs(summary.grossPnL))}`, color:summary.grossPnL>=0?'var(--bull)':'var(--bear)' },
             { label:'Gross P&L (Admin)', value:`${summary.grossPnLAdmin>=0?'+':'−'}Rs${toINRd(Math.abs(summary.grossPnLAdmin))}`, color:summary.grossPnLAdmin>=0?'var(--bull)':'var(--bear)' },
-            { label:'MTF Interest', value:`Rs${toINRd(summary.mtfInt)}`, color:'var(--gold)' },
+            { label:'MTF Interest (Closed)', value:`Rs${toINRd(summary.mtfIntClosed)}`, color:'var(--gold)' },
+            { label:'MTF Interest (Open)', value:`Rs${toINRd(summary.mtfIntOpen)}`, color:'rgba(245,158,11,0.6)' },
             { label:'Net P&L (Admin)', value:`${summary.netPnLAdmin>=0?'+':'−'}Rs${toINRd(Math.abs(summary.netPnLAdmin))}`, color:summary.netPnLAdmin>=0?'var(--bull)':'var(--bear)' },
             { label:'MTF Trades', value:summary.count, color:'var(--text)' },
           ].map(({ label, value, color }) => (
@@ -201,6 +208,21 @@ export default function RevenueSharingPage() {
               <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'6px' }}>{label}</div>
               <div style={{ fontSize:'16px', fontWeight:700, fontFamily:'DM Mono, monospace', color }}>{value}</div>
             </div>
+          ))}
+        </div>
+
+        {/* Filter tabs */}
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:'6px', marginBottom:'10px' }}>
+          {['ALL','OPEN','CLOSED'].map(f => (
+            <button key={f} onClick={() => setStatusFilter(f)} style={{
+              padding:'5px 14px', borderRadius:'4px', cursor:'pointer', fontSize:'10px',
+              fontFamily:'DM Mono, monospace', fontWeight:600,
+              border:`1px solid ${statusFilter===f?'var(--accent)':'var(--border)'}`,
+              background: statusFilter===f ? 'var(--accent-dim)' : 'transparent',
+              color: statusFilter===f ? 'var(--accent)' : 'var(--muted)'
+            }}>
+              {f} ({f==='ALL'?allMtfTrades.length:allMtfTrades.filter(t=>t.status===f).length})
+            </button>
           ))}
         </div>
 
