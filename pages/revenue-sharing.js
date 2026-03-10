@@ -328,8 +328,14 @@ export default function RevenueSharingPage() {
       mtfInt = soldMtf + remMtf
     }
     let grossPnL = 0
-    if (tradeExecs.length > 0) grossPnL = tradeExecs.reduce((s,e) => s+(Number(e.price)-entryPrice)*Number(e.quantity), 0)
-    else grossPnL = Number(trade.realized_gains) || 0
+    if (tradeExecs.length > 0) {
+      // P&L only on sold/executed portions
+      grossPnL = tradeExecs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
+    } else if (trade.status === 'CLOSED') {
+      // Closed trade with no execution records — use realized_gains fallback
+      grossPnL = Number(trade.realized_gains) || 0
+    }
+    // OPEN trade with no executions = 0 (unrealised, excluded from gross P&L)
     const adminRatio = investment > 0 && actualInv > 0 ? (investment - actualInv) / investment : 0
     const grossPnLAdmin = grossPnL * adminRatio
     const netPnLAdmin   = grossPnLAdmin - mtfIntClosed
@@ -343,12 +349,19 @@ export default function RevenueSharingPage() {
     const mtfTrades = trades.filter(t => Number(t.actual_investment) > 0)
     return mtfTrades.reduce((acc, t) => {
       const r = calcTradePnL(t, execs)
+      // grossPnL & admin P&L: only add for CLOSED trades or partial sells
+      // open trades with no executions contribute 0 (already handled in calcTradePnL)
       return {
-        grossPnL: acc.grossPnL+r.grossPnL, grossPnLAdmin:acc.grossPnLAdmin+r.grossPnLAdmin,
-        netPnLAdmin:acc.netPnLAdmin+r.netPnLAdmin, mtfInt:acc.mtfInt+r.mtfInt,
-        mtfIntClosed:acc.mtfIntClosed+r.mtfIntClosed, mtfIntOpen:acc.mtfIntOpen+(r.mtfInt-r.mtfIntClosed), count:acc.count+1,
+        grossPnL:      acc.grossPnL      + r.grossPnL,
+        grossPnLAdmin: acc.grossPnLAdmin + r.grossPnLAdmin,
+        netPnLAdmin:   acc.netPnLAdmin   + r.netPnLAdmin,
+        mtfInt:        acc.mtfInt        + r.mtfInt,
+        mtfIntClosed:  acc.mtfIntClosed  + r.mtfIntClosed,
+        mtfIntOpen:    acc.mtfIntOpen    + (r.mtfInt - r.mtfIntClosed),
+        count:         acc.count         + 1,
+        closedCount:   acc.closedCount   + (t.status === 'CLOSED' ? 1 : 0),
       }
-    }, { grossPnL:0, grossPnLAdmin:0, netPnLAdmin:0, mtfInt:0, mtfIntClosed:0, mtfIntOpen:0, count:0 })
+    }, { grossPnL:0, grossPnLAdmin:0, netPnLAdmin:0, mtfInt:0, mtfIntClosed:0, mtfIntOpen:0, count:0, closedCount:0 })
   }
 
   const TradeTable = ({ trades, execs, subscriberId }) => {
@@ -373,7 +386,7 @@ export default function RevenueSharingPage() {
               { label:'MTF Interest (Closed)', value:`Rs${toINRd(summary.mtfIntClosed)}`, color:'var(--gold)' },
               { label:'MTF Interest (Open)',   value:`Rs${toINRd(summary.mtfIntOpen)}`, color:'rgba(245,158,11,0.6)' },
               { label:'Net P&L (Admin)',      value:`${summary.netPnLAdmin>=0?'+':'−'}Rs${toINRd(Math.abs(summary.netPnLAdmin))}`, color:summary.netPnLAdmin>=0?'var(--bull)':'var(--bear)' },
-              { label:'MTF Trades', value:summary.count, color:'var(--text)' },
+              { label:'MTF Trades', value:`${summary.count} (${summary.closedCount} closed)`, color:'var(--text)' },
             ].map(({ label, value, color }) => (
               <div key={label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'12px 14px' }}>
                 <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'5px' }}>{label}</div>
