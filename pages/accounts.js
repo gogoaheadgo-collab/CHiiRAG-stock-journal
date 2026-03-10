@@ -509,6 +509,7 @@ export default function AccountsPage() {
                           <th className="right">Entry Rs</th><th className="right">CMP</th>
                           <th className="right">Exit Rs</th><th className="right">Qty</th>
                           <th className="right">Curr Qty</th><th className="right">Investment</th>
+                          <th className="right">Actual Inv</th>
                           <th className="right">MTF Interest</th>
                           <th className="right">Unrealised P&L</th><th className="right">Realised P&L</th>
                           <th className="right">Status</th>
@@ -547,6 +548,7 @@ export default function AccountsPage() {
                               <td className="right">{toINR(originalQty)}</td>
                               <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
                               <td className="right">{investment ? `Rs${toINRd(investment)}` : <span className="neutral">—</span>}</td>
+                              <td className="right">{actualInv ? `Rs${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
                               <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
                               <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
                               <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
