@@ -42,6 +42,7 @@ export default function SubscribersPage() {
   const [livePrices, setLivePrices] = useState({})
   const [mirrored, setMirrored] = useState({}) // subscriber_id -> true
   const [accountFilter, setAccountFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('ALL')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session } }) => {
@@ -154,7 +155,7 @@ export default function SubscribersPage() {
   const loadSubscriberTrades = async (sub) => {
     setSelected(sub)
     setSubLoading(true)
-    setSubTrades([]); setSubExecs([]); setLivePrices({}); setAccountFilter('ALL')
+    setSubTrades([]); setSubExecs([]); setLivePrices({}); setAccountFilter('ALL'); setStatusFilter('ALL')
     try {
       const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token
       if (!token) { setSubLoading(false); return }
@@ -182,7 +183,8 @@ export default function SubscribersPage() {
 
   // Accounts of selected subscriber
   const accounts = [...new Set(subTrades.map(t => t.account).filter(Boolean))]
-  const filtered = accountFilter === 'ALL' ? subTrades : subTrades.filter(t => t.account === accountFilter)
+  const accountFiltered = accountFilter === 'ALL' ? subTrades : subTrades.filter(t => t.account === accountFilter)
+  const filtered = statusFilter === 'ALL' ? accountFiltered : accountFiltered.filter(t => t.status === statusFilter)
 
   return (
     <>
@@ -295,19 +297,35 @@ export default function SubscribersPage() {
               </h3>
               <button onClick={() => setSelected(null)} style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'18px' }}>×</button>
 
-              {/* Account filter tabs */}
-              {accounts.length > 0 && (
-                <div style={{ display:'flex', gap:'6px', marginLeft:'auto', flexWrap:'wrap' }}>
-                  {['ALL', ...accounts].map(a => (
-                    <button key={a} onClick={() => setAccountFilter(a)} className="tab" style={{
-                      background: accountFilter===a ? 'var(--accent)' : 'var(--surface)',
-                      color: accountFilter===a ? '#fff' : 'var(--muted)',
-                      border:'1px solid var(--border)', borderRadius:'6px',
-                      padding:'4px 14px', fontSize:'11px', cursor:'pointer', fontFamily:'DM Mono, monospace'
-                    }}>{a}</button>
+              {/* Filter tabs — Status + Account */}
+              <div style={{ display:'flex', gap:'8px', marginLeft:'auto', flexWrap:'wrap', alignItems:'center' }}>
+                {/* Status filter */}
+                <div style={{ display:'flex', gap:'4px' }}>
+                  {['ALL','OPEN','CLOSED'].map(f => (
+                    <button key={f} onClick={() => setStatusFilter(f)} style={{
+                      padding:'4px 12px', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', fontWeight:600,
+                      border:`1px solid ${statusFilter===f?'var(--accent)':'var(--border)'}`,
+                      background: statusFilter===f ? 'var(--accent-dim)' : 'transparent',
+                      color: statusFilter===f ? 'var(--accent)' : 'var(--muted)'
+                    }}>
+                      {f} ({f==='ALL'?accountFiltered.length:accountFiltered.filter(t=>t.status===f).length})
+                    </button>
                   ))}
                 </div>
-              )}
+                {/* Account filter */}
+                {accounts.length > 1 && (
+                  <div style={{ display:'flex', gap:'4px', borderLeft:'1px solid var(--border)', paddingLeft:'8px' }}>
+                    {['ALL', ...accounts].map(a => (
+                      <button key={a} onClick={() => setAccountFilter(a)} style={{
+                        padding:'4px 12px', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', fontWeight:600,
+                        background: accountFilter===a ? 'var(--accent)' : 'var(--surface)',
+                        color: accountFilter===a ? '#fff' : 'var(--muted)',
+                        border:'1px solid var(--border)'
+                      }}>{a}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {subLoading ? (
