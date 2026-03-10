@@ -13,6 +13,7 @@ function NavPill({ active, isAdmin }) {
     { label:'Dashboard', path:'/dashboard' },
     { label:'Accounts', path:'/accounts' },
     ...(isAdmin ? [{ label:'Subscribers', path:'/subscribers' }] : []),
+    { label:'Revenue Sharing', path:'/revenue-sharing' },
   ]
   return (
     <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px' }}>
