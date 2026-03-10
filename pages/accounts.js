@@ -49,6 +49,7 @@ export default function AccountsPage() {
   const [mirroredTrades, setMirroredTrades] = useState({})
   const [mirroredExecs, setMirroredExecs] = useState({})
   const [activeMirror, setActiveMirror] = useState(null)
+  const [mirrorFilter, setMirrorFilter] = useState('ALL')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); if (!session) router.push('/') })
@@ -457,7 +458,7 @@ export default function AccountsPage() {
           {/* Mirrored Account Tiles */}
           {mirroredAccounts.map(m => (
             <div key={m.subscriber_id}
-              onClick={() => setActiveMirror(prev => prev===m.subscriber_id ? null : m.subscriber_id)}
+              onClick={() => { setActiveMirror(prev => prev===m.subscriber_id ? null : m.subscriber_id); setMirrorFilter('ALL') }}
               style={{ border:`2px solid ${activeMirror===m.subscriber_id?'var(--gold)':'var(--border)'}`, background:activeMirror===m.subscriber_id?'rgba(245,158,11,0.08)':'var(--surface)', borderRadius:'10px', minWidth:'120px', cursor:'pointer', padding:'14px 16px 10px' }}>
               <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:activeMirror===m.subscriber_id?'var(--gold)':'var(--muted)' }}>
                 {(m.subscriber_name||m.subscriber_email||'').split(' ')[0]}'s
@@ -480,12 +481,22 @@ export default function AccountsPage() {
             const mExecs = mirroredExecs[activeMirror] || []
             return (
               <div>
-                <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
-                  <span style={{ fontSize:'13px', fontWeight:700, color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>
-                    {mirrorInfo?.subscriber_name}'s Portfolio
-                  </span>
-                  <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>READ ONLY · LIVE SYNC</span>
-                  <button onClick={() => loadMirroredTrades(activeMirror)} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'11px', padding:'2px 8px' }}>↻ Refresh</button>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px', flexWrap:'wrap', gap:'8px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                    <span style={{ fontSize:'13px', fontWeight:700, color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>
+                      {mirrorInfo?.subscriber_name}'s Portfolio
+                    </span>
+                    <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>READ ONLY · LIVE SYNC</span>
+                    <button onClick={() => loadMirroredTrades(activeMirror)} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'11px', padding:'2px 8px' }}>↻ Refresh</button>
+                  </div>
+                  <div style={{ display:'flex', gap:'6px' }}>
+                    {['ALL','OPEN','CLOSED'].map(f => (
+                      <button key={f} onClick={() => setMirrorFilter(f)}
+                        style={{ padding:'4px 12px', borderRadius:'4px', border:`1px solid ${mirrorFilter===f?'var(--gold)':'var(--border)'}`, background:mirrorFilter===f?'rgba(245,158,11,0.1)':'transparent', color:mirrorFilter===f?'var(--gold)':'var(--muted)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', fontWeight:600 }}>
+                        {f} ({f==='ALL'?mTrades.length:mTrades.filter(t=>t.status===f).length})
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {mTrades.length === 0 ? (
                   <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No trades found.</div>
@@ -504,7 +515,7 @@ export default function AccountsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {mTrades.map(trade => {
+                        {(mirrorFilter==='ALL' ? mTrades : mTrades.filter(t=>t.status===mirrorFilter)).map(trade => {
                           const execs = mExecs.filter(e => e.trade_id === trade.id)
                           const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
                           const originalQty = Number(trade.quantity) || 0
