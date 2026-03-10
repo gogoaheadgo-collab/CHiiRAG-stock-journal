@@ -86,14 +86,23 @@ export default function RevenueSharingPage() {
   const loadOwnTrades = async () => {
     setLoading(true)
     const token = await getToken()
-    const [tRes, eRes] = await Promise.all([
-      fetch('/api/trades', { headers:{ Authorization:`Bearer ${token}` } }),
-      fetch('/api/executions', { headers:{ Authorization:`Bearer ${token}` } }),
-    ])
+    const tRes = await fetch('/api/trades', { headers:{ Authorization:`Bearer ${token}` } })
     const tData = await tRes.json()
-    const eData = await eRes.json()
-    if (Array.isArray(tData)) setOwnTrades(tData)
-    if (Array.isArray(eData)) setOwnExecs(eData)
+    if (!Array.isArray(tData)) { setLoading(false); return }
+    setOwnTrades(tData)
+    // Fetch executions per-trade (API requires trade_id param)
+    const mtfTrades = tData.filter(t => Number(t.actual_investment) > 0)
+    if (mtfTrades.length > 0) {
+      const results = await Promise.all(
+        mtfTrades.map(t =>
+          fetch(`/api/executions?trade_id=${t.id}`, { headers:{ Authorization:`Bearer ${token}` } })
+            .then(r => r.json()).catch(() => [])
+        )
+      )
+      const flat = []
+      results.forEach(r => { if (Array.isArray(r)) r.forEach(e => flat.push(e)) })
+      setOwnExecs(flat)
+    }
     setLoading(false)
   }
 
