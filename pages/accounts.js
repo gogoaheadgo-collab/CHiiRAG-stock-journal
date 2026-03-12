@@ -32,6 +32,105 @@ function NavPill({ active, isAdmin }) {
   )
 }
 
+function AccountRightPanel({ trades, executions, livePrices, selectedMonth, setSelectedMonth }) {
+  const allYears = [...new Set(trades.map(t => t.entry_date?.slice(0,4)).filter(Boolean))].sort().reverse()
+  const defaultYear = allYears[0] || String(new Date().getFullYear())
+  const [panelYear, setPanelYear] = useState(defaultYear)
+
+  const toINRd = n => Math.abs(Number(n)||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
+
+  let acUnrealised = 0, acRealised = 0, acOpen = 0, acClosed = 0, acMTF = 0
+  trades.forEach(trade => {
+    const exs = executions[trade.id] || []
+    const totalSold = exs.reduce((s,e) => s + Number(e.quantity), 0)
+    const origQty = Number(trade.quantity) || 0
+    const currQty = Math.max(0, origQty - totalSold)
+    const entry = Number(trade.entry_price) || 0
+    const investment = Number(trade.invested_capital) || (entry * origQty)
+    const actualInv = Number(trade.actual_investment) || 0
+    const mtfBase = investment - actualInv
+
+    if (currQty > 0) acOpen++; else acClosed++
+
+    const lp = livePrices[trade.ticker]
+    if (lp && currQty > 0) {
+      acUnrealised += trade.direction === 'LONG' ? (lp.price - entry) * currQty : (entry - lp.price) * currQty
+    }
+    const realised = exs.length > 0
+      ? exs.reduce((s,e) => s + (Number(e.price) - entry) * Number(e.quantity), 0)
+      : (Number(trade.realized_gains) || 0)
+    acRealised += realised
+
+    if (mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date) {
+      const soldMtf = exs.reduce((s,e) => {
+        const days = Math.max(1, Math.floor((new Date(e.date) - new Date(trade.entry_date)) / 86400000))
+        return s + mtfBase * (Number(e.quantity)/origQty) * trade.mtf_interest_rate * days / 36500
+      }, 0)
+      const remDays = Math.max(1, Math.floor((new Date() - new Date(trade.entry_date)) / 86400000))
+      const remMtf = currQty > 0 ? mtfBase * (currQty/origQty) * trade.mtf_interest_rate * remDays / 36500 : 0
+      acMTF += soldMtf + remMtf
+    }
+  })
+
+  const statCards = [
+    { label:'Unrealised P&L', value:`${acUnrealised>=0?'+':'−'}Rs${toINRd(acUnrealised)}`, color:acUnrealised>=0?'var(--bull)':'var(--bear)' },
+    { label:'Realised P&L',   value:`${acRealised>=0?'+':'−'}Rs${toINRd(acRealised)}`,   color:acRealised>=0?'var(--bull)':'var(--bear)' },
+    { label:'Open Positions', value:acOpen,   color:'var(--accent)' },
+    { label:'Closed Trades',  value:acClosed, color:'var(--muted)' },
+    { label:'MTF Interest',   value:`Rs${toINRd(acMTF)}`, color:'var(--gold)' },
+  ]
+
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+  return (
+    <div style={{ width:'200px', flexShrink:0, display:'flex', flexDirection:'column', gap:'8px' }}>
+      {/* Stat tiles */}
+      {statCards.map(s => (
+        <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'9px 12px' }}>
+          <div style={{ fontSize:'8px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>{s.label}</div>
+          <div style={{ fontSize:'13px', fontWeight:700, fontFamily:'DM Mono, monospace', color:s.color||'var(--text)' }}>{s.value}</div>
+        </div>
+      ))}
+
+      {/* Month grid */}
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px', marginTop:'2px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+          <button onClick={() => setPanelYear(y => String(Number(y)-1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'1px 7px', cursor:'pointer', fontSize:'11px' }}>‹</button>
+          <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>{panelYear}</span>
+          <button onClick={() => setPanelYear(y => String(Number(y)+1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'1px 7px', cursor:'pointer', fontSize:'11px' }}>›</button>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'4px' }}>
+          {months.map((mon, idx) => {
+            const ym = `${panelYear}-${String(idx+1).padStart(2,'0')}`
+            const count = trades.filter(t => t.entry_date?.slice(0,7) === ym).length
+            const isSel = selectedMonth === ym
+            const hasData = count > 0
+            return (
+              <button key={mon} onClick={() => hasData && setSelectedMonth(isSel ? null : ym)} style={{
+                padding:'5px 2px', borderRadius:'5px', cursor:hasData?'pointer':'default',
+                border:`1px solid ${isSel?'var(--accent)':hasData?'var(--border)':'transparent'}`,
+                background:isSel?'var(--accent-dim)':'transparent',
+                color:isSel?'var(--accent)':hasData?'var(--text)':'var(--muted)',
+                fontFamily:'DM Mono, monospace', fontWeight:hasData?700:400,
+                fontSize:'10px', opacity:hasData?1:0.35,
+                display:'flex', flexDirection:'column', alignItems:'center', gap:'1px',
+              }}>
+                <span>{mon}</span>
+                {hasData && <span style={{ fontSize:'8px', color:isSel?'var(--accent)':'var(--muted)' }}>{count}</span>}
+              </button>
+            )
+          })}
+        </div>
+        {selectedMonth && (
+          <button onClick={() => setSelectedMonth(null)} style={{ marginTop:'6px', width:'100%', padding:'4px', background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'9px', fontFamily:'DM Mono, monospace' }}>
+            Clear Filter
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function AccountsPage() {
   const router = useRouter()
   const [session, setSession] = useState(null)
@@ -688,110 +787,13 @@ export default function AccountsPage() {
               </div>{/* end left column */}
 
               {/* RIGHT PANEL */}
-              {(() => {
-                const accTrades = trades.filter(t => t.account === activeAccount)
-                const accExecs = Object.values(executions).flat()
-
-                // per-account stat calculations
-                let acUnrealised = 0, acRealised = 0, acOpen = 0, acClosed = 0, acMTF = 0
-                accTrades.forEach(trade => {
-                  const exs = executions[trade.id] || []
-                  const totalSold = exs.reduce((s,e) => s + Number(e.quantity), 0)
-                  const origQty = Number(trade.quantity) || 0
-                  const currQty = Math.max(0, origQty - totalSold)
-                  const entry = Number(trade.entry_price) || 0
-                  const investment = Number(trade.invested_capital) || (entry * origQty)
-                  const actualInv = Number(trade.actual_investment) || 0
-                  const mtfBase = investment - actualInv
-
-                  if (currQty > 0) acOpen++
-                  else acClosed++
-
-                  const lp = livePrices[trade.ticker]
-                  if (lp && currQty > 0) {
-                    acUnrealised += trade.direction === 'LONG' ? (lp.price - entry) * currQty : (entry - lp.price) * currQty
-                  }
-                  const realised = exs.length > 0
-                    ? exs.reduce((s,e) => s + (Number(e.price) - entry) * Number(e.quantity), 0)
-                    : (Number(trade.realized_gains) || 0)
-                  acRealised += realised
-
-                  if (mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date) {
-                    const soldMtf = exs.reduce((s,e) => {
-                      const days = Math.max(1, Math.floor((new Date(e.date) - new Date(trade.entry_date)) / 86400000))
-                      return s + mtfBase * (Number(e.quantity)/origQty) * trade.mtf_interest_rate * days / 36500
-                    }, 0)
-                    const remDays = Math.max(1, Math.floor((new Date() - new Date(trade.entry_date)) / 86400000))
-                    const remMtf = currQty > 0 ? mtfBase * (currQty/origQty) * trade.mtf_interest_rate * remDays / 36500 : 0
-                    acMTF += soldMtf + remMtf
-                  }
-                })
-
-                // Month grid — get all unique YYYY-MM from this account's trades
-                const allYears = [...new Set(accTrades.map(t => t.entry_date?.slice(0,4)).filter(Boolean))].sort().reverse()
-                const [panelYear, setPanelYear] = React.useState(allYears[0] || String(new Date().getFullYear()))
-                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
-                const acStatCards = [
-                  { label:'Unrealised P&L', value:`${acUnrealised>=0?'+':'−'}Rs${acUnrealised.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/^-/,'')}`, color: acUnrealised>=0?'var(--bull)':'var(--bear)' },
-                  { label:'Realised P&L',   value:`${acRealised>=0?'+':'−'}Rs${Math.abs(acRealised).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`, color: acRealised>=0?'var(--bull)':'var(--bear)' },
-                  { label:'Open Positions', value: acOpen,  color:'var(--accent)' },
-                  { label:'Closed Trades',  value: acClosed, color:'var(--muted)' },
-                  { label:'MTF Interest',   value:`Rs${acMTF.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`, color:'var(--gold)' },
-                ]
-
-                return (
-                  <div style={{ width:'200px', flexShrink:0, display:'flex', flexDirection:'column', gap:'10px' }}>
-                    {/* Stat tiles — vertical */}
-                    {acStatCards.map(s => (
-                      <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'9px 12px' }}>
-                        <div style={{ fontSize:'8px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>{s.label}</div>
-                        <div style={{ fontSize:'13px', fontWeight:700, fontFamily:'DM Mono, monospace', color:s.color||'var(--text)' }}>{s.value}</div>
-                      </div>
-                    ))}
-
-                    {/* Month grid */}
-                    <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px', marginTop:'4px' }}>
-                      {/* Year selector */}
-                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
-                        <button onClick={() => setPanelYear(y => String(Number(y)-1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'1px 7px', cursor:'pointer', fontSize:'11px' }}>‹</button>
-                        <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>{panelYear}</span>
-                        <button onClick={() => setPanelYear(y => String(Number(y)+1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'1px 7px', cursor:'pointer', fontSize:'11px' }}>›</button>
-                      </div>
-                      {/* 4×3 month grid */}
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'4px' }}>
-                        {months.map((mon, idx) => {
-                          const ym = `${panelYear}-${String(idx+1).padStart(2,'0')}`
-                          const count = accTrades.filter(t => t.entry_date?.slice(0,7) === ym).length
-                          const isSelected = selectedMonth === ym
-                          const hasData = count > 0
-                          return (
-                            <button key={mon}
-                              onClick={() => setSelectedMonth(isSelected ? null : ym)}
-                              style={{
-                                padding:'5px 2px', borderRadius:'5px', cursor: hasData ? 'pointer' : 'default',
-                                border:`1px solid ${isSelected ? 'var(--accent)' : hasData ? 'var(--border)' : 'transparent'}`,
-                                background: isSelected ? 'var(--accent-dim)' : 'transparent',
-                                color: isSelected ? 'var(--accent)' : hasData ? 'var(--text)' : 'var(--muted)',
-                                fontFamily:'DM Mono, monospace', fontWeight: hasData ? 700 : 400,
-                                fontSize:'10px', opacity: hasData ? 1 : 0.35,
-                                display:'flex', flexDirection:'column', alignItems:'center', gap:'1px',
-                              }}>
-                              <span>{mon}</span>
-                              {hasData && <span style={{ fontSize:'8px', color: isSelected ? 'var(--accent)' : 'var(--muted)' }}>{count}</span>}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      {selectedMonth && (
-                        <button onClick={() => setSelectedMonth(null)} style={{ marginTop:'6px', width:'100%', padding:'4px', background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'9px', fontFamily:'DM Mono, monospace' }}>
-                          Clear Filter
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })()}
+              <AccountRightPanel
+                trades={trades.filter(t => t.account === activeAccount)}
+                executions={executions}
+                livePrices={livePrices}
+                selectedMonth={selectedMonth}
+                setSelectedMonth={setSelectedMonth}
+              />
             </div>{/* end two-col layout */}
           </>
         )}
