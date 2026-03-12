@@ -84,15 +84,7 @@ function AccountRightPanel({ trades, executions, livePrices, selectedMonth, setS
 
   return (
     <div style={{ width:'200px', flexShrink:0, display:'flex', flexDirection:'column', gap:'8px' }}>
-      {/* Stat tiles */}
-      {statCards.map(s => (
-        <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'9px 12px' }}>
-          <div style={{ fontSize:'8px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>{s.label}</div>
-          <div style={{ fontSize:'13px', fontWeight:700, fontFamily:'DM Mono, monospace', color:s.color||'var(--text)' }}>{s.value}</div>
-        </div>
-      ))}
-
-      {/* Month grid */}
+      {/* Month grid — top */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px', marginTop:'2px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
           <button onClick={() => setPanelYear(y => String(Number(y)-1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'1px 7px', cursor:'pointer', fontSize:'11px' }}>‹</button>
@@ -127,6 +119,14 @@ function AccountRightPanel({ trades, executions, livePrices, selectedMonth, setS
           </button>
         )}
       </div>
+
+      {/* Stat tiles — below calendar */}
+      {statCards.map(s => (
+        <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'9px 12px' }}>
+          <div style={{ fontSize:'8px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>{s.label}</div>
+          <div style={{ fontSize:'13px', fontWeight:700, fontFamily:'DM Mono, monospace', color:s.color||'var(--text)' }}>{s.value}</div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -584,7 +584,8 @@ export default function AccountsPage() {
             const mTrades = mirroredTrades[activeMirror] || []
             const mExecs = mirroredExecs[activeMirror] || []
             return (
-              <div>
+              <div style={{ display:'flex', gap:'16px', alignItems:'flex-start' }}>
+              <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px', flexWrap:'wrap', gap:'8px' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
                     <span style={{ fontSize:'13px', fontWeight:700, color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>
@@ -664,7 +665,20 @@ export default function AccountsPage() {
                     </table>
                   </div>
                 )}
-              </div>
+              </div>{/* end left col */}
+              <AccountRightPanel
+                trades={(() => { const mTrades = mirroredTrades[activeMirror]||[]; return mTrades })()}
+                executions={(() => {
+                  const mExecs = mirroredExecs[activeMirror]||[]
+                  const map = {}
+                  mExecs.forEach(e => { if (!map[e.trade_id]) map[e.trade_id]=[]; map[e.trade_id].push(e) })
+                  return map
+                })()}
+                livePrices={livePrices}
+                selectedMonth={selectedMonth}
+                setSelectedMonth={setSelectedMonth}
+              />
+              </div>{/* end two-col mirror */}
             )
           })()
         ) : !activeAccount ? (
