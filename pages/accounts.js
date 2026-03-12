@@ -493,6 +493,14 @@ export default function AccountsPage() {
 
   if (!session) return null
 
+  // Pre-compute mirrored execs map for right panel (no IIFE in JSX)
+  const activeMirrorExecsMap = (() => {
+    if (!activeMirror) return {}
+    const mExecs = mirroredExecs[activeMirror] || []
+    return mExecs.reduce((m, e) => { if (!m[e.trade_id]) m[e.trade_id] = []; m[e.trade_id].push(e); return m }, {})
+  })()
+  const activeMirrorTrades = activeMirror ? (mirroredTrades[activeMirror] || []) : []
+
   return (
     <>
       <div className="tricolor-bar" />
@@ -666,19 +674,13 @@ export default function AccountsPage() {
                   </div>
                 )}
               </div>{/* end left col */}
-              {(()=>{
-                const _mExecs = mirroredExecs[activeMirror]||[]
-                const _mExecsMap = _mExecs.reduce((m,e)=>{ if(!m[e.trade_id])m[e.trade_id]=[]; m[e.trade_id].push(e); return m },{})
-                return (
-                  <AccountRightPanel
-                    trades={mirroredTrades[activeMirror]||[]}
-                    executions={_mExecsMap}
-                    livePrices={livePrices}
-                    selectedMonth={selectedMonth}
-                    setSelectedMonth={setSelectedMonth}
-                  />
-                )
-              })()}
+              <AccountRightPanel
+                trades={activeMirrorTrades}
+                executions={activeMirrorExecsMap}
+                livePrices={livePrices}
+                selectedMonth={selectedMonth}
+                setSelectedMonth={setSelectedMonth}
+              />
               </div>{/* end two-col mirror */}
             )
           })()
