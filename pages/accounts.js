@@ -54,6 +54,7 @@ export default function AccountsPage() {
   const [mirroredExecs, setMirroredExecs] = useState({})
   const [activeMirror, setActiveMirror] = useState(null)
   const [mirrorFilter, setMirrorFilter] = useState('ALL')
+  const [selectedMonth, setSelectedMonth] = useState(null) // 'YYYY-MM' or null=ALL
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); if (!session) router.push('/') })
@@ -571,17 +572,31 @@ export default function AccountsPage() {
           <div style={{ textAlign:'center', padding:'80px', color:'var(--muted)' }}>No accounts yet.</div>
         ) : (
           <>
-            {/* Filter */}
-            <div style={{ display:'flex', gap:'6px', marginBottom:'14px' }}>
-              {['ALL','OPEN','CLOSED'].map(f => (
-                <button key={f} onClick={() => setFilter(f)} style={{ padding:'5px 14px', borderRadius:'4px', border:`1px solid ${filter===f?'var(--accent)':'var(--border)'}`, background:filter===f?'var(--accent-dim)':'transparent', color:filter===f?'var(--accent)':'var(--muted)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', fontWeight:600 }}>
-                  {f} ({f==='ALL'?accountTrades.length:f==='OPEN'?openTrades.length:closedTrades.length})
-                </button>
-              ))}
-            </div>
+            {/* ── TWO COLUMN LAYOUT: left=trades, right=panel ── */}
+            <div style={{ display:'flex', gap:'16px', alignItems:'flex-start' }}>
+              {/* LEFT — filters + table */}
+              <div style={{ flex:1, minWidth:0 }}>
+                {/* Filter + month label */}
+                <div style={{ display:'flex', gap:'6px', marginBottom:'14px', alignItems:'center', flexWrap:'wrap' }}>
+                  {['ALL','OPEN','CLOSED'].map(f => (
+                    <button key={f} onClick={() => setFilter(f)} style={{ padding:'5px 14px', borderRadius:'4px', border:`1px solid ${filter===f?'var(--accent)':'var(--border)'}`, background:filter===f?'var(--accent-dim)':'transparent', color:filter===f?'var(--accent)':'var(--muted)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', fontWeight:600 }}>
+                      {f} ({f==='ALL'?accountTrades.length:f==='OPEN'?openTrades.length:closedTrades.length})
+                    </button>
+                  ))}
+                  {selectedMonth && (
+                    <span style={{ marginLeft:'6px', fontSize:'10px', fontFamily:'DM Mono, monospace', color:'var(--accent)', background:'var(--accent-dim)', padding:'3px 10px', borderRadius:'4px', display:'flex', alignItems:'center', gap:'6px' }}>
+                      {new Date(selectedMonth+'-01').toLocaleString('default',{month:'long',year:'numeric'})}
+                      <button onClick={() => setSelectedMonth(null)} style={{ background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontSize:'13px', padding:0, lineHeight:1 }}>×</button>
+                    </span>
+                  )}
+                </div>
 
-            {filtered.length === 0 ? (
-              <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)', border:'1px dashed var(--border)', borderRadius:'8px' }}>No trades. Click "+ New Trade" to add one.</div>
+            {(() => {
+              const monthFiltered = selectedMonth
+                ? filtered.filter(t => t.entry_date && t.entry_date.slice(0,7) === selectedMonth)
+                : filtered
+              return monthFiltered.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)', border:'1px dashed var(--border)', borderRadius:'8px' }}>{selectedMonth ? 'No trades in this month.' : 'No trades. Click "+ New Trade" to add one.'}</div>
             ) : (
               <div style={{ overflowX:'auto' }}>
                 <table className="trade-table">
@@ -598,7 +613,7 @@ export default function AccountsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map(trade => {
+                    {monthFiltered.map(trade => {
                       const execs = executions[trade.id] || []
                       const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
                       const originalQty = Number(trade.quantity) || 0
@@ -669,7 +684,115 @@ export default function AccountsPage() {
                   </tbody>
                 </table>
               </div>
-            )}
+            )})()}
+              </div>{/* end left column */}
+
+              {/* RIGHT PANEL */}
+              {(() => {
+                const accTrades = trades.filter(t => t.account === activeAccount)
+                const accExecs = Object.values(executions).flat()
+
+                // per-account stat calculations
+                let acUnrealised = 0, acRealised = 0, acOpen = 0, acClosed = 0, acMTF = 0
+                accTrades.forEach(trade => {
+                  const exs = executions[trade.id] || []
+                  const totalSold = exs.reduce((s,e) => s + Number(e.quantity), 0)
+                  const origQty = Number(trade.quantity) || 0
+                  const currQty = Math.max(0, origQty - totalSold)
+                  const entry = Number(trade.entry_price) || 0
+                  const investment = Number(trade.invested_capital) || (entry * origQty)
+                  const actualInv = Number(trade.actual_investment) || 0
+                  const mtfBase = investment - actualInv
+
+                  if (currQty > 0) acOpen++
+                  else acClosed++
+
+                  const lp = livePrices[trade.ticker]
+                  if (lp && currQty > 0) {
+                    acUnrealised += trade.direction === 'LONG' ? (lp.price - entry) * currQty : (entry - lp.price) * currQty
+                  }
+                  const realised = exs.length > 0
+                    ? exs.reduce((s,e) => s + (Number(e.price) - entry) * Number(e.quantity), 0)
+                    : (Number(trade.realized_gains) || 0)
+                  acRealised += realised
+
+                  if (mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date) {
+                    const soldMtf = exs.reduce((s,e) => {
+                      const days = Math.max(1, Math.floor((new Date(e.date) - new Date(trade.entry_date)) / 86400000))
+                      return s + mtfBase * (Number(e.quantity)/origQty) * trade.mtf_interest_rate * days / 36500
+                    }, 0)
+                    const remDays = Math.max(1, Math.floor((new Date() - new Date(trade.entry_date)) / 86400000))
+                    const remMtf = currQty > 0 ? mtfBase * (currQty/origQty) * trade.mtf_interest_rate * remDays / 36500 : 0
+                    acMTF += soldMtf + remMtf
+                  }
+                })
+
+                // Month grid — get all unique YYYY-MM from this account's trades
+                const allYears = [...new Set(accTrades.map(t => t.entry_date?.slice(0,4)).filter(Boolean))].sort().reverse()
+                const [panelYear, setPanelYear] = React.useState(allYears[0] || String(new Date().getFullYear()))
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+                const acStatCards = [
+                  { label:'Unrealised P&L', value:`${acUnrealised>=0?'+':'−'}Rs${acUnrealised.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/^-/,'')}`, color: acUnrealised>=0?'var(--bull)':'var(--bear)' },
+                  { label:'Realised P&L',   value:`${acRealised>=0?'+':'−'}Rs${Math.abs(acRealised).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`, color: acRealised>=0?'var(--bull)':'var(--bear)' },
+                  { label:'Open Positions', value: acOpen,  color:'var(--accent)' },
+                  { label:'Closed Trades',  value: acClosed, color:'var(--muted)' },
+                  { label:'MTF Interest',   value:`Rs${acMTF.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`, color:'var(--gold)' },
+                ]
+
+                return (
+                  <div style={{ width:'200px', flexShrink:0, display:'flex', flexDirection:'column', gap:'10px' }}>
+                    {/* Stat tiles — vertical */}
+                    {acStatCards.map(s => (
+                      <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'9px 12px' }}>
+                        <div style={{ fontSize:'8px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>{s.label}</div>
+                        <div style={{ fontSize:'13px', fontWeight:700, fontFamily:'DM Mono, monospace', color:s.color||'var(--text)' }}>{s.value}</div>
+                      </div>
+                    ))}
+
+                    {/* Month grid */}
+                    <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px', marginTop:'4px' }}>
+                      {/* Year selector */}
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+                        <button onClick={() => setPanelYear(y => String(Number(y)-1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'1px 7px', cursor:'pointer', fontSize:'11px' }}>‹</button>
+                        <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>{panelYear}</span>
+                        <button onClick={() => setPanelYear(y => String(Number(y)+1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'1px 7px', cursor:'pointer', fontSize:'11px' }}>›</button>
+                      </div>
+                      {/* 4×3 month grid */}
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'4px' }}>
+                        {months.map((mon, idx) => {
+                          const ym = `${panelYear}-${String(idx+1).padStart(2,'0')}`
+                          const count = accTrades.filter(t => t.entry_date?.slice(0,7) === ym).length
+                          const isSelected = selectedMonth === ym
+                          const hasData = count > 0
+                          return (
+                            <button key={mon}
+                              onClick={() => setSelectedMonth(isSelected ? null : ym)}
+                              style={{
+                                padding:'5px 2px', borderRadius:'5px', cursor: hasData ? 'pointer' : 'default',
+                                border:`1px solid ${isSelected ? 'var(--accent)' : hasData ? 'var(--border)' : 'transparent'}`,
+                                background: isSelected ? 'var(--accent-dim)' : 'transparent',
+                                color: isSelected ? 'var(--accent)' : hasData ? 'var(--text)' : 'var(--muted)',
+                                fontFamily:'DM Mono, monospace', fontWeight: hasData ? 700 : 400,
+                                fontSize:'10px', opacity: hasData ? 1 : 0.35,
+                                display:'flex', flexDirection:'column', alignItems:'center', gap:'1px',
+                              }}>
+                              <span>{mon}</span>
+                              {hasData && <span style={{ fontSize:'8px', color: isSelected ? 'var(--accent)' : 'var(--muted)' }}>{count}</span>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {selectedMonth && (
+                        <button onClick={() => setSelectedMonth(null)} style={{ marginTop:'6px', width:'100%', padding:'4px', background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'9px', fontFamily:'DM Mono, monospace' }}>
+                          Clear Filter
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>{/* end two-col layout */}
           </>
         )}
       </main>
@@ -679,5 +802,3 @@ export default function AccountsPage() {
     </>
   )
 }
-
-
