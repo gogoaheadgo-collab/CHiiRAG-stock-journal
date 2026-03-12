@@ -666,18 +666,19 @@ export default function AccountsPage() {
                   </div>
                 )}
               </div>{/* end left col */}
-              <AccountRightPanel
-                trades={(() => { const mTrades = mirroredTrades[activeMirror]||[]; return mTrades })()}
-                executions={(() => {
-                  const mExecs = mirroredExecs[activeMirror]||[]
-                  const map = {}
-                  mExecs.forEach(e => { if (!map[e.trade_id]) map[e.trade_id]=[]; map[e.trade_id].push(e) })
-                  return map
-                })()}
-                livePrices={livePrices}
-                selectedMonth={selectedMonth}
-                setSelectedMonth={setSelectedMonth}
-              />
+              {(()=>{
+                const _mExecs = mirroredExecs[activeMirror]||[]
+                const _mExecsMap = _mExecs.reduce((m,e)=>{ if(!m[e.trade_id])m[e.trade_id]=[]; m[e.trade_id].push(e); return m },{})
+                return (
+                  <AccountRightPanel
+                    trades={mirroredTrades[activeMirror]||[]}
+                    executions={_mExecsMap}
+                    livePrices={livePrices}
+                    selectedMonth={selectedMonth}
+                    setSelectedMonth={setSelectedMonth}
+                  />
+                )
+              })()}
               </div>{/* end two-col mirror */}
             )
           })()
