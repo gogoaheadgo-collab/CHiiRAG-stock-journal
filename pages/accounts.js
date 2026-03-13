@@ -174,7 +174,7 @@ function AccountRightPanel({ trades, executions, livePrices, selectedMonth, setS
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
   return (
-    <div style={{ width:'200px', flexShrink:0, display:'flex', flexDirection:'column', gap:'8px' }}>
+    <div style={{ width:'160px', flexShrink:0, display:'flex', flexDirection:'column', gap:'8px' }}>
       {/* Month grid — top */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px', marginTop:'2px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
@@ -215,7 +215,7 @@ function AccountRightPanel({ trades, executions, livePrices, selectedMonth, setS
       {statCards.map(s => (
         <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'9px 12px' }}>
           <div style={{ fontSize:'8px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>{s.label}</div>
-          <div style={{ fontSize:'13px', fontWeight:700, fontFamily:'DM Mono, monospace', color:s.color||'var(--text)' }}>{s.value}</div>
+          <div style={{ fontSize:'12px', fontWeight:700, fontFamily:'DM Mono, monospace', color:s.color||'var(--text)' }}>{s.value}</div>
         </div>
       ))}
     </div>
@@ -618,7 +618,7 @@ export default function AccountsPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth:'1400px', margin:'0 auto', padding:'20px 16px' }}>
+      <main style={{ maxWidth:'100%', margin:'0 auto', padding:'20px 24px' }}>
 
         {/* ── AGGREGATE STATS (always visible) ── */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px,1fr))', gap:'10px', marginBottom:'20px' }}>
@@ -729,17 +729,33 @@ export default function AccountsPage() {
 </div>
             ) : (
               <div style={{ overflowX:'auto' }}>
-                <table className="trade-table">
+                <table className="trade-table" style={{ width:'100%', tableLayout:'fixed', fontSize:'11px' }}>
+                  <colgroup>
+                    <col style={{ width:'80px' }} />{/* Ticker */}
+                    <col style={{ width:'60px' }} />{/* Direction */}
+                    <col style={{ width:'82px' }} />{/* Entry Date */}
+                    <col style={{ width:'82px' }} />{/* Entry Rs */}
+                    <col style={{ width:'90px' }} />{/* CMP */}
+                    <col style={{ width:'82px' }} />{/* Exit Rs */}
+                    <col style={{ width:'60px' }} />{/* Qty */}
+                    <col style={{ width:'70px' }} />{/* Curr Qty */}
+                    <col style={{ width:'90px' }} />{/* Investment */}
+                    <col style={{ width:'85px' }} />{/* Actual Inv */}
+                    <col style={{ width:'85px' }} />{/* MTF */}
+                    <col style={{ width:'100px' }} />{/* Unrealised */}
+                    <col style={{ width:'100px' }} />{/* Realised */}
+                    <col style={{ width:'60px' }} />{/* Actions */}
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th>Ticker</th><th>Direction</th><th>Entry Date</th>
+                      <th>Ticker</th><th>Dir</th><th>Entry Date</th>
                       <th className="right">Entry Rs</th><th className="right">CMP</th>
                       <th className="right">Exit Rs</th><th className="right">Qty</th>
-                      <th className="right">Current Qty</th>
+                      <th className="right">Curr Qty</th>
                       <th className="right">Investment</th><th className="right">Actual Inv</th>
-                      <th className="right">MTF Interest</th>
+                      <th className="right">MTF Int</th>
                       <th className="right">Unrealised P&L</th><th className="right">Realised P&L</th>
-                      <th style={{ textAlign:'center' }}>Actions</th>
+                      <th style={{ textAlign:'center' }}>···</th>
                     </tr>
                   </thead>
                   <tbody>
