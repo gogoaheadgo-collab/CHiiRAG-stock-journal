@@ -268,7 +268,7 @@ export default function AccountsPage() {
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
 
   const loadMirroredTrades = useCallback(async (subscriber_id, token) => {
-    const t = token || await getToken()
+    const t = token || (await supabase.auth.getSession()).data.session?.access_token
     const res = await fetch(`/api/admin/subscriber-trades?user_id=${subscriber_id}`, { headers:{ Authorization:`Bearer ${t}` } })
     const data = await res.json()
     if (data.trades) {
@@ -609,7 +609,10 @@ export default function AccountsPage() {
         </div>
         <NavPill active="Accounts" isAdmin={isAdmin} />
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
-          {openTrades.length > 0 && <span style={{ fontSize:'10px', color:'var(--muted)' }}>↻ {countdown}s</span>}
+          <button onClick={() => { loadData(); if(isAdmin) loadMirroredAccounts() }}
+            style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'11px', padding:'4px 10px', fontFamily:'DM Mono, monospace' }}>
+            ↻ {openTrades.length > 0 ? `${countdown}s` : 'Refresh'}
+          </button>
           <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding:'6px 14px', fontSize:'11px' }}>+ New Trade</button>
           <ExitMenu />
         </div>
