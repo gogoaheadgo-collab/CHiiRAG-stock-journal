@@ -32,6 +32,97 @@ function NavPill({ active, isAdmin }) {
   )
 }
 
+function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, setMirrorFilter, livePrices, toINRd, toINR, loadMirroredTrades, activeMirror, selectedMonth, setSelectedMonth }) {
+  const filtered = mirrorFilter === 'ALL' ? mTrades : mTrades.filter(t => t.status === mirrorFilter)
+  return (
+    <div style={{ display:'flex', gap:'16px', alignItems:'flex-start' }}>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px', flexWrap:'wrap', gap:'8px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+            <span style={{ fontSize:'13px', fontWeight:700, color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>{mirrorInfo?.subscriber_name}'s Portfolio</span>
+            <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>READ ONLY · LIVE SYNC</span>
+            <button onClick={() => loadMirroredTrades(activeMirror)} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'11px', padding:'2px 8px' }}>↻ Refresh</button>
+          </div>
+          <div style={{ display:'flex', gap:'6px' }}>
+            {['ALL','OPEN','CLOSED'].map(f => (
+              <button key={f} onClick={() => setMirrorFilter(f)}
+                style={{ padding:'4px 12px', borderRadius:'4px', border:`1px solid ${mirrorFilter===f?'var(--gold)':'var(--border)'}`, background:mirrorFilter===f?'rgba(245,158,11,0.1)':'transparent', color:mirrorFilter===f?'var(--gold)':'var(--muted)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', fontWeight:600 }}>
+                {f} ({f==='ALL'?mTrades.length:mTrades.filter(t=>t.status===f).length})
+              </button>
+            ))}
+          </div>
+        </div>
+        {mTrades.length === 0 ? (
+          <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No trades found.</div>
+        ) : (
+          <div style={{ overflowX:'auto', border:'1px solid var(--border)', borderRadius:'8px' }}>
+            <table className="trade-table" style={{ width:'100%' }}>
+              <thead>
+                <tr>
+                  <th>Ticker</th><th>Direction</th><th>Account</th><th>Entry Date</th>
+                  <th className="right">Entry Rs</th><th className="right">CMP</th>
+                  <th className="right">Exit Rs</th><th className="right">Qty</th>
+                  <th className="right">Curr Qty</th><th className="right">Investment</th>
+                  <th className="right">Actual Inv</th><th className="right">MTF Interest</th>
+                  <th className="right">Unrealised P&L</th><th className="right">Realised P&L</th>
+                  <th className="right">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(trade => {
+                  const execs = mExecs.filter(e => e.trade_id === trade.id)
+                  const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
+                  const originalQty = Number(trade.quantity) || 0
+                  const currentQty = Math.max(0, originalQty - totalSoldQty)
+                  const entryPrice = Number(trade.entry_price) || 0
+                  const investment = Number(trade.invested_capital) || (entryPrice * originalQty)
+                  const actualInv = Number(trade.actual_investment) || 0
+                  const mtfBase = investment - actualInv
+                  const lp = livePrices[trade.ticker]
+                  const cmp = lp?.price
+                  const realisedPnL = execs.length > 0 ? execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0) : (Number(trade.realized_gains) || 0)
+                  const unrealisedPnL = cmp && currentQty > 0 ? (trade.direction==='LONG' ? (cmp-entryPrice)*currentQty : (entryPrice-cmp)*currentQty) : null
+                  const mtfInt = mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date
+                    ? execs.reduce((s,e) => { const days = Math.max(1, Math.floor((new Date(e.date)-new Date(trade.entry_date))/86400000)); return s + mtfBase*(Number(e.quantity)/originalQty)*trade.mtf_interest_rate*days/36500 }, 0)
+                      + (currentQty > 0 ? mtfBase*(currentQty/originalQty)*trade.mtf_interest_rate*Math.max(1,Math.floor((new Date()-new Date(trade.entry_date))/86400000))/36500 : 0)
+                    : null
+                  const exitPrice = currentQty===0 && execs.length>0 ? execs.reduce((s,e)=>s+Number(e.price)*Number(e.quantity),0)/totalSoldQty : trade.exit_price||null
+                  return (
+                    <tr key={trade.id}>
+                      <td><span className="ticker-badge">{trade.ticker}</span></td>
+                      <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
+                      <td className="muted" style={{ fontSize:'11px' }}>{trade.account||'—'}</td>
+                      <td className="muted">{trade.entry_date?.slice(0,10)}</td>
+                      <td className="right">Rs{toINRd(entryPrice)}</td>
+                      <td className="right">{cmp ? <div><div style={{ fontWeight:600 }}>Rs{toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}</td>
+                      <td className="right">{exitPrice ? `Rs${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                      <td className="right">{toINR(originalQty)}</td>
+                      <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
+                      <td className="right">{investment ? `Rs${toINRd(investment)}` : <span className="neutral">—</span>}</td>
+                      <td className="right">{actualInv ? `Rs${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
+                      <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
+                      <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                      <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                      <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <AccountRightPanel
+        trades={mTrades}
+        executions={mExecsMap}
+        livePrices={livePrices}
+        selectedMonth={selectedMonth}
+        setSelectedMonth={setSelectedMonth}
+      />
+    </div>
+  )
+}
+
 function AccountRightPanel({ trades, executions, livePrices, selectedMonth, setSelectedMonth }) {
   const allYears = [...new Set(trades.map(t => t.entry_date?.slice(0,4)).filter(Boolean))].sort().reverse()
   const defaultYear = allYears[0] || String(new Date().getFullYear())
@@ -586,104 +677,21 @@ export default function AccountsPage() {
         {loading ? (
           <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)' }}>Loading...</div>
         ) : activeMirror ? (
-          // Mirrored portfolio view
-          (() => {
-            const mirrorInfo = mirroredAccounts.find(m => m.subscriber_id === activeMirror)
-            const mTrades = mirroredTrades[activeMirror] || []
-            const mExecs = mirroredExecs[activeMirror] || []
-            return (
-              <div style={{ display:'flex', gap:'16px', alignItems:'flex-start' }}>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px', flexWrap:'wrap', gap:'8px' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                    <span style={{ fontSize:'13px', fontWeight:700, color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>
-                      {mirrorInfo?.subscriber_name}'s Portfolio
-                    </span>
-                    <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>READ ONLY · LIVE SYNC</span>
-                    <button onClick={() => loadMirroredTrades(activeMirror)} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'11px', padding:'2px 8px' }}>↻ Refresh</button>
-                  </div>
-                  <div style={{ display:'flex', gap:'6px' }}>
-                    {['ALL','OPEN','CLOSED'].map(f => (
-                      <button key={f} onClick={() => setMirrorFilter(f)}
-                        style={{ padding:'4px 12px', borderRadius:'4px', border:`1px solid ${mirrorFilter===f?'var(--gold)':'var(--border)'}`, background:mirrorFilter===f?'rgba(245,158,11,0.1)':'transparent', color:mirrorFilter===f?'var(--gold)':'var(--muted)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', fontWeight:600 }}>
-                        {f} ({f==='ALL'?mTrades.length:mTrades.filter(t=>t.status===f).length})
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {mTrades.length === 0 ? (
-                  <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No trades found.</div>
-                ) : (
-                  <div style={{ overflowX:'auto', border:'1px solid var(--border)', borderRadius:'8px' }}>
-                    <table className="trade-table" style={{ width:'100%' }}>
-                      <thead>
-                        <tr>
-                          <th>Ticker</th><th>Direction</th><th>Account</th><th>Entry Date</th>
-                          <th className="right">Entry Rs</th><th className="right">CMP</th>
-                          <th className="right">Exit Rs</th><th className="right">Qty</th>
-                          <th className="right">Curr Qty</th><th className="right">Investment</th>
-                          <th className="right">Actual Inv</th>
-                          <th className="right">MTF Interest</th>
-                          <th className="right">Unrealised P&L</th><th className="right">Realised P&L</th>
-                          <th className="right">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(mirrorFilter==='ALL' ? mTrades : mTrades.filter(t=>t.status===mirrorFilter)).map(trade => {
-                          const execs = mExecs.filter(e => e.trade_id === trade.id)
-                          const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
-                          const originalQty = Number(trade.quantity) || 0
-                          const currentQty = Math.max(0, originalQty - totalSoldQty)
-                          const entryPrice = Number(trade.entry_price) || 0
-                          const investment = Number(trade.invested_capital) || (Number(trade.entry_price)*Number(trade.quantity))
-                          const actualInv = Number(trade.actual_investment) || 0
-                          const mtfBase = investment - actualInv
-                          const lp = livePrices[trade.ticker]
-                          const cmp = lp?.price
-                          const realisedPnL = execs.length > 0
-                        ? execs.reduce((s,e) => s + (Number(e.price) - entryPrice) * Number(e.quantity), 0)
-                        : (Number(trade.realized_gains) || 0)
-                          const unrealisedPnL = cmp && currentQty > 0 ? (trade.direction==='LONG' ? (cmp-entryPrice)*currentQty : (entryPrice-cmp)*currentQty) : null
-                          const mtfInt = mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date
-                            ? execs.reduce((s,e) => { const days = Math.max(1, Math.floor((new Date(e.date)-new Date(trade.entry_date))/86400000)); return s + mtfBase*(Number(e.quantity)/originalQty)*trade.mtf_interest_rate*days/36500 }, 0)
-                              + (currentQty > 0 ? mtfBase*(currentQty/originalQty)*trade.mtf_interest_rate*Math.max(1,Math.floor((new Date()-new Date(trade.entry_date))/86400000))/36500 : 0)
-                            : null
-                          const exitPrice = currentQty===0 && execs.length>0 ? execs.reduce((s,e)=>s+Number(e.price)*Number(e.quantity),0)/totalSoldQty : trade.exit_price||null
-                          return (
-                            <tr key={trade.id}>
-                              <td><span className="ticker-badge">{trade.ticker}</span></td>
-                              <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
-                              <td className="muted" style={{ fontSize:'11px' }}>{trade.account||'—'}</td>
-                              <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                              <td className="right">Rs{toINRd(entryPrice)}</td>
-                              <td className="right">{cmp ? <div><div style={{ fontWeight:600 }}>Rs{toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}</td>
-                              <td className="right">{exitPrice ? `Rs${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
-                              <td className="right">{toINR(originalQty)}</td>
-                              <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                              <td className="right">{investment ? `Rs${toINRd(investment)}` : <span className="neutral">—</span>}</td>
-                              <td className="right">{actualInv ? `Rs${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
-                              <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                              <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                              <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                              <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>{/* end left col */}
-              <AccountRightPanel
-                trades={activeMirrorTrades}
-                executions={activeMirrorExecsMap}
-                livePrices={livePrices}
-                selectedMonth={selectedMonth}
-                setSelectedMonth={setSelectedMonth}
-              />
-              </div>{/* end two-col mirror */}
-            )
-          })()
+          <MirroredView
+            mirrorInfo={mirroredAccounts.find(m => m.subscriber_id === activeMirror)}
+            mTrades={activeMirrorTrades}
+            mExecs={mirroredExecs[activeMirror]||[]}
+            mExecsMap={activeMirrorExecsMap}
+            mirrorFilter={mirrorFilter}
+            setMirrorFilter={setMirrorFilter}
+            livePrices={livePrices}
+            toINRd={toINRd}
+            toINR={toINR}
+            loadMirroredTrades={loadMirroredTrades}
+            activeMirror={activeMirror}
+            selectedMonth={selectedMonth}
+            setSelectedMonth={setSelectedMonth}
+          />
         ) : !activeAccount ? (
           <div style={{ textAlign:'center', padding:'80px', color:'var(--muted)' }}>No accounts yet.</div>
         ) : (
