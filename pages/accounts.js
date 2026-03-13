@@ -723,7 +723,10 @@ export default function AccountsPage() {
                 ? filtered.filter(t => t.entry_date && t.entry_date.slice(0,7) === selectedMonth)
                 : filtered
               return monthFiltered.length === 0 ? (
-              <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)', border:'1px dashed var(--border)', borderRadius:'8px' }}>{selectedMonth ? 'No trades in this month.' : 'No trades. Click "+ New Trade" to add one.'}</div>
+              <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)', border:'1px dashed var(--border)', borderRadius:'8px' }}>
+  <div style={{ marginBottom:'14px' }}>{selectedMonth ? 'No trades in this month.' : 'No trades yet.'}</div>
+  {!selectedMonth && <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding:'8px 20px', fontSize:'12px' }}>+ New Trade</button>}
+</div>
             ) : (
               <div style={{ overflowX:'auto' }}>
                 <table className="trade-table">
