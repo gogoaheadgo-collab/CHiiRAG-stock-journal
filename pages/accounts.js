@@ -761,7 +761,7 @@ export default function AccountsPage() {
                   <tbody>
                     <tr style={{ background:'var(--accent)', cursor:'pointer' }} onClick={() => setShowAdd(true)}>
                       <td colSpan={14} style={{ padding:'10px', textAlign:'center', borderBottom:'1px solid rgba(255,255,255,0.15)' }}>
-                        <span style={{ color:'#fff', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700, letterSpacing:'0.08em' }}>+ New Trade</span>
+                        <span style={{ color:'#000', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700, letterSpacing:'0.08em' }}>+ New Trade</span>
                       </td>
                     </tr>
                     {monthFiltered.map(trade => {
