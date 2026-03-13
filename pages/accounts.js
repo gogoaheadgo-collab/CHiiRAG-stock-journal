@@ -743,6 +743,13 @@ export default function AccountsPage() {
                     </tr>
                   </thead>
                   <tbody>
+                    <tr>
+                      <td colSpan={14} style={{ padding:'6px 8px', borderBottom:'1px solid var(--border)' }}>
+                        <button onClick={() => setShowAdd(true)} style={{ background:'none', border:'1px dashed var(--border)', borderRadius:'5px', color:'var(--accent)', cursor:'pointer', fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600, padding:'4px 14px', width:'100%', textAlign:'left' }}>
+                          + New Trade
+                        </button>
+                      </td>
+                    </tr>
                     {monthFiltered.map(trade => {
                       const execs = executions[trade.id] || []
                       const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
