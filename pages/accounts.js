@@ -41,7 +41,7 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
           <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
             <span style={{ fontSize:'13px', fontWeight:700, color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>{mirrorInfo?.subscriber_name}'s Portfolio</span>
             <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>READ ONLY · LIVE SYNC</span>
-            <button onClick={() => loadMirroredTrades(activeMirror)} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'11px', padding:'2px 8px' }}>↻ Refresh</button>
+
           </div>
           <div style={{ display:'flex', gap:'6px' }}>
             {['ALL','OPEN','CLOSED'].map(f => (
