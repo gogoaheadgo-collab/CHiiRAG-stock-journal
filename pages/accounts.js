@@ -755,7 +755,7 @@ export default function AccountsPage() {
                       <th className="right">Investment</th><th className="right">Actual Inv</th>
                       <th className="right">MTF Int</th>
                       <th className="right">Unrealised P&L</th><th className="right">Realised P&L</th>
-                      <th style={{ textAlign:'center' }}>···</th>
+                      <th style={{ textAlign:'center' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -817,7 +817,7 @@ export default function AccountsPage() {
                             <td style={{ textAlign:'center', position:'relative' }} onClick={e => e.stopPropagation()}>
                               <button onClick={e => { e.preventDefault(); e.stopPropagation(); setOpenMenu(prev => prev===trade.id ? null : trade.id) }} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
                               {openMenu === trade.id && (
-                                <div onClick={e => e.stopPropagation()} style={{ position:'absolute', right:0, top:'100%', zIndex:100, background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', minWidth:'130px', padding:'4px' }}>
+                                <div onClick={e => e.stopPropagation()} style={{ position:'absolute', right:0, bottom:'calc(100% + 4px)', zIndex:100, background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', boxShadow:'0 -4px 24px rgba(0,0,0,0.15)', minWidth:'130px', padding:'4px' }}>
                                   <button onClick={() => { setEditingTrade(trade); setOpenMenu(null) }} style={{ display:'block', width:'100%', padding:'8px 12px', background:'none', border:'none', textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--text)', borderRadius:'5px', fontFamily:'DM Mono, monospace' }}>✏️ Edit</button>
                                   <button onClick={() => { handleDelete(trade.id); setOpenMenu(null) }} style={{ display:'block', width:'100%', padding:'8px 12px', background:'none', border:'none', textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--bear)', borderRadius:'5px', fontFamily:'DM Mono, monospace' }}>🗑 Delete</button>
                                 </div>
