@@ -403,7 +403,7 @@ export default function AccountsPage() {
 
   const handleAddTrade = async (tradeData) => {
     const token = await getToken()
-    const res = await fetch('/api/trades', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ ...tradeData, account:activeAccount }) })
+    const res = await fetch('/api/trades', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ ...tradeData, account: tradeData.account || activeAccount }) })
     const data = await res.json()
     if (data.error) throw new Error(data.error)
     await loadData()
@@ -824,7 +824,7 @@ export default function AccountsPage() {
         )}
       </main>
 
-      {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAddTrade} isAdmin={isAdmin} />}
+      {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAddTrade} isAdmin={isAdmin} activeAccount={activeAccount} />}
       {editingTrade && <EditTradeModal trade={editingTrade} onClose={() => setEditingTrade(null)} onSave={handleEdit} session={session} isAdmin={isAdmin} />}
     </>
   )
