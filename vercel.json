@@ -1,8 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/check-alerts?secret=chiirag-alerts-secret",
-      "schedule": "*/15 3-10 * * 1-5"
-    }
-  ]
-}
+{}
