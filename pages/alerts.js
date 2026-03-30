@@ -41,6 +41,28 @@ function AddAlertModal({ onClose, onAdd }) {
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
+
+  const searchTicker = async (query) => {
+    setTicker(query.toUpperCase())
+    if (query.length < 2) { setSuggestions([]); setShowSuggestions(false); return }
+    setSearchLoading(true)
+    try {
+      const res = await fetch(`/api/ticker-search?q=${encodeURIComponent(query)}`)
+      const data = await res.json()
+      setSuggestions(Array.isArray(data) ? data : [])
+      setShowSuggestions(true)
+    } catch { setSuggestions([]) }
+    setSearchLoading(false)
+  }
+
+  const selectTicker = (item) => {
+    setTicker(item.ticker)
+    setSuggestions([])
+    setShowSuggestions(false)
+  }
 
   const handleSave = async () => {
     if (!ticker.trim()) { setError('Ticker is required'); return }
@@ -62,9 +84,33 @@ function AddAlertModal({ onClose, onAdd }) {
         <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 700, fontSize: '16px', color: 'var(--text)', marginBottom: '20px' }}>🔔 Set Price Alert</div>
 
         {/* Ticker */}
-        <div style={{ marginBottom: '14px' }}>
-          <div style={lbl}>TICKER</div>
-          <input value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())} placeholder="e.g. RELIANCE" style={inp} />
+        <div style={{ marginBottom: '14px', position: 'relative' }}>
+          <div style={lbl}>TICKER {searchLoading && <span style={{ color: 'var(--accent)', fontWeight: 400 }}>searching...</span>}</div>
+          <input
+            value={ticker}
+            onChange={e => searchTicker(e.target.value)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            placeholder="e.g. RELIANCE, TCS..."
+            style={{ ...inp, textTransform: 'uppercase' }}
+            autoComplete="off"
+          />
+          {showSuggestions && suggestions.length > 0 && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--bg)', border: '1px solid var(--accent)', borderRadius: '6px', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', maxHeight: '200px', overflowY: 'auto', marginTop: '2px' }}>
+              {suggestions.map((item, i) => (
+                <div key={i} onMouseDown={() => selectTicker(item)}
+                  style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <div>
+                    <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: '13px', color: 'var(--accent)' }}>{item.ticker}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '1px' }}>{item.shortName}</div>
+                  </div>
+                  <div style={{ fontSize: '10px', fontFamily: 'DM Mono, monospace', color: 'var(--muted)', background: 'var(--surface)', padding: '2px 6px', borderRadius: '3px' }}>{item.exchange}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Validity */}
