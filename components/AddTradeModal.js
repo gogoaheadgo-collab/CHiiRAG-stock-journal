@@ -13,9 +13,10 @@ const EMPTY = {
   mtf_interest_rate: '',
   strategy: '',
   notes: '',
+  stop_loss: '',
 }
 
-export default function AddTradeModal({ session, onClose, onAdd, isAdmin }) {
+export default function AddTradeModal({ session, onClose, onAdd, isAdmin, activeAccount }) {
   const [form, setForm] = useState(EMPTY)
   const [accounts, setAccounts] = useState([])
   const [newAccount, setNewAccount] = useState('')
@@ -37,6 +38,10 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin }) {
     : null
 
   // MTF borrowed amount = total - margin paid
+  const slPct = form.entry_price && form.stop_loss && parseFloat(form.entry_price) > 0
+    ? ((parseFloat(form.stop_loss) - parseFloat(form.entry_price)) / parseFloat(form.entry_price) * 100)
+    : null
+
   const mtfBorrowed = totalBuyingValue && form.actual_investment
     ? totalBuyingValue - parseFloat(form.actual_investment)
     : null
@@ -55,7 +60,15 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin }) {
     if (!token) return
     const res = await fetch('/api/accounts', { headers: { Authorization: `Bearer ${token}` } })
     const data = await res.json()
-    if (Array.isArray(data)) setAccounts(data)
+    if (Array.isArray(data)) {
+      setAccounts(data)
+      // Pre-select the currently active account
+      if (activeAccount && data.find(a => a.name === activeAccount)) {
+        setForm(f => ({ ...f, account: activeAccount }))
+      } else if (data.length > 0 && !form.account) {
+        setForm(f => ({ ...f, account: data[0].name }))
+      }
+    }
   }
 
   const fetchStrategies = async () => {
@@ -156,6 +169,7 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin }) {
         actual_investment: form.actual_investment ? parseFloat(form.actual_investment) : null,
         mtf_interest_rate: form.mtf_interest_rate ? parseFloat(form.mtf_interest_rate) : null,
         notes: [form.strategy, form.notes].filter(Boolean).join(' | ') || null,
+        stop_loss: form.stop_loss ? parseFloat(form.stop_loss) : null,
         status: 'OPEN',
       })
       onClose()
@@ -308,6 +322,28 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin }) {
               )}
             </div>
           )}
+
+          {/* ── STOP LOSS ── */}
+          <div style={sectionStyle}>Stop Loss <span style={{ color:'var(--border)', fontWeight:400 }}>(optional — triggers email alert)</span></div>
+          <div style={{ position:'relative' }}>
+            <label style={labelStyle}>Stop Loss Price (Rs)</label>
+            <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              <input type="number" value={form.stop_loss} onChange={e => set('stop_loss', e.target.value)}
+                placeholder="e.g. 190"
+                style={Object.assign({}, fieldStyle, { flex:1, borderColor: form.stop_loss ? 'var(--bear)' : 'var(--border)' })}
+                step="0.01" min="0" />
+              {slPct !== null && (
+                <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', color: slPct >= 0 ? 'var(--bull)' : 'var(--bear)', whiteSpace:'nowrap', minWidth:'60px' }}>
+                  {slPct >= 0 ? '+' : ''}{slPct.toFixed(2)}%
+                </span>
+              )}
+            </div>
+            {form.stop_loss && (
+              <div style={{ fontSize:'10px', color:'var(--bear)', marginTop:'4px', fontFamily:'DM Mono, monospace' }}>
+                🔔 Email alert will fire when CMP hits Rs{parseFloat(form.stop_loss).toLocaleString('en-IN')}
+              </div>
+            )}
+          </div>
 
           {/* ── NOTES / STRATEGY ── */}
           <div style={sectionStyle}>
