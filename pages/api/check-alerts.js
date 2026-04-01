@@ -115,5 +115,59 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(200).json({ checked: alerts.length, triggered })
+  // ── Also check stop losses from open trades ──
+  const { data: slTrades } = await adminSupabase
+    .from('trades').select('id,user_id,ticker,entry_price,stop_loss,status,account')
+    .eq('status', 'OPEN').not('stop_loss', 'is', null)
+
+  let slTriggered = 0
+  if (slTrades?.length) {
+    const { data: usersData } = await adminSupabase.auth.admin.listUsers()
+    const emailMap = {}
+    usersData?.users?.forEach(u => { emailMap[u.id] = u.email })
+
+    for (const trade of slTrades) {
+      const cmp = priceMap[trade.ticker] || (await fetchPrice(trade.ticker))
+      if (!cmp || cmp > trade.stop_loss) continue
+      const email = emailMap[trade.user_id]
+      if (!email) continue
+      const slPct = ((trade.stop_loss - trade.entry_price) / trade.entry_price * 100).toFixed(2)
+      const fmt = n => Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
+      const subject = `🚨 STOP LOSS HIT: ${trade.ticker} at Rs${fmt(cmp)} — CHiiRAG Alert`
+      const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0f0f0f;font-family:monospace;">
+        <div style="max-width:520px;margin:0 auto;padding:32px 16px;">
+          <div style="text-align:center;margin-bottom:24px;">
+            <div style="font-size:16px;font-weight:800;color:#e2e8f0;">CHiiRAG STOCK Journal</div>
+            <div style="font-size:11px;color:#ef4444;letter-spacing:0.15em;margin-top:4px;">🚨 STOP LOSS TRIGGERED</div>
+          </div>
+          <div style="background:#1a1a2e;border:2px solid #ef4444;border-radius:12px;padding:24px;margin-bottom:16px;text-align:center;">
+            <div style="font-size:26px;font-weight:800;color:#e2e8f0;margin-bottom:8px;">${trade.ticker}</div>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:16px;">Account: ${trade.account || 'N/A'}</div>
+            <div style="display:flex;justify-content:space-around;gap:12px;">
+              <div style="background:#0f0f0f;border-radius:8px;padding:12px;flex:1;">
+                <div style="font-size:10px;color:#64748b;margin-bottom:4px;">BUY PRICE</div>
+                <div style="font-size:16px;font-weight:700;color:#94a3b8;">Rs${fmt(trade.entry_price)}</div>
+              </div>
+              <div style="background:#0f0f0f;border-radius:8px;padding:12px;flex:1;border:1px solid #ef4444;">
+                <div style="font-size:10px;color:#64748b;margin-bottom:4px;">STOP LOSS</div>
+                <div style="font-size:16px;font-weight:700;color:#ef4444;">Rs${fmt(trade.stop_loss)}</div>
+                <div style="font-size:10px;color:#ef4444;margin-top:2px;">${slPct}%</div>
+              </div>
+              <div style="background:#0f0f0f;border-radius:8px;padding:12px;flex:1;">
+                <div style="font-size:10px;color:#64748b;margin-bottom:4px;">CMP</div>
+                <div style="font-size:16px;font-weight:700;color:#ef4444;">Rs${fmt(cmp)}</div>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:center;margin-bottom:16px;">
+            <a href="https://smk-stock-journal.vercel.app/accounts" style="display:inline-block;background:#ef4444;color:#fff;text-decoration:none;padding:11px 24px;border-radius:8px;font-size:13px;font-weight:700;">View Trade →</a>
+          </div>
+          <div style="text-align:center;font-size:10px;color:#374151;">${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</div>
+        </div></body></html>`
+      try { await sendEmail(email, subject, html) } catch(e) { console.error(e.message) }
+      slTriggered++
+    }
+  }
+
+  return res.status(200).json({ checked: alerts.length, triggered, slTriggered })
 }
