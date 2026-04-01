@@ -191,6 +191,7 @@ export default function AlertsPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [livePrices, setLivePrices] = useState({})
+  const [slTrades, setSlTrades] = useState([])
 
   const getToken = useCallback(async () => (await supabase.auth.getSession()).data.session?.access_token, [])
 
@@ -210,6 +211,10 @@ export default function AlertsPage() {
     const res = await fetch('/api/price-alerts', { headers: { Authorization: `Bearer ${token}` } })
     const data = await res.json()
     if (Array.isArray(data)) setAlerts(data)
+    // Also load open trades with stop loss
+    const slRes = await fetch('/api/trades', { headers: { Authorization: `Bearer ${token}` } })
+    const slData = await slRes.json()
+    if (Array.isArray(slData)) setSlTrades(slData.filter(t => t.stop_loss && t.status === 'OPEN'))
     setLoading(false)
   }, [getToken])
 
@@ -217,7 +222,9 @@ export default function AlertsPage() {
 
   useEffect(() => {
     const tickers = [...new Set(alerts.filter(a => a.status === 'ACTIVE').map(a => a.ticker))]
-    tickers.forEach(async ticker => {
+    // Also fetch prices for SL trade tickers
+    const slTickers = [...new Set(slTrades.map(t => t.ticker))]
+    ;[...tickers, ...slTickers].forEach(async ticker => {
       try {
         const r = await fetch(`/api/stock/${ticker}`)
         const d = await r.json()
@@ -359,6 +366,7 @@ export default function AlertsPage() {
                   <th style={{ padding: '11px 14px', textAlign: 'right', color: '#22c55e', fontWeight: 700, fontSize: '10px', letterSpacing: '0.1em' }}>↑ ABOVE TG2</th>
                   <th style={{ padding: '11px 14px', textAlign: 'right', color: '#ef4444', fontWeight: 700, fontSize: '10px', letterSpacing: '0.1em' }}>↓ BELOW TG1</th>
                   <th style={{ padding: '11px 14px', textAlign: 'right', color: '#ef4444', fontWeight: 700, fontSize: '10px', letterSpacing: '0.1em' }}>↓ BELOW TG2</th>
+                  <th style={{ padding: '11px 14px', textAlign: 'right', color: 'var(--gold)', fontWeight: 700, fontSize: '10px', letterSpacing: '0.1em' }}>NEXT TGT %</th>
                   <th style={{ padding: '11px 14px', textAlign: 'center', color: 'var(--muted)', fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em' }}>ALERT DATE</th>
                   <th style={{ padding: '11px 14px', textAlign: 'center', color: 'var(--muted)', fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em' }}>VALID TILL</th>
                   <th style={{ padding: '11px 14px', textAlign: 'center', color: 'var(--muted)', fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em' }}>STATUS</th>
@@ -405,6 +413,30 @@ export default function AlertsPage() {
                       {tgCell(alert.below_tg1, 'below_tg1', false)}
                       {/* Below TG2 */}
                       {tgCell(alert.below_tg2, 'below_tg2', false)}
+                      {/* Next Target % */}
+                      {(() => {
+                        if (!cmp) return <td style={{ padding:'10px 14px', textAlign:'right', color:'var(--muted)', borderBottom:'1px solid var(--border)' }}>—</td>
+                        // Find next untriggered target closest to CMP
+                        const allTargets = [
+                          { val: alert.above_tg1, key: 'above_tg1' },
+                          { val: alert.above_tg2, key: 'above_tg2' },
+                          { val: alert.below_tg1, key: 'below_tg1' },
+                          { val: alert.below_tg2, key: 'below_tg2' },
+                        ].filter(t => t.val && !triggered.includes(t.key))
+                        if (!allTargets.length) return <td style={{ padding:'10px 14px', textAlign:'right', color:'var(--muted)', borderBottom:'1px solid var(--border)' }}>—</td>
+                        // Pick closest to CMP
+                        const next = allTargets.reduce((a, b) => Math.abs(a.val - cmp) < Math.abs(b.val - cmp) ? a : b)
+                        const pct = ((next.val - cmp) * 100 / cmp)
+                        const isUp = pct >= 0
+                        return (
+                          <td style={{ padding:'10px 14px', textAlign:'right', borderBottom:'1px solid var(--border)' }}>
+                            <span style={{ fontWeight:700, fontSize:'12px', fontFamily:'DM Mono, monospace', color: isUp ? '#22c55e' : '#ef4444' }}>
+                              {isUp ? '+' : ''}{pct.toFixed(2)}%
+                            </span>
+                            <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'1px' }}>Rs{Number(next.val).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                          </td>
+                        )
+                      })()}
                       {/* Alert Date */}
                       <td style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--muted)', borderBottom: '1px solid var(--border)', fontSize: '11px' }}>
                         {alert.alert_date ? new Date(alert.alert_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
@@ -441,6 +473,65 @@ export default function AlertsPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* ── STOP LOSS TRADES SECTION ── */}
+        {slTrades.length > 0 && (
+          <div style={{ marginTop: '32px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+              <h2 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'17px', fontWeight:700, margin:0, color:'var(--text)' }}>🚨 Stop Loss Monitor</h2>
+              <span style={{ fontSize:'10px', background:'rgba(239,68,68,0.1)', color:'var(--bear)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>OPEN TRADES WITH SL</span>
+            </div>
+            <div style={{ overflowX:'auto', border:'1px solid var(--border)', borderRadius:'10px' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:'DM Mono, monospace' }}>
+                <thead>
+                  <tr style={{ background:'var(--surface)', borderBottom:'2px solid var(--border)' }}>
+                    <th style={{ padding:'10px 14px', textAlign:'left', color:'var(--muted)', fontSize:'10px', letterSpacing:'0.1em' }}>STOCK</th>
+                    <th style={{ padding:'10px 14px', textAlign:'left', color:'var(--muted)', fontSize:'10px', letterSpacing:'0.1em' }}>ACCOUNT</th>
+                    <th style={{ padding:'10px 14px', textAlign:'right', color:'var(--muted)', fontSize:'10px', letterSpacing:'0.1em' }}>BUY PRICE</th>
+                    <th style={{ padding:'10px 14px', textAlign:'right', color:'var(--muted)', fontSize:'10px', letterSpacing:'0.1em' }}>CMP</th>
+                    <th style={{ padding:'10px 14px', textAlign:'right', color:'var(--bear)', fontSize:'10px', letterSpacing:'0.1em', fontWeight:700 }}>STOP LOSS</th>
+                    <th style={{ padding:'10px 14px', textAlign:'right', color:'var(--bear)', fontSize:'10px', letterSpacing:'0.1em', fontWeight:700 }}>SL %</th>
+                    <th style={{ padding:'10px 14px', textAlign:'right', color:'var(--muted)', fontSize:'10px', letterSpacing:'0.1em' }}>DISTANCE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {slTrades.map((trade, idx) => {
+                    const cmp = livePrices[trade.ticker]
+                    const slPct = ((trade.stop_loss - trade.entry_price) / trade.entry_price * 100)
+                    const dist = cmp ? ((cmp - trade.stop_loss) / trade.stop_loss * 100) : null
+                    const isNear = dist !== null && dist < 3
+                    const isHit = dist !== null && dist <= 0
+                    return (
+                      <tr key={trade.id} style={{ background: isHit ? 'rgba(239,68,68,0.08)' : isNear ? 'rgba(239,68,68,0.04)' : idx%2===0?'var(--bg)':'var(--surface)', borderLeft: isHit ? '3px solid var(--bear)' : isNear ? '3px solid rgba(239,68,68,0.4)' : '3px solid transparent' }}>
+                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', fontWeight:800, color:'var(--text)' }}>
+                          {trade.ticker}
+                          {isHit && <span style={{ marginLeft:'6px', fontSize:'9px', background:'var(--bear)', color:'#fff', padding:'1px 5px', borderRadius:'3px' }}>HIT</span>}
+                          {isNear && !isHit && <span style={{ marginLeft:'6px', fontSize:'9px', background:'rgba(239,68,68,0.2)', color:'var(--bear)', padding:'1px 5px', borderRadius:'3px' }}>NEAR</span>}
+                        </td>
+                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', color:'var(--muted)', fontSize:'11px' }}>{trade.account || '—'}</td>
+                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right' }}>Rs{Number(trade.entry_price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:600, color: isHit?'var(--bear)':'var(--text)' }}>
+                          {cmp ? `Rs${Number(cmp).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'}
+                        </td>
+                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:700, color:'var(--bear)' }}>
+                          Rs{Number(trade.stop_loss).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                        </td>
+                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:700, color:'var(--bear)' }}>
+                          {slPct.toFixed(2)}%
+                        </td>
+                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right' }}>
+                          {dist !== null
+                            ? <span style={{ fontWeight:700, color: isHit?'var(--bear)':isNear?'rgba(239,68,68,0.8)':'var(--bull)' }}>{dist>0?'+':''}{dist.toFixed(2)}%</span>
+                            : <span style={{ color:'var(--muted)' }}>—</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
