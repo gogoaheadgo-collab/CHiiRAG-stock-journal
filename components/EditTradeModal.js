@@ -15,6 +15,7 @@ export default function EditTradeModal({ trade, onClose, onSave, session, isAdmi
     quantity: trade.quantity || '',
     actual_investment: trade.actual_investment || '',
     mtf_interest_rate: trade.mtf_interest_rate || '',
+    stop_loss: trade.stop_loss || '',
     strategy: pipeParts.length > 1 ? pipeParts[0] : '',
     notes: pipeParts.length > 1 ? pipeParts.slice(1).join(' | ') : existingNotes,
   })
@@ -30,6 +31,10 @@ export default function EditTradeModal({ trade, onClose, onSave, session, isAdmi
 
   const totalBuyingValue = form.entry_price && form.quantity
     ? parseFloat(form.entry_price) * parseFloat(form.quantity)
+    : null
+
+  const slPct = form.entry_price && form.stop_loss && parseFloat(form.entry_price) > 0
+    ? ((parseFloat(form.stop_loss) - parseFloat(form.entry_price)) / parseFloat(form.entry_price) * 100)
     : null
 
   const mtfBorrowed = totalBuyingValue && form.actual_investment
@@ -90,6 +95,7 @@ export default function EditTradeModal({ trade, onClose, onSave, session, isAdmi
         actual_investment: form.actual_investment ? parseFloat(form.actual_investment) : null,
         mtf_interest_rate: form.mtf_interest_rate ? parseFloat(form.mtf_interest_rate) : null,
         notes: [form.strategy, form.notes].filter(Boolean).join(' | ') || null,
+      stop_loss: form.stop_loss ? parseFloat(form.stop_loss) : null,
       })
       onClose()
     } catch (err) {
