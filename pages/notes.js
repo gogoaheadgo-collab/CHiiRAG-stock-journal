@@ -8,15 +8,15 @@ const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 function NavPill({ active, isAdmin }) {
   const router = useRouter()
   const items = [
-    { label: 'Dashboard', path: '/dashboard' },
-    { label: 'Accounts', path: '/accounts' },
+    { label:'Dashboard', path:'/dashboard' },
+    { label:'Accounts', path:'/accounts' },
     ...(isAdmin ? [
-      { label: 'Subscribers', path: '/subscribers' },
-      { label: 'All Trades', path: '/all-trades' },
+      { label:'Subscribers', path:'/subscribers' },
+      { label:'All Trades', path:'/all-trades' },
     ] : []),
-    { label: 'Revenue Sharing', path: '/revenue-sharing' },
-    { label: 'Alerts', path: '/alerts' },
-    { label: 'Notes', path: '/notes' },
+    { label:'Revenue Sharing', path:'/revenue-sharing' },
+    { label:'Alerts', path:'/alerts' },
+    { label:'Notes', path:'/notes' },
   ]
   return (
     <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px', flexWrap:'wrap' }}>
@@ -24,87 +24,58 @@ function NavPill({ active, isAdmin }) {
         <button key={path} onClick={() => router.push(path)} style={{
           padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer',
           fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600,
-          background: active===label ? 'var(--accent)' : 'transparent',
-          color: active===label ? '#fff' : 'var(--muted)',
+          background:active===label?'var(--accent)':'transparent',
+          color:active===label?'#fff':'var(--muted)',
         }}>{label}</button>
       ))}
     </div>
   )
 }
 
-// Mini calendar
-function NoteCalendar({ selectedDate, onSelect, noteDates }) {
+function MiniCalendar({ selected, onSelect, dotDates }) {
   const today = new Date()
-  const [month, setMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
-  const year = month.getFullYear(), mon = month.getMonth()
-  const firstDay = new Date(year, mon, 1).getDay()
-  const daysInMonth = new Date(year, mon + 1, 0).getDate()
+  const [view, setView] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
+  const yr = view.getFullYear(), mo = view.getMonth()
+  const firstDay = new Date(yr, mo, 1).getDay()
+  const days = new Date(yr, mo+1, 0).getDate()
   const pad = firstDay === 0 ? 6 : firstDay - 1
-  const cells = [...Array(pad).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
-  const fmt = (y, m, d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-  const todayStr = fmt(today.getFullYear(), today.getMonth(), today.getDate())
+  const cells = [...Array(pad).fill(null), ...Array.from({length:days},(_,i)=>i+1)]
+  const toStr = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+  const todayStr = toStr(today.getFullYear(), today.getMonth(), today.getDate())
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
   return (
     <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'10px', overflow:'hidden', width:'220px', flexShrink:0 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 12px', borderBottom:'1px solid var(--border)', background:'var(--bg)' }}>
-        <button onClick={() => setMonth(new Date(year, mon-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'12px' }}>‹</button>
-        <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>
-          {month.toLocaleString('default', { month:'long' })} {year}
-        </span>
-        <button onClick={() => setMonth(new Date(year, mon+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'12px' }}>›</button>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 12px', borderBottom:'1px solid var(--border)' }}>
+        <button onClick={() => setView(new Date(yr, mo-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'12px' }}>‹</button>
+        <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>{MONTHS[mo]} {yr}</span>
+        <button onClick={() => setView(new Date(yr, mo+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'12px' }}>›</button>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', padding:'4px' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', padding:'6px 4px 2px' }}>
         {['M','T','W','T','F','S','S'].map((d,i) => (
-          <div key={i} style={{ textAlign:'center', padding:'4px 0', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600 }}>{d}</div>
+          <div key={i} style={{ textAlign:'center', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600, padding:'2px 0' }}>{d}</div>
         ))}
         {cells.map((d, i) => {
           if (!d) return <div key={i} />
-          const dateStr = fmt(year, mon, d)
-          const isToday = dateStr === todayStr
-          const isSelected = dateStr === selectedDate
-          const hasNote = noteDates.has(dateStr)
+          const s = toStr(yr, mo, d)
+          const isTod = s === todayStr
+          const isSel = s === selected
+          const hasDot = dotDates.has(s)
           return (
-            <div key={i} onClick={() => onSelect(dateStr)}
-              style={{
-                textAlign:'center', padding:'5px 2px', cursor:'pointer', borderRadius:'5px', position:'relative',
-                background: isSelected ? 'var(--accent)' : isToday ? 'var(--accent-dim)' : 'transparent',
-                margin:'1px',
-              }}
-              onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface)' }}
-              onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isToday ? 'var(--accent-dim)' : 'transparent' }}>
-              <span style={{ fontSize:'11px', fontFamily:'DM Mono, monospace', color: isSelected ? '#fff' : isToday ? 'var(--accent)' : 'var(--text)', fontWeight: isToday||isSelected ? 700 : 400 }}>{d}</span>
-              {hasNote && <div style={{ width:'4px', height:'4px', borderRadius:'50%', background: isSelected ? '#fff' : 'var(--accent)', margin:'1px auto 0' }} />}
+            <div key={i} onClick={() => onSelect(s)}
+              style={{ textAlign:'center', padding:'4px 2px', cursor:'pointer', borderRadius:'5px', margin:'1px',
+                background: isSel ? 'var(--accent)' : isTod ? 'var(--accent-dim)' : 'transparent' }}
+              onMouseEnter={e => { if(!isSel) e.currentTarget.style.background='rgba(14,165,233,0.1)' }}
+              onMouseLeave={e => { if(!isSel) e.currentTarget.style.background=isTod?'var(--accent-dim)':'transparent' }}>
+              <div style={{ fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:isSel||isTod?700:400,
+                color:isSel?'#fff':isTod?'var(--accent)':'var(--text)' }}>{d}</div>
+              {hasDot && <div style={{ width:'4px', height:'4px', borderRadius:'50%', background:isSel?'#fff':'var(--accent)', margin:'0 auto' }} />}
             </div>
           )
         })}
       </div>
       <div style={{ padding:'8px', borderTop:'1px solid var(--border)' }}>
-        <button onClick={() => onSelect(todayStr)} style={{ width:'100%', padding:'5px', background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>
-          Today
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// Stock info card
-function StockCard({ data }) {
-  if (!data) return null
-  const change = data.change || 0
-  const isUp = change >= 0
-  return (
-    <div style={{ display:'inline-flex', alignItems:'center', gap:'12px', background: isUp ? 'rgba(0,230,118,0.06)' : 'rgba(239,68,68,0.06)', border:`1px solid ${isUp?'rgba(0,230,118,0.2)':'rgba(239,68,68,0.2)'}`, borderRadius:'8px', padding:'8px 14px', marginBottom:'12px' }}>
-      <div>
-        <div style={{ fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px', color:'var(--text)' }}>{data.ticker}</div>
-        <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'1px' }}>{data.shortName || ''}</div>
-      </div>
-      <div>
-        <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'16px', color: isUp ? 'var(--bull)' : 'var(--bear)' }}>
-          Rs{Number(data.price||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })}
-        </div>
-        <div style={{ fontSize:'11px', color: isUp ? 'var(--bull)' : 'var(--bear)', fontFamily:'DM Mono, monospace' }}>
-          {isUp?'+':''}{Number(data.changePercent||0).toFixed(2)}% today
-        </div>
+        <button onClick={() => onSelect(todayStr)} style={{ width:'100%', padding:'5px', background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>Today</button>
       </div>
     </div>
   )
@@ -114,157 +85,169 @@ export default function NotesPage() {
   const router = useRouter()
   const [session, setSession] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
-
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toISOString().slice(0,10)
   const [selectedDate, setSelectedDate] = useState(today)
-  const [notes, setNotes] = useState([]) // all notes for calendar dots
-  const [currentNote, setCurrentNote] = useState(null)
+  const [allNotes, setAllNotes] = useState([])
   const [content, setContent] = useState('')
-  const [ticker, setTicker] = useState('')
-  const [stockData, setStockData] = useState(null)
-  const [stockLoading, setStockLoading] = useState(false)
+  const [tickers, setTickers] = useState([])
   const [imageUrls, setImageUrls] = useState([])
+  const [tickerInput, setTickerInput] = useState('')
+  const [tickerSuggestions, setTickerSuggestions] = useState([])
+  const [showDrop, setShowDrop] = useState(false)
+  const [stockCards, setStockCards] = useState({})
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [saveMsg, setSaveMsg] = useState('')
+  const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [imgUploading, setImgUploading] = useState(false)
-  const [tickerSuggestions, setTickerSuggestions] = useState([])
-  const [showTickerDrop, setShowTickerDrop] = useState(false)
-  const fileInputRef = useRef(null)
+  const fileRef = useRef(null)
+  const loadingRef = useRef(false)
 
-  const getToken = useCallback(async () => (await supabase.auth.getSession()).data.session?.access_token, [])
+  const getToken = useCallback(async () =>
+    (await supabase.auth.getSession()).data.session?.access_token, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    supabase.auth.getSession().then(({ data:{ session:s } }) => {
       if (!s) { router.push('/'); return }
       setSession(s); setIsAdmin(s.user.email === ADMIN_EMAIL)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => { if (!s) router.push('/') })
+    const { data:{ subscription } } = supabase.auth.onAuthStateChange((_,s) => { if (!s) router.push('/') })
     return () => subscription.unsubscribe()
   }, []) // eslint-disable-line
 
-  // Load all note dates for calendar dots
-  const loadAllNotes = useCallback(async () => {
+  // Load all notes (for calendar dots + sidebar)
+  const loadAll = useCallback(async () => {
     const token = await getToken()
-    const res = await fetch('/api/notes', { headers: { Authorization: `Bearer ${token}` } })
+    if (!token) return
+    const res = await fetch('/api/notes', { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
-    if (Array.isArray(data)) setNotes(data)
+    if (Array.isArray(data)) setAllNotes(data)
   }, [getToken])
 
-  useEffect(() => { if (session) loadAllNotes() }, [session, loadAllNotes])
+  useEffect(() => { if (session) loadAll() }, [session, loadAll])
 
   // Load note for selected date
-  const loadDateNote = useCallback(async (date) => {
+  const loadNote = useCallback(async (date) => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     const token = await getToken()
-    const res = await fetch(`/api/notes?date=${date}`, { headers: { Authorization: `Bearer ${token}` } })
+    if (!token) { loadingRef.current = false; return }
+    const res = await fetch(`/api/notes?date=${date}`, { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
     const note = Array.isArray(data) && data.length > 0 ? data[0] : null
-    setCurrentNote(note)
     setContent(note?.content || '')
-    setTicker(note?.stock_ticker || '')
-    setStockData(note?.stock_data || null)
+    setTickers(note?.tickers || [])
     setImageUrls(note?.image_urls || [])
+    setStockCards({})
+    setSaveMsg('')
+    loadingRef.current = false
   }, [getToken])
 
-  useEffect(() => {
-    if (session && selectedDate) loadDateNote(selectedDate)
-  }, [session, selectedDate, loadDateNote])
+  useEffect(() => { if (session && selectedDate) loadNote(selectedDate) }, [session, selectedDate]) // eslint-disable-line
 
-  const handleSave = useCallback(async () => {
-    const token = await getToken()
-    setSaving(true)
-    const res = await fetch('/api/notes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ note_date: selectedDate, content, stock_ticker: ticker || null, stock_data: stockData || null, image_urls: imageUrls }),
-    })
-    const data = await res.json()
-    if (!data.error) {
-      setCurrentNote(data)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-      loadAllNotes()
-    }
-    setSaving(false)
-  }, [getToken, selectedDate, content, ticker, stockData, imageUrls, loadAllNotes])
-
-  const handleContentChange = (val) => { setContent(val); setSaved(false) }
-
-  // Ticker search
-  const searchTicker = async (q) => {
-    setTicker(q.toUpperCase())
-    if (q.length < 2) { setTickerSuggestions([]); setShowTickerDrop(false); return }
-    try {
-      const res = await fetch(`/api/ticker-search?q=${encodeURIComponent(q)}`)
-      const data = await res.json()
-      setTickerSuggestions(Array.isArray(data) ? data : [])
-      setShowTickerDrop(true)
-    } catch {}
-  }
-
-  const fetchStockData = async (sym) => {
-    setStockLoading(true)
-    setShowTickerDrop(false)
-    setTicker(sym)
-    setTickerSuggestions([])
+  // Fetch stock price for a ticker
+  const fetchStock = async (sym) => {
     try {
       const res = await fetch(`/api/stock/${sym}`)
-      const data = await res.json()
-      if (data.price) {
-        const sd = { ticker: sym, price: data.price, change: data.change, changePercent: data.changePercent, shortName: data.shortName }
-        setStockData(sd)
-        setSaved(false)
-      }
+      const d = await res.json()
+      if (d.price) setStockCards(prev => ({ ...prev, [sym]: d }))
     } catch {}
-    setStockLoading(false)
   }
 
-  // Image upload
-  const handleImageUpload = async (e) => {
+  useEffect(() => {
+    tickers.forEach(sym => { if (!stockCards[sym]) fetchStock(sym) })
+  }, [tickers]) // eslint-disable-line
+
+  // Ticker autocomplete
+  const searchTicker = async (q) => {
+    setTickerInput(q.toUpperCase())
+    if (q.length < 2) { setTickerSuggestions([]); setShowDrop(false); return }
+    try {
+      const r = await fetch(`/api/ticker-search?q=${encodeURIComponent(q)}`)
+      const d = await r.json()
+      setTickerSuggestions(Array.isArray(d) ? d : [])
+      setShowDrop(true)
+    } catch {}
+  }
+
+  const addTicker = (sym) => {
+    if (!tickers.includes(sym)) setTickers(prev => [...prev, sym])
+    setTickerInput(''); setTickerSuggestions([]); setShowDrop(false)
+    fetchStock(sym)
+  }
+
+  const removeTicker = (sym) => {
+    setTickers(prev => prev.filter(t => t !== sym))
+    setStockCards(prev => { const n = {...prev}; delete n[sym]; return n })
+  }
+
+  // Save
+  const handleSave = async () => {
+    const token = await getToken()
+    if (!token) { setSaveMsg('Not logged in'); return }
+    setSaving(true); setSaveMsg('')
+    try {
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+        body: JSON.stringify({ note_date: selectedDate, content, tickers, image_urls: imageUrls }),
+      })
+      const data = await res.json()
+      if (data.error) { setSaveMsg('Error: ' + data.error) }
+      else { setSaveMsg('✓ Saved!'); loadAll() }
+    } catch (e) { setSaveMsg('Error: ' + e.message) }
+    setSaving(false)
+  }
+
+  // Image upload — base64 approach (no formidable needed)
+  const handleImage = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     setImgUploading(true)
     const token = await getToken()
-    const formData = new FormData()
-    formData.append('image', file)
-    try {
-      const res = await fetch('/api/upload-note-image', { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body: formData })
-      const data = await res.json()
-      if (data.url) {
-        const newUrls = [...imageUrls, data.url]
-        setImageUrls(newUrls)
-        setSaved(false)
-      }
-    } catch (e) { console.error(e) }
-    setImgUploading(false)
+    const reader = new FileReader()
+    reader.onload = async () => {
+      const base64 = reader.result.split(',')[1]
+      const ext = file.name.split('.').pop()
+      try {
+        const { data, error } = await supabase.storage.from('note-images')
+          .upload(`${Date.now()}.${ext}`, decode(base64), { contentType: file.type, upsert: false })
+        if (!error) {
+          const { data:{ publicUrl } } = supabase.storage.from('note-images').getPublicUrl(data.path)
+          setImageUrls(prev => [...prev, publicUrl])
+        }
+      } catch {}
+      setImgUploading(false)
+    }
+    reader.readAsDataURL(file)
   }
 
-  const removeImage = (url) => {
-    const newUrls = imageUrls.filter(u => u !== url)
-    setImageUrls(newUrls)
-    setSaved(false)
+  // Simple base64 decode for storage upload
+  function decode(base64) {
+    const bin = atob(base64)
+    const bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+    return bytes
   }
+
+  const removeImage = (url) => setImageUrls(prev => prev.filter(u => u !== url))
 
   // Search
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) { setSearchResults([]); return }
+  const doSearch = async () => {
+    if (!searchQ.trim()) { setSearchResults([]); return }
     setSearching(true)
     const token = await getToken()
-    const res = await fetch(`/api/notes?search=${encodeURIComponent(searchQuery)}`, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await fetch(`/api/notes?search=${encodeURIComponent(searchQ)}`, { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
     setSearchResults(Array.isArray(data) ? data : [])
     setSearching(false)
   }
 
-  const noteDates = new Set(notes.map(n => n.note_date))
-
+  const dotDates = new Set(allNotes.map(n => n.note_date))
   const displayDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', {
     weekday:'long', day:'numeric', month:'long', year:'numeric'
   })
-
-  const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
   if (!session) return null
 
@@ -289,84 +272,75 @@ export default function NotesPage() {
           </div>
         </div>
         <NavPill active="Notes" isAdmin={isAdmin} />
-        <button onClick={signOut} className="btn btn-ghost" style={{ padding:'6px 10px', fontSize:'11px' }}>Sign Out</button>
+        <button onClick={async () => { await supabase.auth.signOut(); window.location.href='/' }}
+          className="btn btn-ghost" style={{ padding:'6px 10px', fontSize:'11px' }}>Sign Out</button>
       </header>
 
       <main style={{ maxWidth:'1400px', margin:'0 auto', padding:'80px 16px 40px' }}>
 
-        {/* Page header + search */}
+        {/* Header + search */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px', flexWrap:'wrap', gap:'12px' }}>
           <div>
             <h1 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'22px', fontWeight:800, color:'var(--text)', margin:0 }}>📓 Trading Notes</h1>
-            <p style={{ color:'var(--muted)', fontSize:'12px', marginTop:'4px', fontFamily:'DM Mono, monospace' }}>Your daily journal · auto-saved</p>
+            <p style={{ color:'var(--muted)', fontSize:'12px', marginTop:'4px', fontFamily:'DM Mono, monospace' }}>Daily journal · press Save to store your notes</p>
           </div>
-          {/* Search bar */}
-          <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
-            <div style={{ position:'relative' }}>
-              <input
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                placeholder="🔍 Search notes e.g. PFOCUS"
-                style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'8px 14px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', width:'240px', outline:'none' }}
-              />
-            </div>
-            <button onClick={handleSearch} disabled={searching} style={{ padding:'8px 16px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>
+          <div style={{ display:'flex', gap:'8px' }}>
+            <input value={searchQ} onChange={e => setSearchQ(e.target.value)} onKeyDown={e => e.key==='Enter' && doSearch()}
+              placeholder="🔍 Search notes..." style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'8px 12px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', width:'200px', outline:'none' }} />
+            <button onClick={doSearch} disabled={searching} style={{ padding:'8px 14px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>
               {searching ? '...' : 'Search'}
             </button>
             {searchResults.length > 0 && (
-              <button onClick={() => { setSearchResults([]); setSearchQuery('') }} style={{ padding:'8px 12px', background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'6px', cursor:'pointer', fontSize:'11px' }}>✕ Clear</button>
+              <button onClick={() => { setSearchResults([]); setSearchQ('') }} style={{ padding:'8px 10px', background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'6px', cursor:'pointer', fontSize:'12px' }}>✕</button>
             )}
           </div>
         </div>
 
-        {/* Search Results */}
+        {/* Search results */}
         {searchResults.length > 0 && (
-          <div style={{ marginBottom:'24px', background:'var(--surface)', border:'1px solid var(--accent)', borderRadius:'10px', padding:'16px' }}>
-            <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', color:'var(--accent)', marginBottom:'12px' }}>
-              {searchResults.length} note{searchResults.length > 1 ? 's' : ''} found for "{searchQuery}"
+          <div style={{ marginBottom:'20px', background:'var(--surface)', border:'1px solid var(--accent)', borderRadius:'10px', padding:'14px' }}>
+            <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--accent)', marginBottom:'10px' }}>
+              {searchResults.length} result{searchResults.length > 1 ? 's' : ''} for "{searchQ}"
             </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-              {searchResults.map(note => (
-                <div key={note.id} onClick={() => { setSelectedDate(note.note_date); setSearchResults([]); setSearchQuery('') }}
-                  style={{ cursor:'pointer', padding:'12px 14px', background:'var(--bg)', borderRadius:'8px', border:'1px solid var(--border)' }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor='var(--accent)'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor='var(--border)'}>
-                  <div style={{ fontFamily:'DM Mono, monospace', fontSize:'11px', color:'var(--accent)', marginBottom:'4px', fontWeight:700 }}>
-                    {new Date(note.note_date+'T00:00:00').toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short', year:'numeric' })}
-                    {note.stock_ticker && <span style={{ marginLeft:'10px', color:'var(--gold)' }}>📈 {note.stock_ticker}</span>}
-                  </div>
-                  <div style={{ fontSize:'13px', color:'var(--muted)', fontFamily:'Caveat, cursive', lineHeight:1.5,
-                    overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>
-                    {note.content?.slice(0, 150) || '(empty)'}
-                  </div>
+            {searchResults.map(n => (
+              <div key={n.id} onClick={() => { setSelectedDate(n.note_date); setSearchResults([]); setSearchQ('') }}
+                style={{ padding:'10px 12px', marginBottom:'6px', background:'var(--bg)', borderRadius:'6px', border:'1px solid var(--border)', cursor:'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.borderColor='var(--accent)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor='var(--border)'}>
+                <div style={{ fontFamily:'DM Mono, monospace', fontSize:'11px', color:'var(--accent)', fontWeight:700, marginBottom:'3px' }}>
+                  {new Date(n.note_date+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}
+                  {n.tickers?.length > 0 && <span style={{ marginLeft:'8px', color:'var(--gold)' }}>📈 {n.tickers.join(', ')}</span>}
                 </div>
-              ))}
-            </div>
+                <div style={{ fontSize:'13px', color:'var(--muted)', fontFamily:'Caveat, cursive', overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>
+                  {n.content?.slice(0,120) || '(empty)'}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Main layout: calendar + note paper */}
+        {/* Main layout */}
         <div style={{ display:'flex', gap:'20px', alignItems:'flex-start' }}>
 
-          {/* Calendar sidebar */}
-          <div style={{ flexShrink:0 }}>
-            <NoteCalendar selectedDate={selectedDate} onSelect={setSelectedDate} noteDates={noteDates} />
-            {/* Notes list below calendar */}
-            {notes.length > 0 && (
-              <div style={{ marginTop:'12px', width:'220px' }}>
-                <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'6px', letterSpacing:'0.1em' }}>RECENT NOTES</div>
-                {notes.slice(0, 8).map(n => (
+          {/* Sidebar: calendar + recent */}
+          <div style={{ flexShrink:0, display:'flex', flexDirection:'column', gap:'12px' }}>
+            <MiniCalendar selected={selectedDate} onSelect={setSelectedDate} dotDates={dotDates} />
+            {allNotes.length > 0 && (
+              <div style={{ width:'220px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'10px', padding:'10px' }}>
+                <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.1em', marginBottom:'8px' }}>RECENT NOTES</div>
+                {allNotes.slice(0,8).map(n => (
                   <div key={n.id} onClick={() => setSelectedDate(n.note_date)}
-                    style={{ padding:'6px 10px', cursor:'pointer', borderRadius:'6px', marginBottom:'3px', background: n.note_date === selectedDate ? 'var(--accent-dim)' : 'transparent', border: n.note_date === selectedDate ? '1px solid var(--accent)' : '1px solid transparent' }}
-                    onMouseEnter={e => { if (n.note_date !== selectedDate) e.currentTarget.style.background = 'var(--surface)' }}
-                    onMouseLeave={e => { if (n.note_date !== selectedDate) e.currentTarget.style.background = 'transparent' }}>
-                    <div style={{ fontFamily:'DM Mono, monospace', fontSize:'10px', color: n.note_date === selectedDate ? 'var(--accent)' : 'var(--muted)', fontWeight:700 }}>
-                      {new Date(n.note_date+'T00:00:00').toLocaleDateString('en-IN', { day:'2-digit', month:'short' })}
-                      {n.stock_ticker && <span style={{ marginLeft:'6px', color:'var(--gold)', fontSize:'9px' }}>{n.stock_ticker}</span>}
+                    style={{ padding:'6px 8px', cursor:'pointer', borderRadius:'5px', marginBottom:'3px',
+                      background:n.note_date===selectedDate?'var(--accent-dim)':'transparent',
+                      border:n.note_date===selectedDate?'1px solid var(--accent)':'1px solid transparent' }}
+                    onMouseEnter={e => { if(n.note_date!==selectedDate) e.currentTarget.style.background='rgba(14,165,233,0.05)' }}
+                    onMouseLeave={e => { if(n.note_date!==selectedDate) e.currentTarget.style.background='transparent' }}>
+                    <div style={{ fontFamily:'DM Mono, monospace', fontSize:'10px', color:n.note_date===selectedDate?'var(--accent)':'var(--muted)', fontWeight:700 }}>
+                      {new Date(n.note_date+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}
+                      {n.tickers?.length>0 && <span style={{ marginLeft:'6px', color:'var(--gold)', fontSize:'9px' }}>{n.tickers[0]}</span>}
                     </div>
                     <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'Caveat, cursive', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'180px' }}>
-                      {n.content?.slice(0,40) || '...'}
+                      {n.content?.slice(0,35) || '...'}
                     </div>
                   </div>
                 ))}
@@ -376,118 +350,125 @@ export default function NotesPage() {
 
           {/* Note paper */}
           <div style={{ flex:1, minWidth:0 }}>
-            {/* Paper toolbar */}
+
+            {/* Toolbar */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px', flexWrap:'wrap', gap:'8px' }}>
-              <div style={{ fontFamily:'DM Mono, monospace', fontSize:'12px', color:'var(--muted)' }}>
-                {displayDate}
-              </div>
-              <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
-                {/* Ticker input */}
+              <div style={{ fontFamily:'DM Mono, monospace', fontSize:'12px', color:'var(--muted)' }}>{displayDate}</div>
+              <div style={{ display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap' }}>
+                {/* Ticker search */}
                 <div style={{ position:'relative' }}>
-                  <input
-                    value={ticker}
-                    onChange={e => searchTicker(e.target.value)}
-                    onBlur={() => setTimeout(() => setShowTickerDrop(false), 200)}
-                    placeholder="📈 Add stock ticker..."
-                    style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'6px 12px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', width:'180px', outline:'none', textTransform:'uppercase' }}
-                  />
-                  {showTickerDrop && tickerSuggestions.length > 0 && (
-                    <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:200, background:'var(--bg)', border:'1px solid var(--accent)', borderRadius:'6px', boxShadow:'0 8px 20px rgba(0,0,0,0.2)', maxHeight:'200px', overflowY:'auto', marginTop:'2px' }}>
-                      {tickerSuggestions.map((item, i) => (
-                        <div key={i} onMouseDown={() => fetchStockData(item.ticker)}
-                          style={{ padding:'8px 12px', cursor:'pointer', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}
+                  <input value={tickerInput} onChange={e => searchTicker(e.target.value)}
+                    onBlur={() => setTimeout(() => setShowDrop(false), 200)}
+                    onKeyDown={e => { if(e.key==='Enter' && tickerInput.trim()) addTicker(tickerInput.trim()) }}
+                    placeholder="📈 Add ticker..."
+                    style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'6px 12px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', width:'160px', outline:'none', textTransform:'uppercase' }} />
+                  {showDrop && tickerSuggestions.length > 0 && (
+                    <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:300, background:'var(--bg)', border:'1px solid var(--accent)', borderRadius:'6px', boxShadow:'0 8px 20px rgba(0,0,0,0.25)', maxHeight:'180px', overflowY:'auto', marginTop:'2px' }}>
+                      {tickerSuggestions.map((item,i) => (
+                        <div key={i} onMouseDown={() => addTicker(item.ticker)}
+                          style={{ padding:'8px 12px', cursor:'pointer', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between' }}
                           onMouseEnter={e => e.currentTarget.style.background='var(--surface)'}
                           onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                           <div>
                             <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', color:'var(--accent)' }}>{item.ticker}</div>
                             <div style={{ fontSize:'10px', color:'var(--muted)' }}>{item.shortName}</div>
                           </div>
-                          <div style={{ fontSize:'9px', color:'var(--muted)', background:'var(--surface)', padding:'1px 5px', borderRadius:'3px' }}>{item.exchange}</div>
+                          <span style={{ fontSize:'9px', color:'var(--muted)', background:'var(--surface)', padding:'1px 5px', borderRadius:'3px', alignSelf:'center' }}>{item.exchange}</span>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-                {ticker && (
-                  <button onClick={() => fetchStockData(ticker)} disabled={stockLoading} style={{ padding:'6px 12px', background:'var(--accent-dim)', border:'1px solid var(--accent)', color:'var(--accent)', borderRadius:'6px', cursor:'pointer', fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>
-                    {stockLoading ? '...' : '↓ Fetch'}
-                  </button>
-                )}
-                {ticker && (
-                  <button onClick={() => { setTicker(''); setStockData(null); autoSave(content, '', null, imageUrls) }}
-                    style={{ padding:'6px 8px', background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'6px', cursor:'pointer', fontSize:'11px' }}>✕</button>
-                )}
-                {/* Image upload */}
-                <button onClick={() => fileInputRef.current?.click()} disabled={imgUploading}
+                {/* Photo upload */}
+                <button onClick={() => fileRef.current?.click()} disabled={imgUploading}
                   style={{ padding:'6px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'6px', cursor:'pointer', fontSize:'11px', fontFamily:'DM Mono, monospace' }}>
-                  {imgUploading ? '⏳ Uploading...' : '📷 Add Photo'}
+                  {imgUploading ? '⏳...' : '📷 Photo'}
                 </button>
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display:'none' }} />
-                {/* Save button */}
+                <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} style={{ display:'none' }} />
+                {/* SAVE BUTTON */}
                 <button onClick={handleSave} disabled={saving}
-                  style={{ padding:'7px 18px', background: saved ? 'var(--bull)' : 'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700, opacity: saving ? 0.7 : 1, transition:'background 0.3s' }}>
-                  {saving ? '⏳ Saving...' : saved ? '✓ Saved!' : '💾 Save Note'}
+                  style={{ padding:'8px 20px', background:saveMsg.startsWith('✓')?'var(--bull)':'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700, minWidth:'110px', transition:'background 0.3s', opacity:saving?0.7:1 }}>
+                  {saving ? '⏳ Saving...' : saveMsg.startsWith('✓') ? '✓ Saved!' : '💾 Save Note'}
                 </button>
               </div>
             </div>
 
-            {/* Stock data card */}
-            {stockData && <StockCard data={stockData} />}
+            {saveMsg && !saveMsg.startsWith('✓') && (
+              <div style={{ marginBottom:'8px', color:'var(--bear)', fontSize:'12px', fontFamily:'DM Mono, monospace' }}>{saveMsg}</div>
+            )}
+
+            {/* Ticker chips + stock cards */}
+            {tickers.length > 0 && (
+              <div style={{ marginBottom:'10px', display:'flex', gap:'8px', flexWrap:'wrap', alignItems:'flex-start' }}>
+                {tickers.map(sym => {
+                  const sd = stockCards[sym]
+                  const isUp = sd ? sd.change >= 0 : true
+                  return (
+                    <div key={sym} style={{ display:'flex', alignItems:'center', gap:'10px', background:isUp?'rgba(0,230,118,0.06)':'rgba(239,68,68,0.06)', border:`1px solid ${isUp?'rgba(0,230,118,0.25)':'rgba(239,68,68,0.25)'}`, borderRadius:'8px', padding:'7px 12px' }}>
+                      <div>
+                        <div style={{ fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'13px', color:'var(--text)' }}>{sym}</div>
+                        {sd && <div style={{ fontSize:'10px', color:'var(--muted)' }}>{sd.shortName||''}</div>}
+                      </div>
+                      {sd && (
+                        <div>
+                          <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'14px', color:isUp?'var(--bull)':'var(--bear)' }}>
+                            Rs{Number(sd.price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                          </div>
+                          <div style={{ fontSize:'10px', color:isUp?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>
+                            {isUp?'+':''}{Number(sd.changePercent||0).toFixed(2)}%
+                          </div>
+                        </div>
+                      )}
+                      <button onClick={() => removeTicker(sym)} style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'14px', padding:'0 2px', lineHeight:1 }}>×</button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* THE PAPER */}
             <div style={{
-              position:'relative',
-              background:'#fefef8',
-              borderRadius:'4px',
-              boxShadow:'0 2px 8px rgba(0,0,0,0.15), 2px 4px 16px rgba(0,0,0,0.1)',
-              minHeight:'600px',
-              overflow:'hidden',
-              border:'1px solid #e8e0c8',
+              position:'relative', background:'#fefef8', borderRadius:'4px',
+              boxShadow:'0 2px 12px rgba(0,0,0,0.18), 3px 5px 20px rgba(0,0,0,0.1)',
+              minHeight:'580px', overflow:'hidden', border:'1px solid #e8e0c8',
             }}>
-              {/* Red margin line */}
-              <div style={{ position:'absolute', left:'56px', top:0, bottom:0, width:'1px', background:'rgba(220,60,60,0.3)', zIndex:1 }} />
-              {/* Hole punches */}
-              <div style={{ position:'absolute', left:'20px', top:'60px', width:'14px', height:'14px', borderRadius:'50%', background:'#f0ebe0', border:'1px solid #d4cbb8', zIndex:2 }} />
-              <div style={{ position:'absolute', left:'20px', top:'50%', width:'14px', height:'14px', borderRadius:'50%', background:'#f0ebe0', border:'1px solid #d4cbb8', zIndex:2 }} />
-              <div style={{ position:'absolute', left:'20px', bottom:'60px', width:'14px', height:'14px', borderRadius:'50%', background:'#f0ebe0', border:'1px solid #d4cbb8', zIndex:2 }} />
-
-              {/* Date header on paper */}
-              <div style={{ paddingTop:'20px', paddingLeft:'72px', paddingRight:'20px', paddingBottom:'8px', borderBottom:'2px solid rgba(173,140,100,0.3)' }}>
-                <div style={{ fontFamily:'Caveat, cursive', fontSize:'20px', color:'#5a4a3a', fontWeight:600 }}>{displayDate}</div>
+              {/* Red margin */}
+              <div style={{ position:'absolute', left:'58px', top:0, bottom:0, width:'1px', background:'rgba(220,60,60,0.3)', zIndex:1, pointerEvents:'none' }} />
+              {/* Holes */}
+              {[60, '50%', 'calc(100% - 60px)'].map((top, i) => (
+                <div key={i} style={{ position:'absolute', left:'20px', top, transform:typeof top==='string'?'translateY(-50%)':'none', width:'14px', height:'14px', borderRadius:'50%', background:'#f0ebe0', border:'1px solid #d4cbb8', zIndex:2, pointerEvents:'none' }} />
+              ))}
+              {/* Lines */}
+              {Array.from({length:32}).map((_,i) => (
+                <div key={i} style={{ position:'absolute', left:0, right:0, top:`${i*36+72}px`, height:'1px', background:'rgba(100,149,237,0.18)', zIndex:0, pointerEvents:'none' }} />
+              ))}
+              {/* Date header */}
+              <div style={{ paddingTop:'16px', paddingLeft:'72px', paddingRight:'20px', paddingBottom:'10px', borderBottom:'2px solid rgba(173,140,100,0.25)', position:'relative', zIndex:1 }}>
+                <div style={{ fontFamily:'Caveat, cursive', fontSize:'22px', color:'#5a4a3a', fontWeight:600 }}>{displayDate}</div>
               </div>
-
-              {/* Lined textarea */}
-              <div style={{ position:'relative', paddingLeft:'72px', paddingRight:'24px' }}>
-                {/* Horizontal lines */}
-                {Array.from({ length: 30 }).map((_, i) => (
-                  <div key={i} style={{ position:'absolute', left:0, right:0, top: `${i * 36 + 8}px`, height:'1px', background:'rgba(100,149,237,0.2)', zIndex:0 }} />
-                ))}
-                <textarea
-                  value={content}
-                  onChange={e => handleContentChange(e.target.value)}
-                  placeholder="Write your trading thoughts, analysis, observations..."
-                  style={{
-                    position:'relative', zIndex:1,
-                    width:'100%', minHeight:'540px', background:'transparent',
-                    border:'none', outline:'none', resize:'none',
-                    fontFamily:'Caveat, cursive', fontSize:'20px',
-                    color:'#2c1810', lineHeight:'36px', paddingTop:'8px',
-                    boxSizing:'border-box',
-                  }}
-                />
-              </div>
+              {/* Textarea */}
+              <textarea value={content} onChange={e => { setContent(e.target.value); setSaveMsg('') }}
+                placeholder="Write your trading thoughts, analysis, trade ideas..."
+                style={{
+                  position:'relative', zIndex:1, display:'block',
+                  width:'100%', minHeight:'510px', background:'transparent',
+                  border:'none', outline:'none', resize:'none',
+                  fontFamily:'Caveat, cursive', fontSize:'21px',
+                  color:'#2c1810', lineHeight:'36px',
+                  padding:'8px 24px 16px 72px', boxSizing:'border-box',
+                }}
+              />
             </div>
 
             {/* Images */}
             {imageUrls.length > 0 && (
-              <div style={{ marginTop:'16px' }}>
-                <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'8px' }}>ATTACHED PHOTOS</div>
+              <div style={{ marginTop:'14px' }}>
+                <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'8px', letterSpacing:'0.1em' }}>ATTACHED PHOTOS</div>
                 <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
-                  {imageUrls.map((url, i) => (
+                  {imageUrls.map((url,i) => (
                     <div key={i} style={{ position:'relative', border:'2px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
-                      <img src={url} alt={`note-img-${i}`} style={{ width:'140px', height:'100px', objectFit:'cover', display:'block' }} />
-                      <button onClick={() => removeImage(url)}
-                        style={{ position:'absolute', top:'4px', right:'4px', background:'rgba(0,0,0,0.6)', color:'#fff', border:'none', borderRadius:'50%', width:'20px', height:'20px', cursor:'pointer', fontSize:'11px', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+                      <img src={url} alt="" style={{ width:'140px', height:'100px', objectFit:'cover', display:'block' }} />
+                      <button onClick={() => removeImage(url)} style={{ position:'absolute', top:'4px', right:'4px', background:'rgba(0,0,0,0.65)', color:'#fff', border:'none', borderRadius:'50%', width:'20px', height:'20px', cursor:'pointer', fontSize:'12px', display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 }}>×</button>
                     </div>
                   ))}
                 </div>
