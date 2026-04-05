@@ -133,8 +133,6 @@ export default function NotesPage() {
   const [tickerSuggestions, setTickerSuggestions] = useState([])
   const [showTickerDrop, setShowTickerDrop] = useState(false)
   const fileInputRef = useRef(null)
-  const saveTimerRef = useRef(null)
-  const selectedDateRef = useRef(selectedDate)
 
   const getToken = useCallback(async () => (await supabase.auth.getSession()).data.session?.access_token, [])
 
@@ -171,34 +169,28 @@ export default function NotesPage() {
   }, [getToken])
 
   useEffect(() => {
-    if (!session || !selectedDate) return
-    // Cancel any pending auto-save from the previous date before loading new date
-    clearTimeout(saveTimerRef.current)
-    selectedDateRef.current = selectedDate
-    loadDateNote(selectedDate)
+    if (session && selectedDate) loadDateNote(selectedDate)
   }, [session, selectedDate, loadDateNote])
 
-  // Auto-save with debounce
-  const autoSave = useCallback(async (newContent, newTicker, newStockData, newImageUrls) => {
-    clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(async () => {
-      const token = await getToken()
-      setSaving(true)
-      await fetch('/api/notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ note_date: selectedDateRef.current, content: newContent, stock_ticker: newTicker || null, stock_data: newStockData || null, image_urls: newImageUrls }),
-      })
-      setSaving(false); setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+  const handleSave = useCallback(async () => {
+    const token = await getToken()
+    setSaving(true)
+    const res = await fetch('/api/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ note_date: selectedDate, content, stock_ticker: ticker || null, stock_data: stockData || null, image_urls: imageUrls }),
+    })
+    const data = await res.json()
+    if (!data.error) {
+      setCurrentNote(data)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
       loadAllNotes()
-    }, 800)
-  }, [getToken, selectedDate, loadAllNotes])
+    }
+    setSaving(false)
+  }, [getToken, selectedDate, content, ticker, stockData, imageUrls, loadAllNotes])
 
-  const handleContentChange = (val) => {
-    setContent(val)
-    autoSave(val, ticker, stockData, imageUrls)
-  }
+  const handleContentChange = (val) => { setContent(val); setSaved(false) }
 
   // Ticker search
   const searchTicker = async (q) => {
@@ -223,7 +215,7 @@ export default function NotesPage() {
       if (data.price) {
         const sd = { ticker: sym, price: data.price, change: data.change, changePercent: data.changePercent, shortName: data.shortName }
         setStockData(sd)
-        autoSave(content, sym, sd, imageUrls)
+        setSaved(false)
       }
     } catch {}
     setStockLoading(false)
@@ -243,7 +235,7 @@ export default function NotesPage() {
       if (data.url) {
         const newUrls = [...imageUrls, data.url]
         setImageUrls(newUrls)
-        autoSave(content, ticker, stockData, newUrls)
+        setSaved(false)
       }
     } catch (e) { console.error(e) }
     setImgUploading(false)
@@ -252,7 +244,7 @@ export default function NotesPage() {
   const removeImage = (url) => {
     const newUrls = imageUrls.filter(u => u !== url)
     setImageUrls(newUrls)
-    autoSave(content, ticker, stockData, newUrls)
+    setSaved(false)
   }
 
   // Search
@@ -431,10 +423,11 @@ export default function NotesPage() {
                   {imgUploading ? '⏳ Uploading...' : '📷 Add Photo'}
                 </button>
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display:'none' }} />
-                {/* Save indicator */}
-                <span style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color: saved ? 'var(--bull)' : saving ? 'var(--gold)' : 'transparent' }}>
-                  {saved ? '✓ Saved' : saving ? 'Saving...' : '·'}
-                </span>
+                {/* Save button */}
+                <button onClick={handleSave} disabled={saving}
+                  style={{ padding:'7px 18px', background: saved ? 'var(--bull)' : 'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700, opacity: saving ? 0.7 : 1, transition:'background 0.3s' }}>
+                  {saving ? '⏳ Saving...' : saved ? '✓ Saved!' : '💾 Save Note'}
+                </button>
               </div>
             </div>
 
