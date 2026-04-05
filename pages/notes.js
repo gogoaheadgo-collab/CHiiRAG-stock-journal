@@ -134,6 +134,7 @@ export default function NotesPage() {
   const [showTickerDrop, setShowTickerDrop] = useState(false)
   const fileInputRef = useRef(null)
   const saveTimerRef = useRef(null)
+  const selectedDateRef = useRef(selectedDate)
 
   const getToken = useCallback(async () => (await supabase.auth.getSession()).data.session?.access_token, [])
 
@@ -169,7 +170,13 @@ export default function NotesPage() {
     setImageUrls(note?.image_urls || [])
   }, [getToken])
 
-  useEffect(() => { if (session && selectedDate) loadDateNote(selectedDate) }, [session, selectedDate, loadDateNote])
+  useEffect(() => {
+    if (!session || !selectedDate) return
+    // Cancel any pending auto-save from the previous date before loading new date
+    clearTimeout(saveTimerRef.current)
+    selectedDateRef.current = selectedDate
+    loadDateNote(selectedDate)
+  }, [session, selectedDate, loadDateNote])
 
   // Auto-save with debounce
   const autoSave = useCallback(async (newContent, newTicker, newStockData, newImageUrls) => {
@@ -180,7 +187,7 @@ export default function NotesPage() {
       await fetch('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ note_date: selectedDate, content: newContent, stock_ticker: newTicker || null, stock_data: newStockData || null, image_urls: newImageUrls }),
+        body: JSON.stringify({ note_date: selectedDateRef.current, content: newContent, stock_ticker: newTicker || null, stock_data: newStockData || null, image_urls: newImageUrls }),
       })
       setSaving(false); setSaved(true)
       setTimeout(() => setSaved(false), 2000)
