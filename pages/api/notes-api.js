@@ -9,7 +9,6 @@ export default async function handler(req, res) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
   if (authErr || !user) return res.status(401).json({ error: 'Unauthorized' })
 
-  // GET — fetch notes for user (optionally filter by date or search)
   if (req.method === 'GET') {
     const { date, search } = req.query
     let query = adminSupabase.from('notes').select('*').eq('user_id', user.id)
@@ -20,42 +19,35 @@ export default async function handler(req, res) {
     return res.status(200).json(data || [])
   }
 
-  // POST — create or update note for a date (upsert by user_id + note_date)
   if (req.method === 'POST') {
     const { note_date, content, stock_ticker, stock_data, image_urls } = req.body
     if (!note_date) return res.status(400).json({ error: 'note_date required' })
 
-    // Check if note exists for this date
+    // Use maybeSingle() instead of single() — returns null safely when no row found
     const { data: existing } = await adminSupabase
-      .from('notes').select('id').eq('user_id', user.id).eq('note_date', note_date).single()
+      .from('notes').select('id').eq('user_id', user.id).eq('note_date', note_date).maybeSingle()
 
-    let result
-    if (existing) {
-      const { data, error } = await adminSupabase.from('notes').update({
-        content: content || null,
-        stock_ticker: stock_ticker || null,
-        stock_data: stock_data || null,
-        image_urls: image_urls || [],
-        updated_at: new Date().toISOString(),
-      }).eq('id', existing.id).select().single()
-      if (error) return res.status(500).json({ error: error.message })
-      result = data
-    } else {
-      const { data, error } = await adminSupabase.from('notes').insert([{
-        user_id: user.id,
-        note_date,
-        content: content || null,
-        stock_ticker: stock_ticker || null,
-        stock_data: stock_data || null,
-        image_urls: image_urls || [],
-      }]).select().single()
-      if (error) return res.status(500).json({ error: error.message })
-      result = data
+    const payload = {
+      content: content || null,
+      stock_ticker: stock_ticker || null,
+      stock_data: stock_data || null,
+      image_urls: image_urls || [],
+      updated_at: new Date().toISOString(),
     }
+
+    let result, error
+    if (existing?.id) {
+      const r = await adminSupabase.from('notes').update(payload).eq('id', existing.id).select().single()
+      result = r.data; error = r.error
+    } else {
+      const r = await adminSupabase.from('notes').insert([{ user_id: user.id, note_date, ...payload }]).select().single()
+      result = r.data; error = r.error
+    }
+
+    if (error) return res.status(500).json({ error: error.message })
     return res.status(200).json(result)
   }
 
-  // DELETE
   if (req.method === 'DELETE') {
     const { id } = req.body
     if (!id) return res.status(400).json({ error: 'id required' })
