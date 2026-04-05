@@ -103,6 +103,8 @@ export default function NotesPage() {
   const [imgUploading, setImgUploading] = useState(false)
   const fileRef = useRef(null)
   const loadingRef = useRef(false)
+  const editorRef = useRef(null)
+  const [fontSize, setFontSize] = useState('21px')
 
   const getToken = useCallback(async () =>
     (await supabase.auth.getSession()).data.session?.access_token, [])
@@ -136,7 +138,12 @@ export default function NotesPage() {
     const res = await fetch(`/api/notes?date=${date}`, { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
     const note = Array.isArray(data) && data.length > 0 ? data[0] : null
-    setContent(note?.content || '')
+    const noteContent = note?.content || ''
+    setContent(noteContent)
+    // Set editor HTML after state update
+    setTimeout(() => {
+      if (editorRef.current) editorRef.current.innerHTML = noteContent
+    }, 0)
     setTickers(note?.tickers || [])
     setImageUrls(note?.image_urls || [])
     setStockCards({})
@@ -182,6 +189,18 @@ export default function NotesPage() {
     setStockCards(prev => { const n = {...prev}; delete n[sym]; return n })
   }
 
+  // Formatting
+  const fmt = (cmd, value) => {
+    editorRef.current?.focus()
+    document.execCommand(cmd, false, value)
+  }
+  const applyColor = (color) => fmt('foreColor', color)
+  const applySize = (size) => {
+    setFontSize(size)
+    if (editorRef.current) editorRef.current.style.fontSize = size
+  }
+  const getEditorContent = () => editorRef.current?.innerHTML || ''
+
   // Save
   const handleSave = async () => {
     const token = await getToken()
@@ -191,7 +210,7 @@ export default function NotesPage() {
       const res = await fetch('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-        body: JSON.stringify({ note_date: selectedDate, content, tickers, image_urls: imageUrls }),
+        body: JSON.stringify({ note_date: selectedDate, content: getEditorContent(), tickers, image_urls: imageUrls }),
       })
       const data = await res.json()
       if (data.error) { setSaveMsg('Error: ' + data.error) }
@@ -446,18 +465,52 @@ export default function NotesPage() {
               <div style={{ paddingTop:'16px', paddingLeft:'72px', paddingRight:'20px', paddingBottom:'10px', borderBottom:'2px solid rgba(173,140,100,0.25)', position:'relative', zIndex:1 }}>
                 <div style={{ fontFamily:'Caveat, cursive', fontSize:'22px', color:'#5a4a3a', fontWeight:600 }}>{displayDate}</div>
               </div>
-              {/* Textarea */}
-              <textarea value={content} onChange={e => { setContent(e.target.value); setSaveMsg('') }}
-                placeholder="Write your trading thoughts, analysis, trade ideas..."
+              {/* Formatting toolbar */}
+              <div style={{ display:'flex', gap:'4px', padding:'6px 72px 6px 72px', borderBottom:'1px solid rgba(173,140,100,0.2)', background:'rgba(254,254,248,0.9)', position:'sticky', top:0, zIndex:5, flexWrap:'wrap', alignItems:'center' }}>
+                <button onMouseDown={e => { e.preventDefault(); fmt('bold') }}
+                  style={{ padding:'3px 10px', background:'none', border:'1px solid rgba(173,140,100,0.4)', borderRadius:'4px', cursor:'pointer', fontWeight:700, fontSize:'13px', color:'#5a4a3a', fontFamily:'Caveat, cursive' }}>B</button>
+                <button onMouseDown={e => { e.preventDefault(); fmt('underline') }}
+                  style={{ padding:'3px 10px', background:'none', border:'1px solid rgba(173,140,100,0.4)', borderRadius:'4px', cursor:'pointer', textDecoration:'underline', fontSize:'13px', color:'#5a4a3a', fontFamily:'Caveat, cursive' }}>U</button>
+                <button onMouseDown={e => { e.preventDefault(); fmt('italic') }}
+                  style={{ padding:'3px 10px', background:'none', border:'1px solid rgba(173,140,100,0.4)', borderRadius:'4px', cursor:'pointer', fontStyle:'italic', fontSize:'13px', color:'#5a4a3a', fontFamily:'Caveat, cursive' }}>I</button>
+                <div style={{ width:'1px', height:'18px', background:'rgba(173,140,100,0.4)', margin:'0 2px' }} />
+                <button onMouseDown={e => { e.preventDefault(); applyColor('#c0392b') }}
+                  style={{ padding:'3px 10px', background:'none', border:'2px solid #c0392b', borderRadius:'4px', cursor:'pointer', color:'#c0392b', fontWeight:700, fontSize:'12px', fontFamily:'DM Mono, monospace' }}>R</button>
+                <button onMouseDown={e => { e.preventDefault(); applyColor('#27ae60') }}
+                  style={{ padding:'3px 10px', background:'none', border:'2px solid #27ae60', borderRadius:'4px', cursor:'pointer', color:'#27ae60', fontWeight:700, fontSize:'12px', fontFamily:'DM Mono, monospace' }}>G</button>
+                <button onMouseDown={e => { e.preventDefault(); applyColor('#2c1810') }}
+                  style={{ padding:'3px 10px', background:'none', border:'1px solid rgba(173,140,100,0.4)', borderRadius:'4px', cursor:'pointer', color:'#2c1810', fontWeight:700, fontSize:'12px', fontFamily:'DM Mono, monospace' }}>●</button>
+                <div style={{ width:'1px', height:'18px', background:'rgba(173,140,100,0.4)', margin:'0 2px' }} />
+                <button onMouseDown={e => { e.preventDefault(); applySize('18px') }}
+                  style={{ padding:'3px 8px', background:fontSize==='18px'?'rgba(173,140,100,0.2)':'none', border:'1px solid rgba(173,140,100,0.4)', borderRadius:'4px', cursor:'pointer', fontSize:'11px', color:'#5a4a3a', fontFamily:'DM Mono, monospace', fontWeight:600 }}>M</button>
+                <button onMouseDown={e => { e.preventDefault(); applySize('24px') }}
+                  style={{ padding:'3px 8px', background:fontSize==='24px'?'rgba(173,140,100,0.2)':'none', border:'1px solid rgba(173,140,100,0.4)', borderRadius:'4px', cursor:'pointer', fontSize:'14px', color:'#5a4a3a', fontFamily:'DM Mono, monospace', fontWeight:700 }}>L</button>
+              </div>
+              {/* ContentEditable editor */}
+              <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={() => setSaveMsg('')}
+                data-placeholder="Write your trading thoughts, analysis, trade ideas..."
                 style={{
                   position:'relative', zIndex:1, display:'block',
-                  width:'100%', minHeight:'510px', background:'transparent',
-                  border:'none', outline:'none', resize:'none',
-                  fontFamily:'Caveat, cursive', fontSize:'21px',
+                  width:'100%', minHeight:'480px', background:'transparent',
+                  border:'none', outline:'none',
+                  fontFamily:'Caveat, cursive', fontSize:fontSize,
                   color:'#2c1810', lineHeight:'36px',
                   padding:'8px 24px 16px 72px', boxSizing:'border-box',
+                  whiteSpace:'pre-wrap', wordBreak:'break-word',
                 }}
               />
+              <style>{`
+                [data-placeholder]:empty:before {
+                  content: attr(data-placeholder);
+                  color: rgba(44,24,16,0.35);
+                  pointer-events: none;
+                  font-family: 'Caveat', cursive;
+                }
+              `}</style>
             </div>
 
             {/* Images */}
