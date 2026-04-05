@@ -16,6 +16,7 @@ function NavPill({ active, isAdmin }) {
     ] : []),
     { label: 'Revenue Sharing', path: '/revenue-sharing' },
     { label: 'Alerts', path: '/alerts' },
+    { label: 'Notes', path: '/notes' },
   ]
   return (
     <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '3px', gap: '2px', flexWrap: 'wrap' }}>
