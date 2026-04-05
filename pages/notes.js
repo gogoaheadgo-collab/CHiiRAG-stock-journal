@@ -105,6 +105,11 @@ export default function NotesPage() {
   const loadingRef = useRef(false)
   const editorRef = useRef(null)
   const [fontSize, setFontSize] = useState('21px')
+  const [isShared, setIsShared] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [shareMsg, setShareMsg] = useState('')
+  const [sharedNotes, setSharedNotes] = useState([])
+  const [sharedLoading, setSharedLoading] = useState(false)
 
   const getToken = useCallback(async () =>
     (await supabase.auth.getSession()).data.session?.access_token, [])
@@ -129,6 +134,19 @@ export default function NotesPage() {
 
   useEffect(() => { if (session) loadAll() }, [session, loadAll])
 
+  // Load shared notes from admin (for subscribers)
+  const loadShared = useCallback(async () => {
+    const token = await getToken()
+    if (!token) return
+    setSharedLoading(true)
+    const res = await fetch('/api/notes?shared=1', { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (Array.isArray(data)) setSharedNotes(data)
+    setSharedLoading(false)
+  }, [getToken])
+
+  useEffect(() => { if (session && !isAdmin) loadShared() }, [session, isAdmin, loadShared])
+
   // Load note for selected date
   const loadNote = useCallback(async (date) => {
     if (loadingRef.current) return
@@ -147,6 +165,8 @@ export default function NotesPage() {
     setTickers(note?.tickers || [])
     setImageUrls(note?.image_urls || [])
     setStockCards({})
+    setIsShared(note?.is_shared || false)
+    setShareMsg('')
     setSaveMsg('')
     loadingRef.current = false
   }, [getToken])
@@ -200,6 +220,28 @@ export default function NotesPage() {
     if (editorRef.current) editorRef.current.style.fontSize = size
   }
   const getEditorContent = () => editorRef.current?.innerHTML || ''
+
+  // Share/Unshare note (admin only)
+  const handleShare = async () => {
+    const token = await getToken()
+    if (!token) return
+    setSharing(true); setShareMsg('')
+    const newShared = !isShared
+    const res = await fetch('/api/notes', {
+      method: 'PUT',
+      headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+      body: JSON.stringify({ note_date: selectedDate, is_shared: newShared }),
+    })
+    const data = await res.json()
+    if (data.error) { setShareMsg('Error: ' + data.error) }
+    else {
+      setIsShared(newShared)
+      setShareMsg(newShared ? '✓ Shared with subscribers!' : '✓ Unshared')
+      setTimeout(() => setShareMsg(''), 3000)
+      loadAll()
+    }
+    setSharing(false)
+  }
 
   // Save
   const handleSave = async () => {
@@ -409,11 +451,26 @@ export default function NotesPage() {
                   style={{ padding:'8px 20px', background:saveMsg.startsWith('✓')?'var(--bull)':'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700, minWidth:'110px', transition:'background 0.3s', opacity:saving?0.7:1 }}>
                   {saving ? '⏳ Saving...' : saveMsg.startsWith('✓') ? '✓ Saved!' : '💾 Save Note'}
                 </button>
+                {/* SHARE BUTTON — admin only */}
+                {isAdmin && (
+                  <button onClick={handleShare} disabled={sharing}
+                    style={{ padding:'8px 16px', background: isShared?'var(--gold)':'var(--surface)', color: isShared?'#000':'var(--muted)', border:`2px solid ${isShared?'var(--gold)':'var(--border)'}`, borderRadius:'6px', cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700, transition:'all 0.2s', opacity:sharing?0.7:1 }}>
+                    {sharing ? '...' : isShared ? '🔗 Shared ✓' : '🔗 Share'}
+                  </button>
+                )}
               </div>
             </div>
 
             {saveMsg && !saveMsg.startsWith('✓') && (
               <div style={{ marginBottom:'8px', color:'var(--bear)', fontSize:'12px', fontFamily:'DM Mono, monospace' }}>{saveMsg}</div>
+            )}
+            {shareMsg && (
+              <div style={{ marginBottom:'8px', color:'var(--bull)', fontSize:'12px', fontFamily:'DM Mono, monospace' }}>{shareMsg}</div>
+            )}
+            {isShared && isAdmin && (
+              <div style={{ marginBottom:'8px', display:'inline-flex', alignItems:'center', gap:'6px', background:'rgba(245,158,11,0.1)', border:'1px solid var(--gold)', borderRadius:'6px', padding:'4px 10px' }}>
+                <span style={{ fontSize:'10px', color:'var(--gold)', fontFamily:'DM Mono, monospace', fontWeight:700 }}>🔗 This note is shared with all subscribers</span>
+              </div>
             )}
 
             {/* Ticker chips + stock cards */}
@@ -529,6 +586,53 @@ export default function NotesPage() {
             )}
           </div>
         </div>
+        {/* ── SHARED NOTES FROM ADMIN (subscriber view) ── */}
+        {!isAdmin && (
+          <div style={{ marginTop:'40px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'16px' }}>
+              <h2 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'18px', fontWeight:700, margin:0, color:'var(--text)' }}>
+                🔗 Notes Shared by Admin
+              </h2>
+              <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>READ ONLY</span>
+            </div>
+            {sharedLoading ? (
+              <div style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace', fontSize:'12px' }}>Loading...</div>
+            ) : sharedNotes.length === 0 ? (
+              <div style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace', fontSize:'12px', padding:'20px', border:'1px dashed var(--border)', borderRadius:'8px', textAlign:'center' }}>
+                No notes shared yet.
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
+                {sharedNotes.map(note => (
+                  <div key={note.id} style={{ background:'#fefef8', border:'1px solid #e8e0c8', borderRadius:'8px', boxShadow:'0 2px 8px rgba(0,0,0,0.1)', overflow:'hidden', borderLeft:'4px solid var(--gold)' }}>
+                    <div style={{ padding:'10px 16px', borderBottom:'1px solid rgba(173,140,100,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center', background:'rgba(245,158,11,0.04)' }}>
+                      <div style={{ fontFamily:'Caveat, cursive', fontSize:'16px', color:'#5a4a3a', fontWeight:600 }}>
+                        {new Date(note.note_date+'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+                      </div>
+                      <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+                        {(note.tickers||[]).map(sym => (
+                          <span key={sym} style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'10px', color:'var(--gold)', background:'rgba(245,158,11,0.1)', padding:'2px 7px', borderRadius:'4px' }}>{sym}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div
+                      dangerouslySetInnerHTML={{ __html: note.content || '<i style="color:rgba(44,24,16,0.3)">No content</i>' }}
+                      style={{ padding:'12px 16px', fontFamily:'Caveat, cursive', fontSize:'19px', color:'#2c1810', lineHeight:'32px', minHeight:'80px' }}
+                    />
+                    {(note.image_urls||[]).length > 0 && (
+                      <div style={{ padding:'0 16px 12px', display:'flex', gap:'8px', flexWrap:'wrap' }}>
+                        {note.image_urls.map((url,i) => (
+                          <img key={i} src={url} alt="" style={{ width:'100px', height:'70px', objectFit:'cover', borderRadius:'5px', border:'1px solid #e8e0c8' }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
     </>
   )
