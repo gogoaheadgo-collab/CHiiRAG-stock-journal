@@ -497,18 +497,12 @@ export default function AccountsPage() {
   const loadSharedAdminAccounts = async () => {
     const token = await getToken()
     if (!token) return
-    const sharesRes = await fetch('/api/account-shares', { headers:{ Authorization:`Bearer ${token}` } })
-    const shares = await sharesRes.json()
-    if (!Array.isArray(shares) || shares.length === 0) return
-    // Fetch admin trades filtered to shared account names
-    const adminId = shares[0]?.admin_id
-    if (!adminId) return
-    const tradesRes = await fetch(`/api/admin/subscriber-trades?user_id=${adminId}`, { headers:{ Authorization:`Bearer ${token}` } })
-    const data = await tradesRes.json()
-    const sharedAccountNames = new Set(shares.map(s => s.account_name))
-    const filtered = (data.trades||[]).filter(t => sharedAccountNames.has(t.account))
-    setSharedAdminTrades(filtered)
-    setSharedAdminExecs(data.executions||[])
+    // Single dedicated endpoint — handles auth + filtering server-side
+    const res = await fetch('/api/shared-account-trades', { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (data.error) { console.error('loadSharedAdminAccounts:', data.error); return }
+    setSharedAdminTrades(data.trades || [])
+    setSharedAdminExecs(data.executions || [])
   }
 
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
