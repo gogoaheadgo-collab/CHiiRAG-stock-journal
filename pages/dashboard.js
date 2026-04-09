@@ -16,8 +16,6 @@ function NavPill({ active, isAdmin }) {
       { label: 'All Trades', path: '/all-trades' },
     ] : []),
     { label: 'Revenue Sharing', path: '/revenue-sharing' },
-    { label: 'Alerts', path: '/alerts' },
-    { label: 'Notes', path: '/notes' },
   ]
   return (
     <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px' }}>
@@ -112,6 +110,8 @@ export default function Dashboard() {
   const [mirroredAccounts, setMirroredAccounts] = useState([])
   const [mirroredTrades, setMirroredTrades] = useState({})
   const [mirroredExecs, setMirroredExecs] = useState({})
+  const [sharedAdminTrades, setSharedAdminTrades] = useState([])
+  const [sharedAdminExecs, setSharedAdminExecs] = useState([])
 
   const isAdmin = session?.user?.email === ADMIN
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
@@ -145,6 +145,26 @@ export default function Dashboard() {
   }, [session])
 
   useEffect(() => { if (session) loadData() }, [session, loadData])
+
+  // Load shared admin accounts for subscribers
+  useEffect(() => {
+    if (!session || session.user.email === ADMIN) return
+    const load = async () => {
+      const token = await getToken()
+      // Use dedicated subscriber endpoint — not admin-only one
+      const res = await fetch('/api/shared-account-trades', { headers:{ Authorization:`Bearer ${token}` } })
+      const data = await res.json()
+      if (data.error || !data.trades) return
+      setSharedAdminTrades(data.trades)
+      setSharedAdminExecs(data.executions||[])
+      // Fetch live prices for shared open trades
+      const tickers = [...new Set(data.trades.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
+      tickers.forEach(async ticker => {
+        try { const r = await fetch(`/api/stock/${ticker}`); const d = await r.json(); if (d.price) setLivePrices(prev=>({...prev,[ticker]:d})) } catch {}
+      })
+    }
+    load()
+  }, [session])
 
   useEffect(() => {
     if (session?.user?.email !== ADMIN) return
@@ -269,8 +289,12 @@ export default function Dashboard() {
   const allMirroredExecs = isAdmin
     ? Object.entries(mirroredExecs).filter(([subId]) => subId !== ownUserId).flatMap(([, es]) => es).filter(e => mirroredTradeIds.has(e.trade_id))
     : []
-  const allTrades = [...trades, ...allMirroredTrades]
-  const allExecs = [...allOwnExecs, ...allMirroredExecs]
+  // For subscribers: include shared admin account trades
+  const sharedExecsFiltered = sharedAdminTrades.length > 0
+    ? sharedAdminExecs.filter(e => sharedAdminTrades.some(t => t.id === e.trade_id))
+    : []
+  const allTrades = [...trades, ...allMirroredTrades, ...(!isAdmin ? sharedAdminTrades : [])]
+  const allExecs = [...allOwnExecs, ...allMirroredExecs, ...(!isAdmin ? sharedExecsFiltered : [])]
 
   // Attach _realised to closed trades for calendar
   const tradesWithRealised = allTrades.map(t => ({
@@ -392,6 +416,50 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* SUBSCRIBER: shared admin account breakdown */}
+            {!isAdmin && sharedAdminTrades.length > 0 && (
+              <div style={{ background:'var(--surface)', border:'2px solid var(--accent)', borderRadius:'8px', padding:'20px', marginBottom:'20px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+                  <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)' }}>🔗 Shared by Admin</div>
+                  <span style={{ fontSize:'10px', background:'var(--accent-dim)', color:'var(--accent)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>READ ONLY</span>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:'10px', marginBottom:'14px' }}>
+                  {[...new Set(sharedAdminTrades.map(t => t.account))].map(accName => {
+                    const accTrades = sharedAdminTrades.filter(t => t.account === accName)
+                    const accExecs = sharedExecsFiltered.filter(e => accTrades.some(t => t.id === e.trade_id))
+                    const unr = calcUnrealised(accTrades, accExecs)
+                    const rel = calcRealised(accTrades, accExecs)
+                    const mtf = calcMTF(accTrades)
+                    const open = accTrades.filter(t=>t.status==='OPEN').length
+                    const closed = accTrades.filter(t=>t.status==='CLOSED').length
+                    return (
+                      <div key={accName} style={{ background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', padding:'12px 14px' }}>
+                        <div style={{ fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'13px', color:'var(--accent)', marginBottom:'8px' }}>{accName}</div>
+                        <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px' }}>
+                            <span style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>Unrealised</span>
+                            <span style={{ fontWeight:700, color:unr>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>{unr>=0?'+':'−'}Rs{toINR(Math.abs(unr))}</span>
+                          </div>
+                          <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px' }}>
+                            <span style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>Realised</span>
+                            <span style={{ fontWeight:700, color:rel>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>{rel>=0?'+':'−'}Rs{toINR(Math.abs(rel))}</span>
+                          </div>
+                          <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px' }}>
+                            <span style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>MTF Int</span>
+                            <span style={{ color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>Rs{toINRd(mtf)}</span>
+                          </div>
+                          <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px', marginTop:'2px', paddingTop:'4px', borderTop:'1px solid var(--border)' }}>
+                            <span style={{ color:'var(--accent)', fontFamily:'DM Mono, monospace', fontWeight:600 }}>{open} Open</span>
+                            <span style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{closed} Closed</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* OPEN POSITIONS */}
             {openTrades.length>0 && (
               <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginBottom:'20px' }}>
@@ -486,4 +554,3 @@ export default function Dashboard() {
     </>
   )
 }
-
