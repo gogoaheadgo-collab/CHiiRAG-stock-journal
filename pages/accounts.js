@@ -329,13 +329,17 @@ export default function AccountsPage() {
   useEffect(() => { if (session) loadData() }, [session, loadData])
 
   useEffect(() => {
-    if (!session || !isAdmin) return
-    loadMirroredAccounts()
-    if (isAdmin) { loadAccountShares(); loadSubscribersForShare() }
-    else loadSharedAdminAccounts()
-    const onFocus = () => loadMirroredAccounts()
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
+    if (!session) return
+    if (isAdmin) {
+      loadMirroredAccounts()
+      loadAccountShares()
+      loadSubscribersForShare()
+      const onFocus = () => loadMirroredAccounts()
+      window.addEventListener('focus', onFocus)
+      return () => window.removeEventListener('focus', onFocus)
+    } else {
+      loadSharedAdminAccounts()
+    }
   }, [session, isAdmin, loadMirroredAccounts])
 
   useEffect(() => {
