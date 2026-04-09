@@ -364,11 +364,14 @@ export default function AccountsPage() {
   }, [])
 
   useEffect(() => {
-    if (!session || !trades.length) return
-    // Fetch prices for ALL open trades across all accounts for correct stat cards
-    const symbols = [...new Set(trades.filter(t => t.status==='OPEN').map(t => t.ticker))]
-    symbols.forEach(fetchPrice)
-  }, [trades, session]) // eslint-disable-line
+    if (!session) return
+    // Fetch prices for own trades
+    const ownSymbols = [...new Set(trades.filter(t => t.status==='OPEN').map(t => t.ticker))]
+    // Also fetch for shared admin trades
+    const sharedSymbols = [...new Set(sharedAdminTrades.filter(t => t.status==='OPEN').map(t => t.ticker))]
+    const allSymbols = [...new Set([...ownSymbols, ...sharedSymbols])]
+    allSymbols.forEach(fetchPrice)
+  }, [trades, sharedAdminTrades, session]) // eslint-disable-line
 
   useEffect(() => {
     if (countdown===60 && session && trades.length) {
@@ -594,7 +597,7 @@ export default function AccountsPage() {
     .filter(([subId]) => subId !== ownUserId)
     .flatMap(([, es]) => es)
     .filter(e => mirroredTradeIds.has(e.trade_id))
-  const hasMirrored = allMirroredTrades.length > 0
+  const hasMirrored = allMirroredTrades.length > 0 || sharedAdminTrades.length > 0
   // Fetch live prices for ALL open trades across all accounts (not just active account)
   // so unrealised stat card is correct
 
@@ -616,10 +619,11 @@ export default function AccountsPage() {
     return sum + (Number(t.realized_gains) || 0)
   }, 0)
 
-  const totalRealised = calcRealised(trades, allOwnExecs) + calcRealised(allMirroredTrades, allMirroredExecs)
-  const totalMTF = calcMTF(trades) + calcMTF(allMirroredTrades)
-  const totalOpen = trades.filter(t=>t.status==='OPEN').length + allMirroredTrades.filter(t=>t.status==='OPEN').length
-  const totalClosed = trades.filter(t=>t.status==='CLOSED').length + allMirroredTrades.filter(t=>t.status==='CLOSED').length
+  // Also include shared admin trades for subscribers
+  const totalRealised = calcRealised(trades, allOwnExecs) + calcRealised(allMirroredTrades, allMirroredExecs) + calcRealised(sharedAdminTrades, sharedAdminExecs)
+  const totalMTF = calcMTF(trades) + calcMTF(allMirroredTrades) + calcMTF(sharedAdminTrades)
+  const totalOpen = trades.filter(t=>t.status==='OPEN').length + allMirroredTrades.filter(t=>t.status==='OPEN').length + sharedAdminTrades.filter(t=>t.status==='OPEN').length
+  const totalClosed = trades.filter(t=>t.status==='CLOSED').length + allMirroredTrades.filter(t=>t.status==='CLOSED').length + sharedAdminTrades.filter(t=>t.status==='CLOSED').length
 
   const calcUnrealised = (tradeList, execList) => tradeList
     .filter(t => t.status === 'OPEN')
@@ -633,7 +637,7 @@ export default function AccountsPage() {
       return sum + pnl
     }, 0)
 
-  const totalUnrealised = calcUnrealised(trades, allOwnExecs) + calcUnrealised(allMirroredTrades, allMirroredExecs)
+  const totalUnrealised = calcUnrealised(trades, allOwnExecs) + calcUnrealised(allMirroredTrades, allMirroredExecs) + calcUnrealised(sharedAdminTrades, sharedAdminExecs)
 
   if (!session) return null
 
