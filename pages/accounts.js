@@ -247,6 +247,12 @@ export default function AccountsPage() {
   const [activeMirror, setActiveMirror] = useState(null)
   const [mirrorFilter, setMirrorFilter] = useState('ALL')
   const [selectedMonth, setSelectedMonth] = useState(null) // 'YYYY-MM' or null=ALL
+  const [shareModal, setShareModal] = useState(null) // account name being shared
+  const [accountShares, setAccountShares] = useState([]) // { account_name, subscriber_id }[]
+  const [subscribers, setSubscribers] = useState([]) // for share picker
+  const [sharedAdminTrades, setSharedAdminTrades] = useState([]) // subscriber: admin trades for shared accounts
+  const [sharedAdminExecs, setSharedAdminExecs] = useState([])
+  const [activeShared, setActiveShared] = useState(null) // shared account name subscriber is viewing
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session } }) => { setSession(session); if (!session) router.push('/') })
@@ -325,6 +331,8 @@ export default function AccountsPage() {
   useEffect(() => {
     if (!session || !isAdmin) return
     loadMirroredAccounts()
+    if (isAdmin) { loadAccountShares(); loadSubscribersForShare() }
+    else loadSharedAdminAccounts()
     const onFocus = () => loadMirroredAccounts()
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
@@ -456,6 +464,51 @@ export default function AccountsPage() {
     await fetch('/api/accounts', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:acc.id, name:acc.name }) })
     setActiveAccount(accounts.find(a => a.name !== acc.name)?.name || null)
     await loadData()
+  }
+
+  // Load account shares (admin)
+  const loadAccountShares = async () => {
+    const token = await getToken()
+    const res = await fetch('/api/account-shares', { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (Array.isArray(data)) setAccountShares(data)
+  }
+
+  // Load subscriber list for share picker (admin)
+  const loadSubscribersForShare = async () => {
+    const token = await getToken()
+    const res = await fetch('/api/admin/subscribers', { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (Array.isArray(data)) setSubscribers(data.filter(s => s.email !== 'gogoaheadgo@gmail.com'))
+  }
+
+  // Share/unshare account with subscriber (admin)
+  const handleShareAccount = async (accountName, subscriberId, isCurrentlyShared) => {
+    const token = await getToken()
+    if (isCurrentlyShared) {
+      await fetch('/api/account-shares', { method:'DELETE', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ subscriber_id: subscriberId, account_name: accountName }) })
+    } else {
+      await fetch('/api/account-shares', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ subscriber_id: subscriberId, account_name: accountName }) })
+    }
+    await loadAccountShares()
+  }
+
+  // Load admin's shared accounts for subscriber
+  const loadSharedAdminAccounts = async () => {
+    const token = await getToken()
+    if (!token) return
+    const sharesRes = await fetch('/api/account-shares', { headers:{ Authorization:`Bearer ${token}` } })
+    const shares = await sharesRes.json()
+    if (!Array.isArray(shares) || shares.length === 0) return
+    // Fetch admin trades filtered to shared account names
+    const adminId = shares[0]?.admin_id
+    if (!adminId) return
+    const tradesRes = await fetch(`/api/admin/subscriber-trades?user_id=${adminId}`, { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await tradesRes.json()
+    const sharedAccountNames = new Set(shares.map(s => s.account_name))
+    const filtered = (data.trades||[]).filter(t => sharedAccountNames.has(t.account))
+    setSharedAdminTrades(filtered)
+    setSharedAdminExecs(data.executions||[])
   }
 
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
@@ -650,6 +703,12 @@ export default function AccountsPage() {
               </button>
               <div style={{ display:'flex', borderTop:'1px solid var(--border)' }}>
                 <button onClick={() => handleRenameAccount(acc)} style={{ flex:1, padding:'6px', background:'none', border:'none', borderRight:'1px solid var(--border)', color:'var(--muted)', cursor:'pointer', fontSize:'11px' }}>✎</button>
+                {isAdmin && (
+                  <button onClick={e => { e.stopPropagation(); setShareModal(acc.name) }}
+                    style={{ flex:1, padding:'6px', background:'none', border:'none', borderRight:'1px solid var(--border)',
+                      color: accountShares.some(s => s.account_name === acc.name) ? 'var(--bull)' : 'var(--muted)',
+                      cursor:'pointer', fontSize:'12px' }} title="Share with subscriber">🔗</button>
+                )}
                 <button onClick={() => handleDeleteAccount(acc)} style={{ flex:1, padding:'6px', background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'13px' }}>🗑</button>
               </div>
             </div>
@@ -663,6 +722,18 @@ export default function AccountsPage() {
           ) : (
             <button onClick={() => setShowNewAccount(true)} style={{ padding:'7px 14px', borderRadius:'6px', border:'1px dashed var(--border)', background:'transparent', color:'var(--muted)', cursor:'pointer', fontSize:'11px', fontFamily:'DM Mono, monospace' }}>+ New Account</button>
           )}
+          {/* Shared Admin Account Tiles (subscriber view) */}
+          {!isAdmin && sharedAdminTrades.length > 0 && [...new Set(sharedAdminTrades.map(t => t.account))].map(accName => (
+            <div key={accName}
+              onClick={() => setActiveShared(prev => prev === accName ? null : accName)}
+              style={{ border:`2px solid ${activeShared===accName?'var(--accent)':'rgba(14,165,233,0.3)'}`, background:activeShared===accName?'var(--accent-dim)':'rgba(14,165,233,0.05)', borderRadius:'10px', minWidth:'120px', cursor:'pointer', padding:'14px 16px 10px' }}>
+              <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:activeShared===accName?'var(--accent)':'var(--text)' }}>{accName}</div>
+              <div style={{ fontSize:'9px', color:'var(--accent)', marginTop:'3px', fontFamily:'DM Mono, monospace', opacity:0.8 }}>
+                🔗 SHARED · {sharedAdminTrades.filter(t=>t.account===accName).length} trades
+              </div>
+            </div>
+          ))}
+
           {/* Mirrored Account Tiles */}
           {mirroredAccounts.map(m => (
             <div key={m.subscriber_id}
@@ -697,6 +768,37 @@ export default function AccountsPage() {
             selectedMonth={selectedMonth}
             setSelectedMonth={setSelectedMonth}
           />
+        ) : activeShared ? (
+          // Subscriber viewing a shared admin account
+          <div style={{ display:'flex', gap:'16px', alignItems:'flex-start' }}>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+                <span style={{ fontSize:'13px', fontWeight:700, color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>🔗 {activeShared} (Shared by Admin)</span>
+                <span style={{ fontSize:'10px', background:'var(--accent-dim)', color:'var(--accent)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>READ ONLY · LIVE SYNC</span>
+              </div>
+              {(() => {
+                const accTrades = sharedAdminTrades.filter(t => t.account === activeShared)
+                const accExecsMap = sharedAdminExecs.reduce((m,e) => { if (!m[e.trade_id]) m[e.trade_id]=[]; m[e.trade_id].push(e); return m }, {})
+                return (
+                  <MirroredView
+                    mirrorInfo={{ subscriber_name: activeShared }}
+                    mTrades={accTrades}
+                    mExecs={sharedAdminExecs.filter(e => accTrades.some(t => t.id === e.trade_id))}
+                    mExecsMap={accExecsMap}
+                    mirrorFilter={mirrorFilter}
+                    setMirrorFilter={setMirrorFilter}
+                    livePrices={livePrices}
+                    toINRd={toINRd}
+                    toINR={toINR}
+                    loadMirroredTrades={() => loadSharedAdminAccounts()}
+                    activeMirror={activeShared}
+                    selectedMonth={selectedMonth}
+                    setSelectedMonth={setSelectedMonth}
+                  />
+                )
+              })()}
+            </div>
+          </div>
         ) : !activeAccount ? (
           <div style={{ textAlign:'center', padding:'80px', color:'var(--muted)' }}>No accounts yet.</div>
         ) : (
@@ -852,6 +954,44 @@ export default function AccountsPage() {
           </>
         )}
       </main>
+
+      {/* Share Account Modal */}
+      {shareModal && isAdmin && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'14px', padding:'26px', width:'360px', boxShadow:'0 24px 64px rgba(0,0,0,0.5)' }}>
+            <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'16px', color:'var(--text)', marginBottom:'6px' }}>🔗 Share Account</div>
+            <div style={{ fontSize:'12px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'18px' }}>
+              Account: <span style={{ color:'var(--accent)', fontWeight:700 }}>{shareModal}</span>
+            </div>
+            {subscribers.length === 0 ? (
+              <div style={{ color:'var(--muted)', fontSize:'12px', fontFamily:'DM Mono, monospace' }}>No subscribers found.</div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:'8px', maxHeight:'280px', overflowY:'auto' }}>
+                {subscribers.map(sub => {
+                  const isShared = accountShares.some(s => s.account_name === shareModal && s.subscriber_id === sub.id)
+                  return (
+                    <div key={sub.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', background:'var(--bg)', border:`1px solid ${isShared?'var(--bull)':'var(--border)'}`, borderRadius:'8px' }}>
+                      <div>
+                        <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'13px', color:'var(--text)' }}>{sub.full_name || sub.email?.split('@')[0]}</div>
+                        <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'2px' }}>{sub.email}</div>
+                      </div>
+                      <button onClick={() => handleShareAccount(shareModal, sub.id, isShared)} style={{
+                        padding:'6px 14px', border:`1px solid ${isShared?'var(--bear)':'var(--bull)'}`,
+                        background: isShared?'rgba(239,68,68,0.08)':'rgba(0,230,118,0.08)',
+                        color: isShared?'var(--bear)':'var(--bull)',
+                        borderRadius:'6px', cursor:'pointer', fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:700
+                      }}>
+                        {isShared ? '✕ Unshare' : '✓ Share'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <button onClick={() => setShareModal(null)} style={{ marginTop:'18px', width:'100%', padding:'10px', background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'8px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontSize:'12px' }}>Close</button>
+          </div>
+        </div>
+      )}
 
       {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAddTrade} isAdmin={isAdmin} activeAccount={activeAccount} />}
       {editingTrade && <EditTradeModal trade={editingTrade} onClose={() => setEditingTrade(null)} onSave={handleEdit} session={session} isAdmin={isAdmin} />}
