@@ -253,7 +253,6 @@ export default function SubscribersPage() {
           ) : subscribers.length === 0 ? (
             <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No subscribers yet. Share your URL with family and friends!</div>
           ) : (
-            <>
             {/* ── PENDING APPROVAL SECTION ── */}
             {pendingUsers.length > 0 && (
               <div style={{ marginBottom:'20px', background:'var(--surface)', border:'2px solid var(--gold)', borderRadius:'10px', overflow:'hidden' }}>
