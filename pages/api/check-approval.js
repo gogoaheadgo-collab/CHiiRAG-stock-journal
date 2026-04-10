@@ -16,13 +16,13 @@ export default async function handler(req, res) {
 
   // Check existing profile
   const { data: profile } = await admin
-    .from('profiles').select('status').eq('user_id', user.id).maybeSingle()
+    .from('profiles').select('status').eq('id', user.id).maybeSingle()
 
   if (profile) return res.status(200).json({ status: profile.status || 'pending' })
 
   // New user — create pending profile
   await admin.from('profiles').insert([{
-    user_id: user.id,
+    id: user.id,
     full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
     email: user.email,
     status: 'pending',
