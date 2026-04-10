@@ -47,7 +47,7 @@ export default async function handler(req, res) {
     await admin.from('settlements').delete().eq('subscriber_id', user_id)
 
     // 10. Delete profile
-    await admin.from('profiles').delete().eq('user_id', user_id)
+    await admin.from('profiles').delete().eq('id', user_id)
 
     // 11. Delete auth user
     await admin.auth.admin.deleteUser(user_id)
