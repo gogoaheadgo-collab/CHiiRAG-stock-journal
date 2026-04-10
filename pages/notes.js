@@ -104,6 +104,8 @@ export default function NotesPage() {
   const fileRef = useRef(null)
   const loadingRef = useRef(false)
   const editorRef = useRef(null)
+  const autoSaveTimer = useRef(null)
+  const isDirty = useRef(false)
   const [fontSize, setFontSize] = useState('21px')
   const [isShared, setIsShared] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -145,7 +147,7 @@ export default function NotesPage() {
     setSharedLoading(false)
   }, [getToken])
 
-  useEffect(() => { if (session) loadShared() }, [session, loadShared])
+  useEffect(() => { if (session && !isAdmin) loadShared() }, [session, isAdmin, loadShared])
 
   // Load note for selected date
   const loadNote = useCallback(async (date) => {
@@ -168,6 +170,7 @@ export default function NotesPage() {
     setIsShared(note?.is_shared || false)
     setShareMsg('')
     setSaveMsg('')
+    isDirty.current = false
     loadingRef.current = false
   }, [getToken])
 
@@ -260,6 +263,31 @@ export default function NotesPage() {
     } catch (e) { setSaveMsg('Error: ' + e.message) }
     setSaving(false)
   }
+
+
+  // Auto-save every 30 seconds if content has changed
+  useEffect(() => {
+    autoSaveTimer.current = setInterval(async () => {
+      if (!isDirty.current || loadingRef.current) return
+      const token = await getToken()
+      if (!token) return
+      try {
+        const res = await fetch('/api/notes', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+          body: JSON.stringify({ note_date: selectedDate, content: getEditorContent(), tickers, image_urls: imageUrls }),
+        })
+        const data = await res.json()
+        if (!data.error) {
+          isDirty.current = false
+          setSaveMsg('✓ Auto-saved')
+          setTimeout(() => setSaveMsg(''), 2000)
+          loadAll()
+        }
+      } catch {}
+    }, 30000)
+    return () => clearInterval(autoSaveTimer.current)
+  }, [session, selectedDate, tickers, imageUrls, getToken, loadAll])
 
   // Image upload — base64 approach (no formidable needed)
   const handleImage = async (e) => {
@@ -548,7 +576,7 @@ export default function NotesPage() {
                 ref={editorRef}
                 contentEditable
                 suppressContentEditableWarning
-                onInput={() => setSaveMsg('')}
+                onInput={() => { setSaveMsg(''); isDirty.current = true }}
                 data-placeholder="Write your trading thoughts, analysis, trade ideas..."
                 style={{
                   position:'relative', zIndex:1, display:'block',
@@ -586,14 +614,14 @@ export default function NotesPage() {
             )}
           </div>
         </div>
-        {/* ── SHARED NOTES (visible to all) ── */}
-        {(
+        {/* ── SHARED NOTES FROM ADMIN (subscriber view) ── */}
+        {!isAdmin && (
           <div style={{ marginTop:'40px' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'16px' }}>
               <h2 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'18px', fontWeight:700, margin:0, color:'var(--text)' }}>
-                🔗 {isAdmin ? 'Your Shared Notes' : 'Notes Shared by Admin'}
+                🔗 Notes Shared by Admin
               </h2>
-              <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{isAdmin ? 'VISIBLE TO SUBSCRIBERS' : 'READ ONLY'}</span>
+              <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>READ ONLY</span>
             </div>
             {sharedLoading ? (
               <div style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace', fontSize:'12px' }}>Loading...</div>
