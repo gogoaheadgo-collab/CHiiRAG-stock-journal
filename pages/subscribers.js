@@ -41,6 +41,8 @@ export default function SubscribersPage() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [subscribers, setSubscribers] = useState([])
+  const [pendingUsers, setPendingUsers] = useState([])
+  const [approving, setApproving] = useState(null)
   const [selected, setSelected] = useState(null)
   const [subTrades, setSubTrades] = useState([])
   const [subExecs, setSubExecs] = useState([])
@@ -64,6 +66,18 @@ export default function SubscribersPage() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  const handleApprove = async (userId, status) => {
+    setApproving(userId)
+    const token = await getToken()
+    await fetch('/api/admin/approve-user', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+      body: JSON.stringify({ user_id: userId, status }),
+    })
+    setApproving(null)
+    loadSubscribers(session)
+  }
 
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
@@ -155,6 +169,10 @@ export default function SubscribersPage() {
       alert('API Error: ' + JSON.stringify(data))
     }
     if (Array.isArray(data)) setSubscribers(data)
+    // Load pending users from profiles
+    const pendingRes = await fetch('/api/admin/pending-users', { headers:{ Authorization:`Bearer ${token}` } })
+    const pendingData = await pendingRes.json()
+    if (Array.isArray(pendingData)) setPendingUsers(pendingData)
     setLoading(false)
   }
 
@@ -235,6 +253,46 @@ export default function SubscribersPage() {
           ) : subscribers.length === 0 ? (
             <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No subscribers yet. Share your URL with family and friends!</div>
           ) : (
+            <>
+            {/* ── PENDING APPROVAL SECTION ── */}
+            {pendingUsers.length > 0 && (
+              <div style={{ marginBottom:'20px', background:'var(--surface)', border:'2px solid var(--gold)', borderRadius:'10px', overflow:'hidden' }}>
+                <div style={{ padding:'12px 16px', background:'rgba(245,158,11,0.08)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'10px' }}>
+                  <span style={{ fontSize:'14px' }}>⏳</span>
+                  <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Pending Approval</span>
+                  <span style={{ fontSize:'10px', background:'var(--gold)', color:'#000', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{pendingUsers.length}</span>
+                </div>
+                <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:'8px' }}>
+                  {pendingUsers.map(u => (
+                    <div key={u.user_id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', flexWrap:'wrap', gap:'10px' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                        <div style={{ width:'36px', height:'36px', borderRadius:'50%', background:'var(--gold)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'14px', fontWeight:700, color:'#000' }}>
+                          {(u.full_name||u.email||'?')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'13px', color:'var(--text)' }}>{u.full_name || '—'}</div>
+                          <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'2px' }}>{u.email}</div>
+                          <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'1px', fontFamily:'DM Mono, monospace' }}>
+                            Requested: {new Date(u.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', gap:'8px' }}>
+                        <button onClick={() => handleApprove(u.user_id, 'approved')} disabled={approving === u.user_id}
+                          style={{ padding:'8px 18px', background:'var(--bull)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity: approving === u.user_id ? 0.6 : 1 }}>
+                          {approving === u.user_id ? '...' : '✓ Approve'}
+                        </button>
+                        <button onClick={() => handleApprove(u.user_id, 'rejected')} disabled={approving === u.user_id}
+                          style={{ padding:'8px 18px', background:'none', border:'1px solid var(--bear)', color:'var(--bear)', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity: approving === u.user_id ? 0.6 : 1 }}>
+                          ✕ Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="table-container" style={{ overflowX:"auto", borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"8px" }}>
               <table className="trade-table">
                 <thead>
