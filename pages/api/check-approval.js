@@ -18,7 +18,14 @@ export default async function handler(req, res) {
   const { data: profile } = await admin
     .from('profiles').select('status').eq('id', user.id).maybeSingle()
 
-  if (profile) return res.status(200).json({ status: profile.status || 'pending' })
+  if (profile) {
+    // If previously rejected, reset to pending so they can re-request access
+    if (profile.status === 'rejected') {
+      await admin.from('profiles').update({ status: 'pending' }).eq('id', user.id)
+      return res.status(200).json({ status: 'pending' })
+    }
+    return res.status(200).json({ status: profile.status || 'pending' })
+  }
 
   // New user — create pending profile
   await admin.from('profiles').insert([{
