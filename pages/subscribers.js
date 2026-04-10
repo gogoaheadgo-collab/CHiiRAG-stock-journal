@@ -122,7 +122,7 @@ export default function SubscribersPage() {
               fontFamily:'DM Mono, monospace', borderBottom:'1px solid var(--border)' }}
             onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
             onMouseLeave={e => e.currentTarget.style.background='none'}>
-            🚪\u00a0 Sign Out
+            🚪&nbsp; Sign Out
           </button>
         </div>
       )}
@@ -253,101 +253,103 @@ export default function SubscribersPage() {
           ) : subscribers.length === 0 ? (
             <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No subscribers yet. Share your URL with family and friends!</div>
           ) : (
-            {/* ── PENDING APPROVAL SECTION ── */}
-            {pendingUsers.length > 0 && (
-              <div style={{ marginBottom:'20px', background:'var(--surface)', border:'2px solid var(--gold)', borderRadius:'10px', overflow:'hidden' }}>
-                <div style={{ padding:'12px 16px', background:'rgba(245,158,11,0.08)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'10px' }}>
-                  <span style={{ fontSize:'14px' }}>⏳</span>
-                  <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Pending Approval</span>
-                  <span style={{ fontSize:'10px', background:'var(--gold)', color:'#000', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{pendingUsers.length}</span>
-                </div>
-                <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:'8px' }}>
-                  {pendingUsers.map(u => (
-                    <div key={u.user_id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', flexWrap:'wrap', gap:'10px' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-                        <div style={{ width:'36px', height:'36px', borderRadius:'50%', background:'var(--gold)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'14px', fontWeight:700, color:'#000' }}>
-                          {(u.full_name||u.email||'?')[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'13px', color:'var(--text)' }}>{u.full_name || '—'}</div>
-                          <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'2px' }}>{u.email}</div>
-                          <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'1px', fontFamily:'DM Mono, monospace' }}>
-                            Requested: {new Date(u.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}
+            <>
+              {/* ── PENDING APPROVAL SECTION ── */}
+              {pendingUsers.length > 0 && (
+                <div style={{ marginBottom:'20px', background:'var(--surface)', border:'2px solid var(--gold)', borderRadius:'10px', overflow:'hidden' }}>
+                  <div style={{ padding:'12px 16px', background:'rgba(245,158,11,0.08)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'10px' }}>
+                    <span style={{ fontSize:'14px' }}>⏳</span>
+                    <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Pending Approval</span>
+                    <span style={{ fontSize:'10px', background:'var(--gold)', color:'#000', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{pendingUsers.length}</span>
+                  </div>
+                  <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:'8px' }}>
+                    {pendingUsers.map(u => (
+                      <div key={u.user_id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', flexWrap:'wrap', gap:'10px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                          <div style={{ width:'36px', height:'36px', borderRadius:'50%', background:'var(--gold)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'14px', fontWeight:700, color:'#000' }}>
+                            {(u.full_name||u.email||'?')[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'13px', color:'var(--text)' }}>{u.full_name || '—'}</div>
+                            <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'2px' }}>{u.email}</div>
+                            <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'1px', fontFamily:'DM Mono, monospace' }}>
+                              Requested: {new Date(u.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div style={{ display:'flex', gap:'8px' }}>
-                        <button onClick={() => handleApprove(u.user_id, 'approved')} disabled={approving === u.user_id}
-                          style={{ padding:'8px 18px', background:'var(--bull)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity: approving === u.user_id ? 0.6 : 1 }}>
-                          {approving === u.user_id ? '...' : '✓ Approve'}
-                        </button>
-                        <button onClick={() => handleApprove(u.user_id, 'rejected')} disabled={approving === u.user_id}
-                          style={{ padding:'8px 18px', background:'none', border:'1px solid var(--bear)', color:'var(--bear)', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity: approving === u.user_id ? 0.6 : 1 }}>
-                          ✕ Reject
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="table-container" style={{ overflowX:"auto", borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"8px" }}>
-              <table className="trade-table">
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th>Email</th>
-                    <th className="right">Total Trades</th>
-                    <th className="right">Open</th>
-                    <th className="right">Closed</th>
-                    <th className="right">Total Investment</th>
-                    <th className="right">Realised P&L</th>
-                    <th className="right">Joined</th>
-                    <th style={{ textAlign:'center' }}>Mirror</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {subscribers.map(sub => (
-                    <tr key={sub.id}
-                      onClick={() => selected?.id===sub.id ? setSelected(null) : loadSubscriberTrades(sub)}
-                      style={{ background: selected?.id===sub.id ? 'rgba(14,165,233,0.08)' : '', cursor:'pointer', transition:'background 0.15s' }}
-                      onMouseEnter={e => { if (selected?.id!==sub.id) e.currentTarget.style.background='rgba(14,165,233,0.04)' }}
-                      onMouseLeave={e => { if (selected?.id!==sub.id) e.currentTarget.style.background='' }}>
-                      <td>
-                        <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                          <span style={{ fontSize:'10px', color:'var(--accent)', width:'10px', flexShrink:0 }}>{selected?.id===sub.id ? '▼' : '▶'}</span>
-                          {sub.avatar_url
-                            ? <img src={sub.avatar_url} alt="" style={{ width:'28px', height:'28px', borderRadius:'50%', border:'1px solid var(--border)' }} />
-                            : <div style={{ width:'28px', height:'28px', borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', color:'#fff', fontWeight:700 }}>{(sub.full_name||sub.email||'?')[0].toUpperCase()}</div>
-                          }
-                          <span style={{ fontWeight:600, fontSize:'13px' }}>{sub.full_name || '—'}</span>
-                          {sub.isAdmin && <span style={{ fontSize:'9px', background:'var(--gold)', color:'#000', padding:'1px 6px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700, letterSpacing:'0.08em' }}>ADMIN</span>}
-                        </div>
-                      </td>
-                      <td className="muted" style={{ fontSize:'11px', fontFamily:'DM Mono, monospace' }}>{sub.email}</td>
-                      <td className="right">{sub.totalTrades}</td>
-                      <td className="right"><span style={{ color:'var(--bull)', fontWeight:600 }}>{sub.openTrades}</span></td>
-                      <td className="right"><span style={{ color:'var(--muted)' }}>{sub.closedTrades}</span></td>
-                      <td className="right">{sub.totalInvestment ? `Rs ${toINR(sub.totalInvestment)}` : '—'}</td>
-                      <td className="right">
-                        {sub.realisedPnL !== 0
-                          ? <span style={{ color:pnlColor(sub.realisedPnL), fontWeight:600 }}>{pnlSign(sub.realisedPnL)}Rs {toINRd(Math.abs(sub.realisedPnL))}</span>
-                          : <span className="neutral">—</span>}
-                      </td>
-                      <td className="right muted" style={{ fontSize:'11px' }}>{sub.created_at?.slice(0,10)}</td>
-                      <td style={{ textAlign:'center' }} onClick={e => e.stopPropagation()}>
-                        {sub.isAdmin ? <span className="neutral" style={{ fontSize:'11px' }}>—</span> : (
-                          <button onClick={() => toggleMirror(sub)} className="btn btn-ghost" style={{ fontSize:'11px', padding:'4px 14px', color: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', borderColor: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', fontWeight:700 }}>
-                            {mirrored[sub.id] ? '× Unlink' : '+ Fetch'}
+                        <div style={{ display:'flex', gap:'8px' }}>
+                          <button onClick={() => handleApprove(u.user_id, 'approved')} disabled={approving === u.user_id}
+                            style={{ padding:'8px 18px', background:'var(--bull)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity: approving === u.user_id ? 0.6 : 1 }}>
+                            {approving === u.user_id ? '...' : '✓ Approve'}
                           </button>
-                        )}
-                      </td>
+                          <button onClick={() => handleApprove(u.user_id, 'rejected')} disabled={approving === u.user_id}
+                            style={{ padding:'8px 18px', background:'none', border:'1px solid var(--bear)', color:'var(--bear)', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity: approving === u.user_id ? 0.6 : 1 }}>
+                            ✕ Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="table-container" style={{ overflowX:"auto", borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"8px" }}>
+                <table className="trade-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Email</th>
+                      <th className="right">Total Trades</th>
+                      <th className="right">Open</th>
+                      <th className="right">Closed</th>
+                      <th className="right">Total Investment</th>
+                      <th className="right">Realised P&amp;L</th>
+                      <th className="right">Joined</th>
+                      <th style={{ textAlign:'center' }}>Mirror</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {subscribers.map(sub => (
+                      <tr key={sub.id}
+                        onClick={() => selected?.id===sub.id ? setSelected(null) : loadSubscriberTrades(sub)}
+                        style={{ background: selected?.id===sub.id ? 'rgba(14,165,233,0.08)' : '', cursor:'pointer', transition:'background 0.15s' }}
+                        onMouseEnter={e => { if (selected?.id!==sub.id) e.currentTarget.style.background='rgba(14,165,233,0.04)' }}
+                        onMouseLeave={e => { if (selected?.id!==sub.id) e.currentTarget.style.background='' }}>
+                        <td>
+                          <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                            <span style={{ fontSize:'10px', color:'var(--accent)', width:'10px', flexShrink:0 }}>{selected?.id===sub.id ? '▼' : '▶'}</span>
+                            {sub.avatar_url
+                              ? <img src={sub.avatar_url} alt="" style={{ width:'28px', height:'28px', borderRadius:'50%', border:'1px solid var(--border)' }} />
+                              : <div style={{ width:'28px', height:'28px', borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', color:'#fff', fontWeight:700 }}>{(sub.full_name||sub.email||'?')[0].toUpperCase()}</div>
+                            }
+                            <span style={{ fontWeight:600, fontSize:'13px' }}>{sub.full_name || '—'}</span>
+                            {sub.isAdmin && <span style={{ fontSize:'9px', background:'var(--gold)', color:'#000', padding:'1px 6px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700, letterSpacing:'0.08em' }}>ADMIN</span>}
+                          </div>
+                        </td>
+                        <td className="muted" style={{ fontSize:'11px', fontFamily:'DM Mono, monospace' }}>{sub.email}</td>
+                        <td className="right">{sub.totalTrades}</td>
+                        <td className="right"><span style={{ color:'var(--bull)', fontWeight:600 }}>{sub.openTrades}</span></td>
+                        <td className="right"><span style={{ color:'var(--muted)' }}>{sub.closedTrades}</span></td>
+                        <td className="right">{sub.totalInvestment ? `Rs ${toINR(sub.totalInvestment)}` : '—'}</td>
+                        <td className="right">
+                          {sub.realisedPnL !== 0
+                            ? <span style={{ color:pnlColor(sub.realisedPnL), fontWeight:600 }}>{pnlSign(sub.realisedPnL)}Rs {toINRd(Math.abs(sub.realisedPnL))}</span>
+                            : <span className="neutral">—</span>}
+                        </td>
+                        <td className="right muted" style={{ fontSize:'11px' }}>{sub.created_at?.slice(0,10)}</td>
+                        <td style={{ textAlign:'center' }} onClick={e => e.stopPropagation()}>
+                          {sub.isAdmin ? <span className="neutral" style={{ fontSize:'11px' }}>—</span> : (
+                            <button onClick={() => toggleMirror(sub)} className="btn btn-ghost" style={{ fontSize:'11px', padding:'4px 14px', color: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', borderColor: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', fontWeight:700 }}>
+                              {mirrored[sub.id] ? '× Unlink' : '+ Fetch'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
 
@@ -407,8 +409,8 @@ export default function SubscribersPage() {
                       <th className="right">Investment</th>
                       <th className="right">Actual Inv</th>
                       <th className="right">MTF Interest</th>
-                      <th className="right">Unrealised P&L</th>
-                      <th className="right">Realised P&L</th>
+                      <th className="right">Unrealised P&amp;L</th>
+                      <th className="right">Realised P&amp;L</th>
                       <th className="right">Status</th>
                     </tr>
                   </thead>
@@ -477,7 +479,3 @@ export default function SubscribersPage() {
     </>
   )
 }
-
-
-
-
