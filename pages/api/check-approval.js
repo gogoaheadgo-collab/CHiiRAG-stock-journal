@@ -19,10 +19,10 @@ export default async function handler(req, res) {
     .from('profiles').select('status').eq('id', user.id).maybeSingle()
 
   if (profile) {
-    // If previously rejected, reset to pending so they can re-request access
+    // If previously rejected, reset to pending and return 'requeued' so UI can show message
     if (profile.status === 'rejected') {
       await admin.from('profiles').update({ status: 'pending' }).eq('id', user.id)
-      return res.status(200).json({ status: 'pending' })
+      return res.status(200).json({ status: 'requeued' })
     }
     return res.status(200).json({ status: profile.status || 'pending' })
   }
