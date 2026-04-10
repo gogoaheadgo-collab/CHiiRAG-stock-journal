@@ -145,7 +145,7 @@ export default function NotesPage() {
     setSharedLoading(false)
   }, [getToken])
 
-  useEffect(() => { if (session && !isAdmin) loadShared() }, [session, isAdmin, loadShared])
+  useEffect(() => { if (session) loadShared() }, [session, loadShared])
 
   // Load note for selected date
   const loadNote = useCallback(async (date) => {
@@ -586,14 +586,14 @@ export default function NotesPage() {
             )}
           </div>
         </div>
-        {/* ── SHARED NOTES FROM ADMIN (subscriber view) ── */}
-        {!isAdmin && (
+        {/* ── SHARED NOTES (visible to all) ── */}
+        {(
           <div style={{ marginTop:'40px' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'16px' }}>
               <h2 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'18px', fontWeight:700, margin:0, color:'var(--text)' }}>
-                🔗 Notes Shared by Admin
+                🔗 {isAdmin ? 'Your Shared Notes' : 'Notes Shared by Admin'}
               </h2>
-              <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>READ ONLY</span>
+              <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{isAdmin ? 'VISIBLE TO SUBSCRIBERS' : 'READ ONLY'}</span>
             </div>
             {sharedLoading ? (
               <div style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace', fontSize:'12px' }}>Loading...</div>
