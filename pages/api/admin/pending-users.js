@@ -13,10 +13,13 @@ export default async function handler(req, res) {
 
   const { data, error } = await admin
     .from('profiles')
-    .select('user_id, full_name, email, status, created_at')
+    .select('id, full_name, email, status, created_at')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
 
   if (error) return res.status(500).json({ error: error.message })
-  return res.status(200).json(data || [])
+
+  // Remap id -> user_id so the frontend subscribers.js handleApprove() works unchanged
+  const remapped = (data || []).map(row => ({ ...row, user_id: row.id }))
+  return res.status(200).json(remapped)
 }
