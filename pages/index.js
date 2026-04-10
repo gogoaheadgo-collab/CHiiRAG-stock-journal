@@ -9,7 +9,7 @@ export default function Home() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(true)
-  const [approvalStatus, setApprovalStatus] = useState(null) // null | 'pending' | 'rejected'
+  const [approvalStatus, setApprovalStatus] = useState(null) // null | 'pending' | 'rejected' | 'requeued'
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('')
 
@@ -22,7 +22,7 @@ export default function Home() {
     })
     const data = await res.json()
     if (data.status === 'approved') { router.replace('/dashboard'); return }
-    setApprovalStatus(data.status) // 'pending' or 'rejected'
+    setApprovalStatus(data.status) // 'pending', 'requeued', or 'rejected'
     setUserEmail(session.user.email)
     setUserName(session.user.user_metadata?.full_name || session.user.email?.split('@')[0])
     setChecking(false)
@@ -86,22 +86,30 @@ export default function Home() {
     </>
   )
 
-  // Rejected screen
-  if (approvalStatus === 'rejected') return (
+  // Re-queued screen — shown once after a rejection, before they wait for re-approval
+  if (approvalStatus === 'requeued') return (
     <>
       <div className="tricolor-bar" />
-      <Head><title>Access Declined — CHiiRAG Stock Journal</title></Head>
+      <Head><title>Re-Requested Access — CHiiRAG Stock Journal</title></Head>
       <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
-        <div style={{ textAlign:'center', maxWidth:'440px', padding:'40px 24px', background:'var(--surface)', border:'1px solid var(--bear)', borderRadius:'16px', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
-          <div style={{ fontSize:'56px', marginBottom:'16px' }}>❌</div>
+        <div style={{ textAlign:'center', maxWidth:'440px', padding:'40px 24px', background:'var(--surface)', border:'2px solid var(--gold)', borderRadius:'16px', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
+          <div style={{ fontSize:'56px', marginBottom:'16px' }}>🔄</div>
           <h2 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'22px', fontWeight:800, color:'var(--text)', margin:'0 0 10px' }}>
-            Access Declined
+            Access Re-Requested
           </h2>
-          <p style={{ color:'var(--muted)', fontSize:'13px', lineHeight:1.7, marginBottom:'24px' }}>
-            Your access request has been declined.<br/>
-            Please contact the admin for more information.
+          <p style={{ color:'var(--muted)', fontSize:'13px', lineHeight:1.7, marginBottom:'20px' }}>
+            Hi <strong style={{ color:'var(--text)' }}>{userName}</strong>,<br/>
+            Your previous request was declined.<br/>
+            You have been <strong style={{ color:'var(--gold)' }}>re-queued for approval</strong>.<br/>
+            The admin will review your request again shortly.
           </p>
-          <button onClick={signOut} style={{ padding:'10px 24px', background:'var(--bear)', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontSize:'12px', fontWeight:700 }}>
+          <div style={{ background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', padding:'12px 16px', marginBottom:'24px', fontSize:'12px', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>
+            📧 {userEmail}
+          </div>
+          <p style={{ color:'var(--muted)', fontSize:'11px', marginBottom:'20px', fontFamily:'DM Mono, monospace' }}>
+            You will receive an email once approved.
+          </p>
+          <button onClick={signOut} style={{ padding:'10px 24px', background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'8px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontSize:'12px' }}>
             Sign Out
           </button>
         </div>
