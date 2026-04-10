@@ -15,12 +15,13 @@ export default async function handler(req, res) {
   const { user_id, status } = req.body // status: 'approved' | 'rejected'
   if (!user_id || !status) return res.status(400).json({ error: 'user_id and status required' })
 
-  const { error } = await admin.from('profiles').update({ status }).eq('user_id', user_id)
+  // profiles table PK is `id`, not `user_id`
+  const { error } = await admin.from('profiles').update({ status }).eq('id', user_id)
   if (error) return res.status(500).json({ error: error.message })
 
   // Send email to user
   try {
-    const { data: profile } = await admin.from('profiles').select('email, full_name').eq('user_id', user_id).single()
+    const { data: profile } = await admin.from('profiles').select('email, full_name').eq('id', user_id).single()
     if (profile?.email && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
       const transporter = nodemailer.createTransport({
         service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
