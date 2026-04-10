@@ -16,20 +16,25 @@ export default async function handler(req, res) {
   if (user.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Admin only' })
 
   try {
-    // Get all trades and executions using service role (bypasses RLS)
     const { data: trades, error: tErr } = await adminSupabase.from('trades').select('*')
     if (tErr) return res.status(500).json({ error: 'trades fetch failed', detail: tErr.message })
 
     const { data: executions } = await adminSupabase.from('executions').select('*')
     const { data: profiles } = await adminSupabase.from('profiles').select('*')
 
-    // Build user list — try auth.admin first (gets ALL users incl 0-trade), fallback to profiles+trades
+    // Build approved-only set — only users with status='approved' in profiles (admin always included)
+    const approvedIds = new Set(
+      (profiles || []).filter(p => p.status === 'approved').map(p => p.id)
+    )
+    approvedIds.add(user.id) // admin always visible
+
     const userMap = {}
 
-    // 1. Try to get all users from Supabase auth admin API
+    // 1. Try to get all users from Supabase auth admin API — filter to approved only
     try {
       const { data: authData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 })
       ;(authData?.users || []).forEach(u => {
+        if (!approvedIds.has(u.id)) return // skip pending/rejected
         userMap[u.id] = {
           id: u.id,
           email: u.email,
@@ -40,13 +45,15 @@ export default async function handler(req, res) {
       })
     } catch {}
 
-    // 2. Fallback: profiles table
+    // 2. Fallback: profiles table (approved only)
     ;(profiles || []).forEach(p => {
+      if (!approvedIds.has(p.id)) return
       if (!userMap[p.id]) userMap[p.id] = { id: p.id, email: p.email, full_name: p.full_name, avatar_url: p.avatar_url, created_at: p.created_at }
     })
 
-    // 3. Fallback: users found in trades
+    // 3. Fallback: users found in trades (only if already approved)
     ;(trades || []).forEach(t => {
+      if (!approvedIds.has(t.user_id)) return
       if (!userMap[t.user_id]) {
         userMap[t.user_id] = { id: t.user_id, email: t.account || 'Unknown', full_name: null, avatar_url: null, created_at: t.entry_date }
       }
@@ -66,7 +73,6 @@ export default async function handler(req, res) {
         if (execs.length > 0) {
           return sum + execs.reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
         }
-        // fallback to realized_gains on trade itself (older trades)
         return sum + (Number(t.realized_gains) || 0)
       }, 0)
       return {
