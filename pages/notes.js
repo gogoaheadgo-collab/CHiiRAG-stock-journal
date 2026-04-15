@@ -104,8 +104,6 @@ export default function NotesPage() {
   const fileRef = useRef(null)
   const loadingRef = useRef(false)
   const editorRef = useRef(null)
-  const autoSaveTimer = useRef(null)
-  const isDirty = useRef(false)
   const [fontSize, setFontSize] = useState('21px')
   const [isShared, setIsShared] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -170,7 +168,6 @@ export default function NotesPage() {
     setIsShared(note?.is_shared || false)
     setShareMsg('')
     setSaveMsg('')
-    isDirty.current = false
     loadingRef.current = false
   }, [getToken])
 
@@ -264,31 +261,6 @@ export default function NotesPage() {
     setSaving(false)
   }
 
-
-  // Auto-save every 30 seconds if content has changed
-  useEffect(() => {
-    autoSaveTimer.current = setInterval(async () => {
-      if (!isDirty.current || loadingRef.current) return
-      const token = await getToken()
-      if (!token) return
-      try {
-        const res = await fetch('/api/notes', {
-          method: 'POST',
-          headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-          body: JSON.stringify({ note_date: selectedDate, content: getEditorContent(), tickers, image_urls: imageUrls }),
-        })
-        const data = await res.json()
-        if (!data.error) {
-          isDirty.current = false
-          setSaveMsg('✓ Auto-saved')
-          setTimeout(() => setSaveMsg(''), 2000)
-          loadAll()
-        }
-      } catch {}
-    }, 30000)
-    return () => clearInterval(autoSaveTimer.current)
-  }, [session, selectedDate, tickers, imageUrls, getToken, loadAll])
-
   // Image upload — base64 approach (no formidable needed)
   const handleImage = async (e) => {
     const file = e.target.files?.[0]
@@ -320,7 +292,10 @@ export default function NotesPage() {
     return bytes
   }
 
-  const removeImage = (url) => setImageUrls(prev => prev.filter(u => u !== url))
+  const removeImage = (url) => {
+    if (!window.confirm('🗑 Remove this photo from the note?')) return
+    setImageUrls(prev => prev.filter(u => u !== url))
+  }
 
   // Search
   const doSearch = async () => {
@@ -576,7 +551,7 @@ export default function NotesPage() {
                 ref={editorRef}
                 contentEditable
                 suppressContentEditableWarning
-                onInput={() => { setSaveMsg(''); isDirty.current = true }}
+                onInput={() => setSaveMsg('')}
                 data-placeholder="Write your trading thoughts, analysis, trade ideas..."
                 style={{
                   position:'relative', zIndex:1, display:'block',
