@@ -246,7 +246,8 @@ export default function AlertsPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this alert?')) return
+    if (!confirm('🗑 Delete this alert?\n\nThis alert will be permanently removed.')) return
+    if (!confirm('⚠️ CONFIRM DELETE\n\nAre you sure? This cannot be undone.')) return
     const token = await getToken()
     await fetch('/api/price-alerts', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id }) })
     await loadAlerts()
