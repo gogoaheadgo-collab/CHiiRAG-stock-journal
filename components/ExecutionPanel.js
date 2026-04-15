@@ -137,7 +137,7 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
                   <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:600, color:pnlColor(realised) }}>{pnlSign(realised)}Rs{fmtd(Math.abs(realised))}</td>
                   <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace', color:'var(--gold)' }}>{mtfInterest>0?`Rs${fmtd(mtfInterest)}`:<span style={{ color:'var(--muted)' }}>—</span>}</td>
                   <td style={{ padding:'8px 10px', textAlign:'center' }}>
-                    <button onClick={e=>{e.stopPropagation();onDelete(exec.id)}} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'16px', lineHeight:1, padding:'0 4px' }}>×</button>
+                    <button onClick={e=>{e.stopPropagation(); if(!window.confirm('🗑 Delete this execution?\n\nThis will affect Realised P&L calculations.')) return; if(!window.confirm('⚠️ CONFIRM DELETE\n\nAre you sure? This cannot be undone.')) return; onDelete(exec.id)}} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'16px', lineHeight:1, padding:'0 4px' }}>×</button>
                   </td>
                 </tr>
               )
