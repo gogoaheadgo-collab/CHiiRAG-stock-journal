@@ -48,10 +48,9 @@ export default function SubscribersPage() {
   const [subExecs, setSubExecs] = useState([])
   const [subLoading, setSubLoading] = useState(false)
   const [livePrices, setLivePrices] = useState({})
-  const [mirrored, setMirrored] = useState({})
+  const [mirrored, setMirrored] = useState({}) // subscriber_id -> true
   const [accountFilter, setAccountFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
-  const [showPendingPanel, setShowPendingPanel] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session } }) => {
@@ -99,6 +98,7 @@ export default function SubscribersPage() {
 
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
+  // ── EXIT DROPDOWN ──
   const [showExitMenu, setShowExitMenu] = useState(false)
   const exitRef = React.useRef(null)
 
@@ -109,8 +109,9 @@ export default function SubscribersPage() {
   }, [])
 
   const handleDeleteMyAccount = async () => {
-    const confirmed = window.confirm('⚠️ PERMANENTLY DELETE YOUR ACCOUNT?\n\nThis will erase ALL your trades, executions, and account history.\n\nThis CANNOT be undone.')
+    const confirmed = window.confirm('🗑 DELETE YOUR ACCOUNT?\n\nThis will permanently erase ALL your trades, accounts, notes and history.\n\nThis CANNOT be undone.')
     if (!confirmed) return
+    if (!window.confirm('⚠️ FINAL CONFIRMATION\n\nType OK to permanently delete your account. This is irreversible.')) return
     const typed = window.prompt('Type DELETE to confirm:')
     if (typed !== 'DELETE') { alert('Cancelled.'); return }
     try {
@@ -139,7 +140,7 @@ export default function SubscribersPage() {
               fontFamily:'DM Mono, monospace', borderBottom:'1px solid var(--border)' }}
             onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
             onMouseLeave={e => e.currentTarget.style.background='none'}>
-            🚪&nbsp; Sign Out
+            🚪\u00a0 Sign Out
           </button>
         </div>
       )}
@@ -186,6 +187,7 @@ export default function SubscribersPage() {
       alert('API Error: ' + JSON.stringify(data))
     }
     if (Array.isArray(data)) setSubscribers(data)
+    // Load pending users from profiles
     const pendingRes = await fetch('/api/admin/pending-users', { headers:{ Authorization:`Bearer ${token}` } })
     const pendingData = await pendingRes.json()
     if (Array.isArray(pendingData)) setPendingUsers(pendingData)
@@ -221,6 +223,7 @@ export default function SubscribersPage() {
   const pnlColor = (n) => n >= 0 ? 'var(--bull)' : 'var(--bear)'
   const pnlSign = (n) => n >= 0 ? '+' : '−'
 
+  // Accounts of selected subscriber
   const accounts = [...new Set(subTrades.map(t => t.account).filter(Boolean))]
   const accountFiltered = accountFilter === 'ALL' ? subTrades : subTrades.filter(t => t.account === accountFilter)
   const filtered = statusFilter === 'ALL' ? accountFiltered : accountFiltered.filter(t => t.status === statusFilter)
@@ -246,68 +249,13 @@ export default function SubscribersPage() {
         <NavPill active="Subscribers" isAdmin={true} />
         <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
           <span style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>ADMIN</span>
-
-          {/* ── PENDING APPROVAL BUBBLE ── */}
-          {pendingUsers.length > 0 && (
-            <div style={{ position:'relative' }}>
-              <button
-                onClick={() => setShowPendingPanel(p => !p)}
-                style={{ display:'flex', alignItems:'center', gap:'6px', padding:'5px 12px', background:'rgba(245,158,11,0.12)', border:'1px solid var(--gold)', borderRadius:'20px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontSize:'11px', fontWeight:700, color:'var(--gold)' }}>
-                ⏳ Pending
-                <span style={{ background:'var(--gold)', color:'#000', borderRadius:'50%', width:'18px', height:'18px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'10px', fontWeight:800 }}>
-                  {pendingUsers.length}
-                </span>
-              </button>
-
-              {/* Dropdown panel */}
-              {showPendingPanel && (
-                <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'380px', background:'var(--surface)', border:'2px solid var(--gold)', borderRadius:'12px', boxShadow:'0 8px 32px rgba(0,0,0,0.4)', zIndex:2000, overflow:'hidden' }}>
-                  <div style={{ padding:'12px 16px', background:'rgba(245,158,11,0.08)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'8px' }}>
-                    <span style={{ fontSize:'13px' }}>⏳</span>
-                    <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)' }}>Pending Approval</span>
-                    <span style={{ fontSize:'10px', background:'var(--gold)', color:'#000', padding:'2px 7px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{pendingUsers.length}</span>
-                    <button onClick={() => setShowPendingPanel(false)} style={{ marginLeft:'auto', background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'16px', lineHeight:1 }}>×</button>
-                  </div>
-                  <div style={{ padding:'10px 12px', display:'flex', flexDirection:'column', gap:'8px', maxHeight:'360px', overflowY:'auto' }}>
-                    {pendingUsers.map(u => (
-                      <div key={u.user_id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 12px', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', gap:'10px' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:'10px', minWidth:0 }}>
-                          <div style={{ width:'32px', height:'32px', flexShrink:0, borderRadius:'50%', background:'var(--gold)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'13px', fontWeight:700, color:'#000' }}>
-                            {(u.full_name||u.email||'?')[0].toUpperCase()}
-                          </div>
-                          <div style={{ minWidth:0 }}>
-                            <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.full_name || '—'}</div>
-                            <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'1px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</div>
-                            <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'1px', fontFamily:'DM Mono, monospace' }}>
-                              {new Date(u.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ display:'flex', gap:'6px', flexShrink:0 }}>
-                          <button onClick={() => handleApprove(u.user_id, 'approved')} disabled={approving === u.user_id}
-                            style={{ padding:'6px 14px', background:'var(--bull)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', opacity: approving === u.user_id ? 0.6 : 1 }}>
-                            {approving === u.user_id ? '...' : '✓'}
-                          </button>
-                          <button onClick={() => handleApprove(u.user_id, 'rejected')} disabled={approving === u.user_id}
-                            style={{ padding:'6px 14px', background:'none', border:'1px solid var(--bear)', color:'var(--bear)', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', opacity: approving === u.user_id ? 0.6 : 1 }}>
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           <ExitMenu />
         </div>
       </header>
 
       <main style={{ paddingTop:'80px', maxWidth:'1400px', margin:'0 auto', padding:'80px 24px 40px' }}>
 
-        {/* ── SUBSCRIBERS TABLE (on top) ── */}
+        {/* Subscriber Summary Table */}
         <div style={{ marginBottom:'32px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'16px' }}>
             <h2 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'20px', fontWeight:700, color:'var(--text)', margin:0 }}>
@@ -317,6 +265,45 @@ export default function SubscribersPage() {
               {subscribers.length} users
             </span>
           </div>
+
+          {/* ── PENDING APPROVAL — always visible if any pending ── */}
+          {pendingUsers.length > 0 && (
+            <div style={{ marginBottom:'20px', background:'var(--surface)', border:'2px solid var(--gold)', borderRadius:'10px', overflow:'hidden' }}>
+              <div style={{ padding:'12px 16px', background:'rgba(245,158,11,0.08)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'10px' }}>
+                <span style={{ fontSize:'14px' }}>⏳</span>
+                <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Pending Approval</span>
+                <span style={{ fontSize:'10px', background:'var(--gold)', color:'#000', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{pendingUsers.length}</span>
+              </div>
+              <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:'8px' }}>
+                {pendingUsers.map(u => (
+                  <div key={u.user_id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', flexWrap:'wrap', gap:'10px' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                      <div style={{ width:'36px', height:'36px', borderRadius:'50%', background:'var(--gold)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'14px', fontWeight:700, color:'#000' }}>
+                        {(u.full_name||u.email||'?')[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'13px', color:'var(--text)' }}>{u.full_name || '—'}</div>
+                        <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'2px' }}>{u.email}</div>
+                        <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'1px', fontFamily:'DM Mono, monospace' }}>
+                          Requested: {new Date(u.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', gap:'8px' }}>
+                      <button onClick={() => handleApprove(u.user_id, 'approved')} disabled={approving === u.user_id}
+                        style={{ padding:'8px 18px', background:'var(--bull)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity: approving === u.user_id ? 0.6 : 1 }}>
+                        {approving === u.user_id ? '...' : '✓ Approve'}
+                      </button>
+                      <button onClick={() => handleApprove(u.user_id, 'rejected')} disabled={approving === u.user_id}
+                        style={{ padding:'8px 18px', background:'none', border:'1px solid var(--bear)', color:'var(--bear)', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity: approving === u.user_id ? 0.6 : 1 }}>
+                        ✕ Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {loading ? (
             <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>Loading subscribers...</div>
@@ -333,7 +320,7 @@ export default function SubscribersPage() {
                     <th className="right">Open</th>
                     <th className="right">Closed</th>
                     <th className="right">Total Investment</th>
-                    <th className="right">Realised P&amp;L</th>
+                    <th className="right">Realised P&L</th>
                     <th className="right">Joined</th>
                     <th style={{ textAlign:'center' }}>Mirror</th>
                   </tr>
@@ -398,7 +385,9 @@ export default function SubscribersPage() {
               </h3>
               <button onClick={() => setSelected(null)} style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'18px' }}>×</button>
 
+              {/* Filter tabs — Status + Account */}
               <div style={{ display:'flex', gap:'8px', marginLeft:'auto', flexWrap:'wrap', alignItems:'center' }}>
+                {/* Status filter */}
                 <div style={{ display:'flex', gap:'4px' }}>
                   {['ALL','OPEN','CLOSED'].map(f => (
                     <button key={f} onClick={() => setStatusFilter(f)} style={{
@@ -411,6 +400,7 @@ export default function SubscribersPage() {
                     </button>
                   ))}
                 </div>
+                {/* Account filter */}
                 {accounts.length > 1 && (
                   <div style={{ display:'flex', gap:'4px', borderLeft:'1px solid var(--border)', paddingLeft:'8px' }}>
                     {['ALL', ...accounts].map(a => (
@@ -442,8 +432,8 @@ export default function SubscribersPage() {
                       <th className="right">Investment</th>
                       <th className="right">Actual Inv</th>
                       <th className="right">MTF Interest</th>
-                      <th className="right">Unrealised P&amp;L</th>
-                      <th className="right">Realised P&amp;L</th>
+                      <th className="right">Unrealised P&L</th>
+                      <th className="right">Realised P&L</th>
                       <th className="right">Status</th>
                     </tr>
                   </thead>
