@@ -442,7 +442,8 @@ export default function AccountsPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this trade?')) return
+    if (!confirm('🗑 Delete this trade?\n\nThis will also remove all execution history for this trade.')) return
+    if (!confirm('⚠️ CONFIRM DELETE\n\nAre you absolutely sure? This cannot be undone.')) return
     const token = await getToken()
     await fetch('/api/trades', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id }) })
     // Remove executions for deleted trade immediately
@@ -466,7 +467,8 @@ export default function AccountsPage() {
   }
 
   const handleDeleteAccount = async (acc) => {
-    if (!confirm(`Delete account "${acc.name}"? All trades will be deleted.`)) return
+    if (!confirm(`🗑 Delete account "${acc.name}"?\n\nThis will permanently delete ALL trades and execution history in this account.`)) return
+    if (!confirm(`⚠️ CONFIRM DELETE\n\nAccount: ${acc.name}\n\nAre you absolutely sure? This cannot be undone.`)) return
     const token = await getToken()
     await fetch('/api/accounts', { method:'DELETE', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id:acc.id, name:acc.name }) })
     setActiveAccount(accounts.find(a => a.name !== acc.name)?.name || null)
@@ -526,8 +528,9 @@ export default function AccountsPage() {
 
   const handleDeleteMyAccount = async () => {
     if (isAdmin) return
-    const confirmed = window.confirm('⚠️ PERMANENTLY DELETE YOUR ACCOUNT?\n\nThis will erase ALL your trades, executions, and account history.\n\nThis CANNOT be undone.')
+    const confirmed = window.confirm('🗑 DELETE YOUR ACCOUNT?\n\nThis will permanently erase:\n• All your trades\n• All accounts\n• All execution history\n• All notes and alerts\n\nThis CANNOT be undone.')
     if (!confirmed) return
+    if (!window.confirm('⚠️ FINAL CONFIRMATION\n\nYou are about to permanently delete your entire account.\n\nAre you absolutely sure?')) return
     const typed = window.prompt('Type DELETE to confirm:')
     if (typed !== 'DELETE') { alert('Cancelled.'); return }
     try {
