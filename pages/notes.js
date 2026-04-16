@@ -491,7 +491,7 @@ export default function NotesPage() {
                       {sd && (
                         <div>
                           <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'14px', color:isUp?'var(--bull)':'var(--bear)' }}>
-                            Rs{Number(sd.price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                            Rs.{Number(sd.price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
                           </div>
                           <div style={{ fontSize:'10px', color:isUp?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>
                             {isUp?'+':''}{Number(sd.changePercent||0).toFixed(2)}%
