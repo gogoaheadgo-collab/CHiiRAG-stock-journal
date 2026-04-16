@@ -134,11 +134,11 @@ function AddAlertModal({ onClose, onAdd }) {
           <div style={{ fontSize: '10px', color: '#22c55e', fontFamily: 'DM Mono, monospace', fontWeight: 700, marginBottom: '10px', letterSpacing: '0.1em' }}>↑ ABOVE CMP TARGETS</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
-              <div style={{ ...lbl, color: '#22c55e' }}>TARGET 1 (Rs)</div>
+              <div style={{ ...lbl, color: '#22c55e' }}>TARGET 1 (Rs.)</div>
               <input type="number" value={aboveTg1} onChange={e => setAboveTg1(e.target.value)} placeholder="Optional" style={{ ...inp, borderColor: aboveTg1 ? '#22c55e' : 'var(--border)' }} />
             </div>
             <div>
-              <div style={{ ...lbl, color: '#22c55e' }}>TARGET 2 (Rs)</div>
+              <div style={{ ...lbl, color: '#22c55e' }}>TARGET 2 (Rs.)</div>
               <input type="number" value={aboveTg2} onChange={e => setAboveTg2(e.target.value)} placeholder="Optional" style={{ ...inp, borderColor: aboveTg2 ? '#22c55e' : 'var(--border)' }} />
             </div>
           </div>
@@ -149,11 +149,11 @@ function AddAlertModal({ onClose, onAdd }) {
           <div style={{ fontSize: '10px', color: '#ef4444', fontFamily: 'DM Mono, monospace', fontWeight: 700, marginBottom: '10px', letterSpacing: '0.1em' }}>↓ BELOW CMP TARGETS</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
-              <div style={{ ...lbl, color: '#ef4444' }}>TARGET 1 (Rs)</div>
+              <div style={{ ...lbl, color: '#ef4444' }}>TARGET 1 (Rs.)</div>
               <input type="number" value={belowTg1} onChange={e => setBelowTg1(e.target.value)} placeholder="Optional" style={{ ...inp, borderColor: belowTg1 ? '#ef4444' : 'var(--border)' }} />
             </div>
             <div>
-              <div style={{ ...lbl, color: '#ef4444' }}>TARGET 2 (Rs)</div>
+              <div style={{ ...lbl, color: '#ef4444' }}>TARGET 2 (Rs.)</div>
               <input type="number" value={belowTg2} onChange={e => setBelowTg2(e.target.value)} placeholder="Optional" style={{ ...inp, borderColor: belowTg2 ? '#ef4444' : 'var(--border)' }} />
             </div>
           </div>
@@ -192,6 +192,8 @@ export default function AlertsPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [livePrices, setLivePrices] = useState({})
+  const [sortCol, setSortCol] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
   const [slTrades, setSlTrades] = useState([])
 
   const getToken = useCallback(async () => (await supabase.auth.getSession()).data.session?.access_token, [])
@@ -266,10 +268,28 @@ export default function AlertsPage() {
     await loadAlerts()
   }
 
+  const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
+  const sortIcon = (col) => sortCol===col ? (sortDir==='asc'?' ↑':' ↓') : ' ↕'
+  const applySort = (list) => {
+    if (!sortCol) return list
+    return [...list].sort((a,b) => {
+      let av=a[sortCol], bv=b[sortCol]
+      if (av==null) av=sortDir==='asc'?'zzz':''; if (bv==null) bv=sortDir==='asc'?'zzz':''
+      if (typeof av==='string') av=av.toLowerCase(), bv=bv.toLowerCase()
+      return sortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
+    })
+  }
+  const downloadCSV = (list) => {
+    const headers = ['Ticker','Above TG1','Above TG2','Below TG1','Below TG2','Alert Date','Valid Till','Status']
+    const rows = list.map(a=>[a.ticker,a.above_tg1||'',a.above_tg2||'',a.below_tg1||'',a.below_tg2||'',a.alert_date,a.valid_till,a.status])
+    const csv=[headers,...rows].map(r=>r.join(',')).join('\n')
+    const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob)
+    const el=document.createElement('a');el.href=url;el.download='alerts.csv';el.click();URL.revokeObjectURL(url)
+  }
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
   const toINRd = n => n != null ? Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null
-  const fmt = n => n != null ? `Rs${toINRd(n)}` : '—'
+  const fmt = n => n != null ? `Rs.${toINRd(n)}` : '—'
 
   const filtered = statusFilter === 'ALL' ? alerts : alerts.filter(a => a.status === statusFilter)
   const counts = {
@@ -335,6 +355,10 @@ export default function AlertsPage() {
 
         {/* Filter tabs */}
         <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+          <button onClick={() => downloadCSV(filtered)}
+            style={{ padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', marginRight:'6px' }}>
+            ⬇ CSV
+          </button>
           {['ALL', 'ACTIVE', 'TRIGGERED', 'PAUSED'].map(f => (
             <button key={f} onClick={() => setStatusFilter(f)} style={{
               padding: '5px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px',
@@ -362,21 +386,15 @@ export default function AlertsPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>
               <thead>
                 <tr style={{ background: 'var(--surface)', borderBottom: '2px solid var(--border)' }}>
-                  <th style={{ padding: '11px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em' }}>STOCK</th>
-                  <th style={{ padding: '11px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em' }}>CMP</th>
-                  <th style={{ padding: '11px 14px', textAlign: 'right', color: '#22c55e', fontWeight: 700, fontSize: '10px', letterSpacing: '0.1em' }}>↑ ABOVE TG1</th>
-                  <th style={{ padding: '11px 14px', textAlign: 'right', color: '#22c55e', fontWeight: 700, fontSize: '10px', letterSpacing: '0.1em' }}>↑ ABOVE TG2</th>
-                  <th style={{ padding: '11px 14px', textAlign: 'right', color: '#ef4444', fontWeight: 700, fontSize: '10px', letterSpacing: '0.1em' }}>↓ BELOW TG1</th>
-                  <th style={{ padding: '11px 14px', textAlign: 'right', color: '#ef4444', fontWeight: 700, fontSize: '10px', letterSpacing: '0.1em' }}>↓ BELOW TG2</th>
-                  <th style={{ padding: '11px 14px', textAlign: 'right', color: 'var(--gold)', fontWeight: 700, fontSize: '10px', letterSpacing: '0.1em' }}>NEXT TGT %</th>
-                  <th style={{ padding: '11px 14px', textAlign: 'center', color: 'var(--muted)', fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em' }}>ALERT DATE</th>
-                  <th style={{ padding: '11px 14px', textAlign: 'center', color: 'var(--muted)', fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em' }}>VALID TILL</th>
-                  <th style={{ padding: '11px 14px', textAlign: 'center', color: 'var(--muted)', fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em' }}>STATUS</th>
-                  <th style={{ padding: '11px 14px', textAlign: 'center', color: 'var(--muted)', fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em' }}>ACTION</th>
+                  {[['ticker','STOCK','left'],['','CMP','right'],['above_tg1','↑ TG1','right'],['above_tg2','↑ TG2','right'],['below_tg1','↓ TG1','right'],['below_tg2','↓ TG2','right'],['','NEXT %','right'],['alert_date','ALERT DATE','center'],['valid_till','VALID TILL','center'],['status','STATUS','center'],['','ACTION','center']].map(([col,label,align],i) => (
+                    <th key={i} onClick={() => col && doSort(col)} style={{ padding:'11px 14px', textAlign:align, color:i>=2&&i<=3?'#22c55e':i>=4&&i<=5?'#ef4444':i===6?'var(--gold)':'var(--muted)', fontWeight:i>=2&&i<=6?700:600, fontSize:'10px', letterSpacing:'0.1em', cursor:col?'pointer':'default', userSelect:'none', whiteSpace:'nowrap' }}>
+                      {label}{col?sortIcon(col):''}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((alert, idx) => {
+                {applySort(filtered).map((alert, idx) => {
                   const cmp = livePrices[alert.ticker]
                   const expired = isExpired(alert)
                   const triggered = alert.triggered_targets || []
@@ -389,7 +407,7 @@ export default function AlertsPage() {
                     return (
                       <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid var(--border)', background: hit ? (isAbove ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : 'transparent' }}>
                         <span style={{ color: hit ? baseColor : baseColor, fontWeight: hit ? 800 : 600, fontSize: '12px' }}>
-                          Rs{toINRd(val)}
+                          Rs.{toINRd(val)}
                           {hit && <span style={{ marginLeft: '4px', fontSize: '10px' }}>✓</span>}
                         </span>
                       </td>
@@ -405,7 +423,7 @@ export default function AlertsPage() {
                       </td>
                       {/* CMP */}
                       <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>
-                        {cmp ? <span style={{ fontWeight: 700, color: 'var(--text)' }}>Rs{toINRd(cmp)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        {cmp ? <span style={{ fontWeight: 700, color: 'var(--text)' }}>Rs.{toINRd(cmp)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
                       </td>
                       {/* Above TG1 */}
                       {tgCell(alert.above_tg1, 'above_tg1', true)}
@@ -435,7 +453,7 @@ export default function AlertsPage() {
                             <span style={{ fontWeight:700, fontSize:'12px', fontFamily:'DM Mono, monospace', color: isUp ? '#22c55e' : '#ef4444' }}>
                               {isUp ? '+' : ''}{pct.toFixed(2)}%
                             </span>
-                            <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'1px' }}>Rs{Number(next.val).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                            <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'1px' }}>Rs.{Number(next.val).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                           </td>
                         )
                       })()}
@@ -513,12 +531,12 @@ export default function AlertsPage() {
                           {isNear && !isHit && <span style={{ marginLeft:'6px', fontSize:'9px', background:'rgba(239,68,68,0.2)', color:'var(--bear)', padding:'1px 5px', borderRadius:'3px' }}>NEAR</span>}
                         </td>
                         <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', color:'var(--muted)', fontSize:'11px' }}>{trade.account || '—'}</td>
-                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right' }}>Rs{Number(trade.entry_price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right' }}>Rs.{Number(trade.entry_price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
                         <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:600, color: isHit?'var(--bear)':'var(--text)' }}>
-                          {cmp ? `Rs${Number(cmp).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'}
+                          {cmp ? `Rs.${Number(cmp).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'}
                         </td>
                         <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:700, color:'var(--bear)' }}>
-                          Rs{Number(trade.stop_loss).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                          Rs.{Number(trade.stop_loss).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
                         </td>
                         <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:700, color:'var(--bear)' }}>
                           {slPct.toFixed(2)}%
