@@ -62,8 +62,8 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
               <thead>
                 <tr>
                   <th>Ticker</th><th>Direction</th><th>Account</th><th>Entry Date</th>
-                  <th className="right">Entry Rs</th><th className="right">CMP</th>
-                  <th className="right">Exit Rs</th><th className="right">Qty</th>
+                  <th className="right">Entry Rs.</th><th className="right">CMP</th>
+                  <th className="right">Exit Rs.</th><th className="right">Qty</th>
                   <th className="right">Curr Qty</th><th className="right">Investment</th>
                   <th className="right">Actual Inv</th><th className="right">MTF Interest</th>
                   <th className="right">Unrealised P&L</th><th className="right">Realised P&L</th>
@@ -95,16 +95,16 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
                       <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                       <td className="muted" style={{ fontSize:'11px' }}>{trade.account||'—'}</td>
                       <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                      <td className="right">Rs{toINRd(entryPrice)}</td>
-                      <td className="right">{cmp ? <div><div style={{ fontWeight:600 }}>Rs{toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}</td>
-                      <td className="right">{exitPrice ? `Rs${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                      <td className="right">Rs.{toINRd(entryPrice)}</td>
+                      <td className="right">{cmp ? <div><div style={{ fontWeight:600 }}>Rs.{toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}</td>
+                      <td className="right">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
                       <td className="right">{toINR(originalQty)}</td>
                       <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                      <td className="right">{investment ? `Rs${toINRd(investment)}` : <span className="neutral">—</span>}</td>
-                      <td className="right">{actualInv ? `Rs${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
-                      <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                      <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                      <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                      <td className="right">{investment ? `Rs.${toINRd(investment)}` : <span className="neutral">—</span>}</td>
+                      <td className="right">{actualInv ? `Rs.${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
+                      <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs.{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
+                      <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                      <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                       <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
                     </tr>
                   )
@@ -166,11 +166,11 @@ function AccountRightPanel({ trades, executions, livePrices, selectedMonth, setS
   })
 
   const statCards = [
-    { label:'Unrealised P&L', value:`${acUnrealised>=0?'+':'−'}Rs${toINRd(acUnrealised)}`, color:acUnrealised>=0?'var(--bull)':'var(--bear)' },
-    { label:'Realised P&L',   value:`${acRealised>=0?'+':'−'}Rs${toINRd(acRealised)}`,   color:acRealised>=0?'var(--bull)':'var(--bear)' },
+    { label:'Unrealised P&L', value:`${acUnrealised>=0?'+':'−'}Rs.${toINRd(acUnrealised)}`, color:acUnrealised>=0?'var(--bull)':'var(--bear)' },
+    { label:'Realised P&L',   value:`${acRealised>=0?'+':'−'}Rs.${toINRd(acRealised)}`,   color:acRealised>=0?'var(--bull)':'var(--bear)' },
     { label:'Open Positions', value:acOpen,   color:'var(--accent)' },
     { label:'Closed Trades',  value:acClosed, color:'var(--muted)' },
-    { label:'MTF Interest',   value:`Rs${toINRd(acMTF)}`, color:'var(--gold)' },
+    { label:'MTF Interest',   value:`Rs.${toINRd(acMTF)}`, color:'var(--gold)' },
   ]
 
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -247,6 +247,8 @@ export default function AccountsPage() {
   const [activeMirror, setActiveMirror] = useState(null)
   const [mirrorFilter, setMirrorFilter] = useState('ALL')
   const [selectedMonth, setSelectedMonth] = useState(null) // 'YYYY-MM' or null=ALL
+  const [sortCol, setSortCol] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
   const [shareModal, setShareModal] = useState(null) // account name being shared
   const [accountShares, setAccountShares] = useState([]) // { account_name, subscriber_id }[]
   const [subscribers, setSubscribers] = useState([]) // for share picker
@@ -514,6 +516,33 @@ export default function AccountsPage() {
     setSharedAdminExecs(data.executions || [])
   }
 
+  const doSort = (col) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
+  const sortIcon = (col) => sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
+
+  const applySortToTrades = (tradeList) => {
+    if (!sortCol) return tradeList
+    return [...tradeList].sort((a, b) => {
+      let av = a[sortCol], bv = b[sortCol]
+      if (typeof av === 'string') av = av.toLowerCase(), bv = (bv||'').toLowerCase()
+      if (av == null) av = sortDir === 'asc' ? Infinity : -Infinity
+      if (bv == null) bv = sortDir === 'asc' ? Infinity : -Infinity
+      return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1)
+    })
+  }
+
+  const downloadCSV = (tradeList, filename) => {
+    const headers = ['Ticker','Direction','Entry Date','Entry Price','Exit Price','Qty','Investment','Actual Inv','MTF Interest','Status']
+    const rows = tradeList.map(t => [t.ticker,t.direction,t.entry_date,t.entry_price,t.exit_price||'',t.quantity,t.invested_capital||'',t.actual_investment||'',t.mtf_interest_rate||'',t.status])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type:'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
   // ── EXIT DROPDOWN ──
@@ -683,11 +712,11 @@ export default function AccountsPage() {
         {/* ── AGGREGATE STATS (always visible) ── */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px,1fr))', gap:'10px', marginBottom:'20px' }}>
           {[
-            { label:'Unrealised P&L', value:`${totalUnrealised>=0?'+':'−'}Rs${toINRd(Math.abs(totalUnrealised))}`, color:totalUnrealised>=0?'var(--bull)':'var(--bear)' },
-            { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}Rs${toINRd(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)' },
+            { label:'Unrealised P&L', value:`${totalUnrealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalUnrealised))}`, color:totalUnrealised>=0?'var(--bull)':'var(--bear)' },
+            { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)' },
             { label:'Open Positions', value:totalOpen, color:'var(--accent)' },
             { label:'Closed Trades', value:totalClosed },
-            { label:'MTF Interest', value:`Rs${toINRd(totalMTF)}`, color:'var(--gold)' },
+            { label:'MTF Interest', value:`Rs.${toINRd(totalMTF)}`, color:'var(--gold)' },
           ].map(s => (
             <div key={s.label} className="stat-card">
               <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'6px' }}>
@@ -825,6 +854,10 @@ export default function AccountsPage() {
                       <button onClick={() => setSelectedMonth(null)} style={{ background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontSize:'13px', padding:0, lineHeight:1 }}>×</button>
                     </span>
                   )}
+                  <button onClick={() => downloadCSV(monthFiltered, `${activeAccount}_trades.csv`)}
+                    style={{ marginLeft:'auto', padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>
+                    ⬇ CSV
+                  </button>
                 </div>
 
             {(() => {
@@ -843,9 +876,9 @@ export default function AccountsPage() {
                     <col style={{ width:'80px' }} />{/* Ticker */}
                     <col style={{ width:'60px' }} />{/* Direction */}
                     <col style={{ width:'82px' }} />{/* Entry Date */}
-                    <col style={{ width:'82px' }} />{/* Entry Rs */}
+                    <col style={{ width:'82px' }} />{/* Entry Rs. */}
                     <col style={{ width:'90px' }} />{/* CMP */}
-                    <col style={{ width:'82px' }} />{/* Exit Rs */}
+                    <col style={{ width:'82px' }} />{/* Exit Rs. */}
                     <col style={{ width:'60px' }} />{/* Qty */}
                     <col style={{ width:'70px' }} />{/* Curr Qty */}
                     <col style={{ width:'90px' }} />{/* Investment */}
@@ -857,14 +890,12 @@ export default function AccountsPage() {
                   </colgroup>
                   <thead>
                     <tr>
-                      <th>Ticker</th><th>Dir</th><th>Entry Date</th>
-                      <th className="right">Entry Rs</th><th className="right">CMP</th>
-                      <th className="right">Exit Rs</th><th className="right">Qty</th>
-                      <th className="right">Curr Qty</th>
-                      <th className="right">Investment</th><th className="right">Actual Inv</th>
-                      <th className="right">MTF Int</th>
-                      <th className="right">Unrealised P&L</th><th className="right">Realised P&L</th>
-                      <th style={{ textAlign:'center' }}>Action</th>
+                      {[['ticker','Ticker'],['direction','Dir'],['entry_date','Entry Date'],['entry_price','Entry Rs.'],['','CMP'],['exit_price','Exit Rs.'],['quantity','Qty'],['','Curr Qty'],['invested_capital','Investment'],['actual_investment','Actual Inv'],['','MTF Int'],['','Unrealised P&L'],['','Realised P&L'],['','Action']].map(([col,label],i) => (
+                        <th key={i} className={i>=3&&i<13?'right':''} onClick={() => col && doSort(col)}
+                          style={{ cursor:col?'pointer':'default', userSelect:'none', whiteSpace:'nowrap' }}>
+                          {label}{col ? sortIcon(col) : ''}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -873,7 +904,7 @@ export default function AccountsPage() {
                         <span style={{ color:'#000', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700, letterSpacing:'0.08em' }}>+ New Trade</span>
                       </td>
                     </tr>
-                    {monthFiltered.map(trade => {
+                    {applySortToTrades(monthFiltered).map(trade => {
                       const execs = executions[trade.id] || []
                       const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
                       const originalQty = Number(trade.quantity) || 0
@@ -909,18 +940,18 @@ export default function AccountsPage() {
                             <td><span className="ticker-badge">{trade.ticker}</span></td>
                             <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                             <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                            <td className="right">Rs{toINRd(entryPrice)}</td>
+                            <td className="right">Rs.{toINRd(entryPrice)}</td>
                             <td className="right">
-                              {isOpen && lp ? <div><div style={{ fontWeight:600 }}>Rs{toINRd(lp.price)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
+                              {isOpen && lp ? <div><div style={{ fontWeight:600 }}>Rs.{toINRd(lp.price)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
                             </td>
-                            <td className="right">{exitPrice ? `Rs${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
                             <td className="right">{toINR(originalQty)}</td>
                             <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                            <td className="right">{investment ? `Rs${toINRd(investment)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{actualInv ? `Rs${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{investment ? `Rs.${toINRd(investment)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{actualInv ? `Rs.${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs.{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                             <td style={{ textAlign:'center', position:'relative' }} onClick={e => e.stopPropagation()}>
                               <button onClick={e => { e.preventDefault(); e.stopPropagation(); setOpenMenu(prev => prev===trade.id ? null : trade.id) }} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
                               {openMenu === trade.id && (
