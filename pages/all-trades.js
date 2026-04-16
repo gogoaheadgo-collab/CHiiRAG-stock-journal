@@ -125,6 +125,25 @@ export default function AllTradesPage() {
     setLoading(false)
   }
 
+  const [sortCol, setSortCol] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
+  const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
+  const sortIcon = (col) => sortCol===col ? (sortDir==='asc'?' ↑':' ↓') : ' ↕'
+  const applySort = (list) => {
+    if (!sortCol) return list
+    return [...list].sort((a,b) => {
+      let av=a[sortCol]??'', bv=b[sortCol]??''
+      if (typeof av==='string') av=av.toLowerCase(), bv=bv.toLowerCase()
+      return sortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
+    })
+  }
+  const downloadCSV = (list) => {
+    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Status']
+    const rows=list.map(t=>[t.ticker,t.account,t.direction,t.entry_date,t.entry_price,t.exit_price||'',t.quantity,t.status])
+    const csv=[h,...rows].map(r=>r.join(',')).join('\n')
+    const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob)
+    const el=document.createElement('a');el.href=url;el.download='all-trades.csv';el.click();URL.revokeObjectURL(url)
+  }
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
   // ── Per-trade calculations ──
@@ -261,15 +280,15 @@ export default function AllTradesPage() {
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:'12px', marginBottom:'28px' }}>
               <StatTile
                 label="Unrealised P&L"
-                adminVal={`${pnlSign(adminStats.unr)}Rs${toINRd(Math.abs(adminStats.unr))}`}
-                subVal={`${pnlSign(subStats.unr)}Rs${toINRd(Math.abs(subStats.unr))}`}
+                adminVal={`${pnlSign(adminStats.unr)}Rs.${toINRd(Math.abs(adminStats.unr))}`}
+                subVal={`${pnlSign(subStats.unr)}Rs.${toINRd(Math.abs(subStats.unr))}`}
                 adminColor={pnlColor(adminStats.unr)}
                 subColor={subStats.unr >= 0 ? 'var(--bull)' : 'var(--bear)'}
               />
               <StatTile
                 label="Realised P&L"
-                adminVal={`${pnlSign(adminStats.rel)}Rs${toINRd(Math.abs(adminStats.rel))}`}
-                subVal={`${pnlSign(subStats.rel)}Rs${toINRd(Math.abs(subStats.rel))}`}
+                adminVal={`${pnlSign(adminStats.rel)}Rs.${toINRd(Math.abs(adminStats.rel))}`}
+                subVal={`${pnlSign(subStats.rel)}Rs.${toINRd(Math.abs(subStats.rel))}`}
                 adminColor={pnlColor(adminStats.rel)}
                 subColor={subStats.rel >= 0 ? 'var(--bull)' : 'var(--bear)'}
               />
@@ -321,9 +340,9 @@ export default function AllTradesPage() {
                     <th>Ticker</th>
                     <th>Direction</th>
                     <th>Entry Date</th>
-                    <th className="right">Entry Rs</th>
+                    <th className="right">Entry Rs.</th>
                     <th className="right">CMP</th>
-                    <th className="right">Exit Rs</th>
+                    <th className="right">Exit Rs.</th>
                     <th className="right">Qty</th>
                     <th className="right">Curr Qty</th>
                     <th className="right">MTF Interest</th>
@@ -350,11 +369,11 @@ export default function AllTradesPage() {
                         <td><span className="ticker-badge">{trade.ticker}</span></td>
                         <td><span className={`badge badge-${trade.direction?.toLowerCase()}`}>{trade.direction}</span></td>
                         <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                        <td className="right">Rs{toINRd(r.entryPrice)}</td>
+                        <td className="right">Rs.{toINRd(r.entryPrice)}</td>
                         <td className="right">
                           {r.cmp
                             ? <div>
-                                <div style={{ fontWeight:600 }}>Rs{toINRd(r.cmp)}</div>
+                                <div style={{ fontWeight:600 }}>Rs.{toINRd(r.cmp)}</div>
                                 <div style={{ fontSize:'10px', color: r.lp?.change>=0?'var(--bull)':'var(--bear)' }}>
                                   {r.lp?.change>=0?'+':''}{r.lp?.changePercent?.toFixed(2)}%
                                 </div>
@@ -362,7 +381,7 @@ export default function AllTradesPage() {
                             : <span className="neutral">—</span>}
                         </td>
                         <td className="right">
-                          {r.exitPrice ? `Rs${toINRd(r.exitPrice)}` : <span className="neutral">—</span>}
+                          {r.exitPrice ? `Rs.${toINRd(r.exitPrice)}` : <span className="neutral">—</span>}
                         </td>
                         <td className="right">{toINR(r.originalQty)}</td>
                         <td className="right">
@@ -372,20 +391,20 @@ export default function AllTradesPage() {
                         </td>
                         <td className="right">
                           {r.mtfInt > 0
-                            ? <span style={{ color:'var(--gold)' }}>Rs{toINRd(r.mtfInt)}</span>
+                            ? <span style={{ color:'var(--gold)' }}>Rs.{toINRd(r.mtfInt)}</span>
                             : <span className="neutral">—</span>}
                         </td>
                         <td className="right">
                           {r.unrealisedPnL !== null
                             ? <span style={{ fontWeight:600, color:pnlColor(r.unrealisedPnL) }}>
-                                {pnlSign(r.unrealisedPnL)}Rs{toINRd(Math.abs(r.unrealisedPnL))}
+                                {pnlSign(r.unrealisedPnL)}Rs.{toINRd(Math.abs(r.unrealisedPnL))}
                               </span>
                             : <span className="neutral">—</span>}
                         </td>
                         <td className="right">
                           {r.realisedPnL !== 0 || trade.status==='CLOSED'
                             ? <span style={{ fontWeight:600, color:pnlColor(r.realisedPnL) }}>
-                                {pnlSign(r.realisedPnL)}Rs{toINRd(Math.abs(r.realisedPnL))}
+                                {pnlSign(r.realisedPnL)}Rs.{toINRd(Math.abs(r.realisedPnL))}
                               </span>
                             : <span className="neutral">—</span>}
                         </td>
