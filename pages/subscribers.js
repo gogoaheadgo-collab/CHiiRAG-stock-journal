@@ -96,6 +96,26 @@ export default function SubscribersPage() {
     loadSubscribers(session)
   }
 
+  const [sortCol, setSortCol] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
+  const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
+  const sortIcon = (col) => sortCol===col ? (sortDir==='asc'?' ↑':' ↓') : ' ↕'
+  const applySort = (list) => {
+    if (!sortCol) return list
+    return [...list].sort((a,b) => {
+      let av=a[sortCol]??'', bv=b[sortCol]??''
+      if (typeof av==='string') av=av.toLowerCase(), bv=bv.toLowerCase()
+      return sortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
+    })
+  }
+  const downloadCSV = () => {
+    if (!selected) return
+    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Status']
+    const rows=subTrades.map(t=>[t.ticker,t.account,t.direction,t.entry_date,t.entry_price,t.exit_price||'',t.quantity,t.status])
+    const csv=[h,...rows].map(r=>r.join(',')).join('\n')
+    const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob)
+    const el=document.createElement('a');el.href=url;el.download=`${selected.email}_trades.csv`;el.click();URL.revokeObjectURL(url)
+  }
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
   // ── EXIT DROPDOWN ──
@@ -347,10 +367,10 @@ export default function SubscribersPage() {
                       <td className="right">{sub.totalTrades}</td>
                       <td className="right"><span style={{ color:'var(--bull)', fontWeight:600 }}>{sub.openTrades}</span></td>
                       <td className="right"><span style={{ color:'var(--muted)' }}>{sub.closedTrades}</span></td>
-                      <td className="right">{sub.totalInvestment ? `Rs ${toINR(sub.totalInvestment)}` : '—'}</td>
+                      <td className="right">{sub.totalInvestment ? `Rs. ${toINR(sub.totalInvestment)}` : '—'}</td>
                       <td className="right">
                         {sub.realisedPnL !== 0
-                          ? <span style={{ color:pnlColor(sub.realisedPnL), fontWeight:600 }}>{pnlSign(sub.realisedPnL)}Rs {toINRd(Math.abs(sub.realisedPnL))}</span>
+                          ? <span style={{ color:pnlColor(sub.realisedPnL), fontWeight:600 }}>{pnlSign(sub.realisedPnL)}Rs. {toINRd(Math.abs(sub.realisedPnL))}</span>
                           : <span className="neutral">—</span>}
                       </td>
                       <td className="right muted" style={{ fontSize:'11px' }}>{sub.created_at?.slice(0,10)}</td>
@@ -384,6 +404,7 @@ export default function SubscribersPage() {
                 {selected.full_name || selected.email}'s Portfolio
               </h3>
               <button onClick={() => setSelected(null)} style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'18px' }}>×</button>
+              <button onClick={downloadCSV} style={{ padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>⬇ CSV</button>
 
               {/* Filter tabs — Status + Account */}
               <div style={{ display:'flex', gap:'8px', marginLeft:'auto', flexWrap:'wrap', alignItems:'center' }}>
@@ -426,8 +447,8 @@ export default function SubscribersPage() {
                   <thead>
                     <tr>
                       <th>Ticker</th><th>Direction</th><th>Account</th><th>Entry Date</th>
-                      <th className="right">Entry Rs</th><th className="right">CMP</th>
-                      <th className="right">Exit Rs</th><th className="right">Qty</th>
+                      <th className="right">Entry Rs.</th><th className="right">CMP</th>
+                      <th className="right">Exit Rs.</th><th className="right">Qty</th>
                       <th className="right">Current Qty</th>
                       <th className="right">Investment</th>
                       <th className="right">Actual Inv</th>
@@ -438,7 +459,7 @@ export default function SubscribersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map(trade => {
+                    {applySort(filtered).map(trade => {
                       const execs = subExecs.filter(e => e.trade_id === trade.id)
                       const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
                       const originalQty = Number(trade.quantity) || 0
@@ -476,18 +497,18 @@ export default function SubscribersPage() {
                           <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                           <td className="muted" style={{ fontSize:'11px' }}>{trade.account || '—'}</td>
                           <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                          <td className="right">Rs {toINRd(entryPrice)}</td>
+                          <td className="right">Rs. {toINRd(entryPrice)}</td>
                           <td className="right">
-                            {cmp ? <div><div style={{ fontWeight:600 }}>Rs {toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
+                            {cmp ? <div><div style={{ fontWeight:600 }}>Rs. {toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
                           </td>
-                          <td className="right">{exitPrice ? `Rs ${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{exitPrice ? `Rs. ${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
                           <td className="right">{toINR(originalQty)}</td>
                           <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                          <td className="right">{investment ? `Rs ${toINRd(investment)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{actualInv ? `Rs ${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs {toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                          <td className="right">{unrealisedPnL !== null ? <span style={{ color:pnlColor(unrealisedPnL), fontWeight:600 }}>{pnlSign(unrealisedPnL)}Rs {toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                          <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:pnlColor(realisedPnL), fontWeight:600 }}>{pnlSign(realisedPnL)}Rs {toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                          <td className="right">{investment ? `Rs. ${toINRd(investment)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{actualInv ? `Rs. ${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs. {toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
+                          <td className="right">{unrealisedPnL !== null ? <span style={{ color:pnlColor(unrealisedPnL), fontWeight:600 }}>{pnlSign(unrealisedPnL)}Rs. {toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                          <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:pnlColor(realisedPnL), fontWeight:600 }}>{pnlSign(realisedPnL)}Rs. {toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                           <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
                         </tr>
                       )
