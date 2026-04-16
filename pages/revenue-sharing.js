@@ -101,13 +101,13 @@ function SettlementCalendar({ subscriberId, isAdmin, getToken, netPnL }) {
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px 12px' }}>
           <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>SETTLED P&L</div>
           <div style={{ fontSize:'14px', fontWeight:800, fontFamily:'DM Mono, monospace', color:totalSettled>=0?'var(--bull)':'var(--bear)' }}>
-            {totalSettled>=0?'+':'−'}Rs{toINRd(Math.abs(totalSettled))}
+            {totalSettled>=0?'+':'−'}Rs.{toINRd(Math.abs(totalSettled))}
           </div>
         </div>
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px 12px' }}>
           <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>UNSETTLED P&L</div>
           <div style={{ fontSize:'14px', fontWeight:800, fontFamily:'DM Mono, monospace', color:unsettled>=0?'var(--bull)':'var(--bear)' }}>
-            {unsettled>=0?'+':'−'}Rs{toINRd(Math.abs(unsettled))}
+            {unsettled>=0?'+':'−'}Rs.{toINRd(Math.abs(unsettled))}
           </div>
         </div>
       </div>
@@ -169,7 +169,7 @@ function SettlementCalendar({ subscriberId, isAdmin, getToken, netPnL }) {
             <div key={s.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 8px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', marginBottom:'4px', fontSize:'11px' }}>
               <span style={{ fontFamily:'DM Mono, monospace', color:'var(--muted)', fontSize:'10px' }}>{s.date}</span>
               <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, color:Number(s.value)>=0?'var(--bull)':'var(--bear)' }}>
-                {Number(s.value)>=0?'+':'−'}Rs{toINRd(Math.abs(Number(s.value)))}
+                {Number(s.value)>=0?'+':'−'}Rs.{toINRd(Math.abs(Number(s.value)))}
               </span>
               {s.remarks && <span style={{ color:'var(--muted)', fontSize:'10px', maxWidth:'80px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.remarks}</span>}
               {isAdmin && <button onClick={() => remove(s.id)} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'12px', padding:'0 2px' }}>×</button>}
@@ -187,7 +187,7 @@ function SettlementCalendar({ subscriberId, isAdmin, getToken, netPnL }) {
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
               <div>
-                <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>VALUE (Rs)</div>
+                <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>VALUE (Rs.)</div>
                 <input type="number" value={form.value} onChange={e=>setForm(p=>({...p,value:e.target.value}))}
                   placeholder="e.g. 5000"
                   style={{ width:'100%', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'6px', padding:'8px 10px', color:'var(--text)', fontSize:'13px', fontFamily:'DM Mono, monospace', boxSizing:'border-box' }} />
@@ -219,7 +219,7 @@ function SettlementCalendar({ subscriberId, isAdmin, getToken, netPnL }) {
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'24px', width:'300px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
             <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'15px', color:'var(--text)', marginBottom:'12px' }}>Settlement — {modalEdit.date}</div>
             <div style={{ fontFamily:'DM Mono, monospace', fontSize:'20px', fontWeight:800, color:Number(modalEdit.value)>=0?'var(--bull)':'var(--bear)', marginBottom:'6px' }}>
-              {Number(modalEdit.value)>=0?'+':'−'}Rs{toINRd(Math.abs(Number(modalEdit.value)))}
+              {Number(modalEdit.value)>=0?'+':'−'}Rs.{toINRd(Math.abs(Number(modalEdit.value)))}
             </div>
             {modalEdit.remarks && <div style={{ fontSize:'12px', color:'var(--muted)', marginBottom:'14px' }}>{modalEdit.remarks}</div>}
             <div style={{ display:'flex', gap:'8px', marginTop:'16px' }}>
@@ -369,6 +369,21 @@ export default function RevenueSharingPage() {
 
   const TradeTable = ({ trades, execs, subscriberId }) => {
     const [statusFilter, setStatusFilter] = React.useState('ALL')
+    const [sortCol, setSortCol] = React.useState(null)
+    const [sortDir, setSortDir] = React.useState('asc')
+    const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
+    const sortIcon = (col) => sortCol===col ? (sortDir==='asc'?' ↑':' ↓') : ' ↕'
+    const applySort = (list) => {
+      if (!sortCol) return list
+      return [...list].sort((a,b) => { let av=a[sortCol]??'',bv=b[sortCol]??''; if(typeof av==='string') av=av.toLowerCase(),bv=bv.toLowerCase(); return sortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1) })
+    }
+    const downloadCSV = () => {
+      const h=['Ticker','Entry Date','Entry Price','Exit Price','Qty','Investment','Admin%','Gross P&L','Net P&L Admin']
+      const rows=mtfTrades.map(t=>{ const r=calcTradePnL(t,execs); return [t.ticker,t.entry_date,r.entryPrice,r.exitPrice||'',r.originalQty,r.investment,(r.adminRatio*100).toFixed(1)+'%',r.grossPnL.toFixed(2),r.netPnLAdmin.toFixed(2)] })
+      const csv=[h,...rows].map(r=>r.join(',')).join('\n')
+      const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob)
+      const el=document.createElement('a');el.href=url;el.download='revenue-sharing.csv';el.click();URL.revokeObjectURL(url)
+    }
     const allMtfTrades = trades.filter(t => Number(t.actual_investment) > 0)
     const mtfTrades = statusFilter === 'ALL' ? allMtfTrades : allMtfTrades.filter(t => t.status === statusFilter)
     if (allMtfTrades.length === 0) return (
@@ -384,11 +399,11 @@ export default function RevenueSharingPage() {
           {/* Summary stat cards */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:'10px', marginBottom:'16px' }}>
             {[
-              { label:'Gross P&L (Trade)',   value:`${summary.grossPnL>=0?'+':'−'}Rs${toINRd(Math.abs(summary.grossPnL))}`, color:summary.grossPnL>=0?'var(--bull)':'var(--bear)' },
-              { label:'Gross P&L (Admin)',   value:`${summary.grossPnLAdmin>=0?'+':'−'}Rs${toINRd(Math.abs(summary.grossPnLAdmin))}`, color:summary.grossPnLAdmin>=0?'var(--bull)':'var(--bear)' },
-              { label:'MTF Interest (Closed)', value:`Rs${toINRd(summary.mtfIntClosed)}`, color:'var(--gold)' },
-              { label:'MTF Interest (Open)',   value:`Rs${toINRd(summary.mtfIntOpen)}`, color:'rgba(245,158,11,0.6)' },
-              { label:'Net P&L (Admin)',      value:`${summary.netPnLAdmin>=0?'+':'−'}Rs${toINRd(Math.abs(summary.netPnLAdmin))}`, color:summary.netPnLAdmin>=0?'var(--bull)':'var(--bear)' },
+              { label:'Gross P&L (Trade)',   value:`${summary.grossPnL>=0?'+':'−'}Rs.${toINRd(Math.abs(summary.grossPnL))}`, color:summary.grossPnL>=0?'var(--bull)':'var(--bear)' },
+              { label:'Gross P&L (Admin)',   value:`${summary.grossPnLAdmin>=0?'+':'−'}Rs.${toINRd(Math.abs(summary.grossPnLAdmin))}`, color:summary.grossPnLAdmin>=0?'var(--bull)':'var(--bear)' },
+              { label:'MTF Interest (Closed)', value:`Rs.${toINRd(summary.mtfIntClosed)}`, color:'var(--gold)' },
+              { label:'MTF Interest (Open)',   value:`Rs.${toINRd(summary.mtfIntOpen)}`, color:'rgba(245,158,11,0.6)' },
+              { label:'Net P&L (Admin)',      value:`${summary.netPnLAdmin>=0?'+':'−'}Rs.${toINRd(Math.abs(summary.netPnLAdmin))}`, color:summary.netPnLAdmin>=0?'var(--bull)':'var(--bear)' },
               { label:'MTF Trades', value:`${summary.count} (${summary.closedCount} closed)`, color:'var(--text)' },
             ].map(({ label, value, color }) => (
               <div key={label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'12px 14px' }}>
@@ -400,7 +415,8 @@ export default function RevenueSharingPage() {
 
           {/* Filter tabs */}
           <div style={{ display:'flex', justifyContent:'flex-end', gap:'6px', marginBottom:'10px' }}>
-            {['ALL','OPEN','CLOSED'].map(f => (
+            <button onClick={downloadCSV} style={{ padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', marginRight:'6px' }}>⬇ CSV</button>
+          {['ALL','OPEN','CLOSED'].map(f => (
               <button key={f} onClick={() => setStatusFilter(f)} style={{
                 padding:'5px 14px', borderRadius:'4px', cursor:'pointer', fontSize:'10px',
                 fontFamily:'DM Mono, monospace', fontWeight:600,
@@ -418,8 +434,10 @@ export default function RevenueSharingPage() {
             <table className="trade-table" style={{ width:'100%' }}>
               <thead>
                 <tr>
-                  <th>Ticker</th><th>Entry Date</th>
-                  <th className="right">Entry Rs</th><th className="right">Exit Rs</th>
+                  {[['ticker','Ticker'],['entry_date','Entry Date']].map(([col,label]) => (
+                    <th key={col} onClick={() => doSort(col)} style={{ cursor:'pointer', userSelect:'none' }}>{label}{sortIcon(col)}</th>
+                  ))}
+                  <th className="right">Entry Rs.</th><th className="right">Exit Rs.</th>
                   <th className="right">Qty</th><th className="right">Investment</th>
                   <th className="right">Actual Inv</th><th className="right">Admin %</th>
                   <th className="right">MTF Interest</th><th className="right">Gross P&L</th>
@@ -427,7 +445,7 @@ export default function RevenueSharingPage() {
                 </tr>
               </thead>
               <tbody>
-                {mtfTrades.map(trade => {
+                {applySort(mtfTrades).map(trade => {
                   const r = calcTradePnL(trade, execs)
                   return (
                     <tr key={trade.id}>
@@ -438,16 +456,16 @@ export default function RevenueSharingPage() {
                         </div>
                       </td>
                       <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                      <td className="right">Rs{toINRd(r.entryPrice)}</td>
-                      <td className="right">{r.exitPrice?`Rs${toINRd(r.exitPrice)}`:<span className="neutral">—</span>}</td>
+                      <td className="right">Rs.{toINRd(r.entryPrice)}</td>
+                      <td className="right">{r.exitPrice?`Rs.${toINRd(r.exitPrice)}`:<span className="neutral">—</span>}</td>
                       <td className="right">{Number(r.originalQty).toLocaleString('en-IN')}</td>
-                      <td className="right">Rs{toINRd(r.investment)}</td>
-                      <td className="right">Rs{toINRd(r.actualInv)}</td>
+                      <td className="right">Rs.{toINRd(r.investment)}</td>
+                      <td className="right">Rs.{toINRd(r.actualInv)}</td>
                       <td className="right" style={{ color:'var(--gold)', fontWeight:600 }}>{(r.adminRatio*100).toFixed(1)}%</td>
-                      <td className="right">{r.mtfInt>0?<span style={{color:'var(--gold)'}}>Rs{toINRd(r.mtfInt)}</span>:<span className="neutral">—</span>}</td>
-                      <td className="right"><span style={{fontWeight:600,color:r.grossPnL>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnL>=0?'+':'−'}Rs{toINRd(Math.abs(r.grossPnL))}</span></td>
-                      <td className="right"><span style={{fontWeight:600,color:r.grossPnLAdmin>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnLAdmin>=0?'+':'−'}Rs{toINRd(Math.abs(r.grossPnLAdmin))}</span></td>
-                      <td className="right"><span style={{fontWeight:700,fontSize:'13px',color:r.netPnLAdmin>=0?'var(--bull)':'var(--bear)',background:r.netPnLAdmin>=0?'rgba(0,230,118,0.06)':'rgba(239,68,68,0.06)',padding:'2px 8px',borderRadius:'4px'}}>{r.netPnLAdmin>=0?'+':'−'}Rs{toINRd(Math.abs(r.netPnLAdmin))}</span></td>
+                      <td className="right">{r.mtfInt>0?<span style={{color:'var(--gold)'}}>Rs.{toINRd(r.mtfInt)}</span>:<span className="neutral">—</span>}</td>
+                      <td className="right"><span style={{fontWeight:600,color:r.grossPnL>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(r.grossPnL))}</span></td>
+                      <td className="right"><span style={{fontWeight:600,color:r.grossPnLAdmin>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnLAdmin>=0?'+':'−'}Rs.{toINRd(Math.abs(r.grossPnLAdmin))}</span></td>
+                      <td className="right"><span style={{fontWeight:700,fontSize:'13px',color:r.netPnLAdmin>=0?'var(--bull)':'var(--bear)',background:r.netPnLAdmin>=0?'rgba(0,230,118,0.06)':'rgba(239,68,68,0.06)',padding:'2px 8px',borderRadius:'4px'}}>{r.netPnLAdmin>=0?'+':'−'}Rs.{toINRd(Math.abs(r.netPnLAdmin))}</span></td>
                     </tr>
                   )
                 })}
