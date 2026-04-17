@@ -4,6 +4,21 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
 
+function triggerCSVDownload(csvContent, filename) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', filename)
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+
+
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 function NavPill({ active, isAdmin }) {
@@ -142,8 +157,7 @@ export default function AllTradesPage() {
     const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Status','Type']
     const rows=list.map(({trade,isSubscriber})=>[trade.ticker,trade.account,trade.direction,trade.entry_date,trade.entry_price,trade.exit_price||'',trade.quantity,trade.status,isSubscriber?'Subscriber':'Admin'])
     const csv=[h,...rows].map(r=>r.join(',')).join('\n')
-    const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob)
-    const el=document.createElement('a');el.href=url;el.download='all-trades.csv';el.click();URL.revokeObjectURL(url)
+    triggerCSVDownload(csv, 'all-trades.csv')
   }
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
