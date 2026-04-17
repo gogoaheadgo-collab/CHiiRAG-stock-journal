@@ -237,7 +237,7 @@ export default function RevenueSharingPage() {
   const router = useRouter()
   const [session, setSession] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   const [subscribers, setSubscribers] = useState([])
   const [selectedSub, setSelectedSub] = useState(null)
