@@ -210,7 +210,7 @@ export default function AlertsPage() {
   const loadAlerts = useCallback(async (silent = false) => {
     const token = await getToken()
     if (!token) return
-    setLoading(true)
+    if (!silent) setLoading(true)
     const res = await fetch('/api/price-alerts', { headers: { Authorization: `Bearer ${token}` } })
     const data = await res.json()
     if (Array.isArray(data)) setAlerts(data)
@@ -221,43 +221,208 @@ export default function AlertsPage() {
     setLoading(false)
   }, [getToken])
 
-  // First useEffect: load alerts when session is present
+  // Load alerts when session is present
   useEffect(() => {
     if (session) loadAlerts()
   }, [session, loadAlerts])
 
   // Silent refresh on tab focus
   useEffect(() => {
-    const _onFocus = () => {
-      if (session) loadAlerts(true)
-    }
+    const _onFocus = () => { if (session) loadAlerts(true) }
     window.addEventListener('focus', _onFocus)
     return () => window.removeEventListener('focus', _onFocus)
-  }, [session])
+  }, [session, loadAlerts])
 
+  // Fetch live prices for active alert tickers and SL trade tickers
   useEffect(() => {
     const tickers = [...new Set(alerts.filter(a => a.status === 'ACTIVE').map(a => a.ticker))]
-    // Also fetch prices for SL trade tickers
     const slTickers = [...new Set(slTrades.map(t => t.ticker))]
-    ;[...tickers, ...slTickers].forEach(async ticker => {
+    const allTickers = [...new Set([...tickers, ...slTickers])]
+    allTickers.forEach(async (ticker) => {
       try {
-        con[...tickers, ...slTickers].forEach(async ti        const d = await r.js[...tickers, ...slTickers].forEach(async ti..slTickers].forEach(async tirEach(async titch {}
+        const res = await fetch(`/api/live-price?ticker=${encodeURIComponent(ticker)}`)
+        const d = await res.json()
+        if (d?.price) setLivePrices(prev => ({ ...prev, [ticker]: d.price }))
+      } catch {}
     })
-  },[...tickers, ...slTickers].forEach(async ti) => {
-    const t[...tickers, ...slTickers].forEach(async tiit fetch('/api/price-alerts[...tickers, ...slTickers].forEach(async ti 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  }, [alerts, slTrades])
+
+  const handleAddAlert = async (form) => {
+    const token = await getToken()
+    const res = await fetch('/api/price-alerts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(form),
     })
-    const [...tickers, ...slTickers].forEach(async tis].forEach(async tita.error)
-    await loadAler[...tickers, ...slTickers].forEach(async ti => {
-    i[...tickers, ...slTickers].forEach(async ti].forEach(async tianently removed.')) return
-    if (!con[...tickers, ...slTickers].forEach(async tiis cannot be un[...tickers, ...slTickers].forEach(async tiToken()
-    await fetc[...tickers, ...slTickers].forEach(async tirs].forEach(async ti { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+    await loadAlerts()
+  }
+
+  const handleDeleteAlert = async (id) => {
+    if (!confirm('Delete this alert? This cannot be undone.')) return
+    const token = await getToken()
+    await fetch('/api/price-alerts', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ id }),
     })
-    a[...tickers, ...slTickers].forEach(async ti = async [...tickers, ...slTickers].forEach(async tigetToken()
-    await fetch('/api/price-alerts[...tickers, ...slTickers].forEach(async ti'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    await loadAlerts()
+  }
+
+  const handleToggleAlert = async (id, current) => {
+    const token = await getToken()
+    await fetch('/api/price-alerts', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ id, status: current === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' }),
     })
-    await loadA[...tickers, ...slTickers].forEach(async tid) => {
-    c[...tickers, ...slTickers].forEach(async tirEach(async tiets via[...tickers, ...slTickers].forEach(async ti
-      me[...tickers, ...slTickers].forEach(async titickers, ...slTickers].forEach(async tic ti
+    await loadAlerts()
+  }
+
+  const handleSort = (col) => {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortCol(col)
+      setSortDir('asc')
+    }
+  }
+
+  const filteredAlerts = alerts
+    .filter(a => statusFilter === 'ALL' || a.status === statusFilter)
+    .sort((a, b) => {
+      if (!sortCol) return 0
+      const va = a[sortCol] ?? ''
+      const vb = b[sortCol] ?? ''
+      return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
+    })
+
+  return (
+    <>
+      <Head><title>Alerts – CHiiRAG</title></Head>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'DM Mono, monospace' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px' }}>
+
+          {/* Nav */}
+          <div style={{ marginBottom: '24px' }}>
+            <NavPill active="Alerts" isAdmin={isAdmin} />
+          </div>
+
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 700, fontSize: '22px' }}>🔔 Price Alerts</div>
+            <button onClick={() => setShowAdd(true)} style={{
+              padding: '9px 18px', background: 'var(--accent)', color: '#fff', border: 'none',
+              borderRadius: '7px', cursor: 'pointer', fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: '12px',
+            }}>+ New Alert</button>
+          </div>
+
+          {/* Filter tabs */}
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '18px' }}>
+            {['ALL', 'ACTIVE', 'PAUSED', 'TRIGGERED'].map(f => (
+              <button key={f} onClick={() => setStatusFilter(f)} style={{
+                padding: '5px 14px', borderRadius: '5px', border: `1px solid ${statusFilter === f ? 'var(--accent)' : 'var(--border)'}`,
+                background: statusFilter === f ? 'var(--accent-dim)' : 'transparent',
+                color: statusFilter === f ? 'var(--accent)' : 'var(--muted)',
+                fontFamily: 'DM Mono, monospace', fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+              }}>{f}</button>
+            ))}
+          </div>
+
+          {/* Alerts table */}
+          {loading ? (
+            <div style={{ textAlign: 'center', color: 'var(--muted)', padding: '48px', fontSize: '13px' }}>Loading alerts...</div>
+          ) : filteredAlerts.length === 0 ? (
+            <div style={{ textAlign: 'center', color: 'var(--muted)', padding: '48px', fontSize: '13px' }}>No alerts found. Click "+ New Alert" to add one.</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    {['ticker', 'status', 'above_tg1', 'above_tg2', 'below_tg1', 'below_tg2', 'validity_months', 'note'].map(col => (
+                      <th key={col} onClick={() => handleSort(col)} style={{
+                        padding: '8px 10px', textAlign: 'left', color: 'var(--muted)',
+                        cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+                      }}>
+                        {col.replace(/_/g, ' ').toUpperCase()} {sortCol === col ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      </th>
+                    ))}
+                    <th style={{ padding: '8px 10px', color: 'var(--muted)' }}>CMP</th>
+                    <th style={{ padding: '8px 10px', color: 'var(--muted)' }}>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAlerts.map(alert => (
+                    <tr key={alert.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px', fontWeight: 700, color: 'var(--accent)' }}>{alert.ticker}</td>
+                      <td style={{ padding: '10px' }}>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
+                          background: alert.status === 'ACTIVE' ? 'rgba(34,197,94,0.12)' : alert.status === 'TRIGGERED' ? 'rgba(239,68,68,0.12)' : 'rgba(128,128,128,0.12)',
+                          color: alert.status === 'ACTIVE' ? '#22c55e' : alert.status === 'TRIGGERED' ? '#ef4444' : 'var(--muted)',
+                        }}>{alert.status}</span>
+                      </td>
+                      <td style={{ padding: '10px', color: '#22c55e' }}>{alert.above_tg1 || '–'}</td>
+                      <td style={{ padding: '10px', color: '#22c55e' }}>{alert.above_tg2 || '–'}</td>
+                      <td style={{ padding: '10px', color: '#ef4444' }}>{alert.below_tg1 || '–'}</td>
+                      <td style={{ padding: '10px', color: '#ef4444' }}>{alert.below_tg2 || '–'}</td>
+                      <td style={{ padding: '10px', color: 'var(--muted)' }}>{alert.validity_months}mo</td>
+                      <td style={{ padding: '10px', color: 'var(--muted)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.note || '–'}</td>
+                      <td style={{ padding: '10px', fontWeight: 700 }}>{livePrices[alert.ticker] ? `₹${livePrices[alert.ticker]}` : '...'}</td>
+                      <td style={{ padding: '10px' }}>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button onClick={() => handleToggleAlert(alert.id, alert.status)} style={{
+                            padding: '4px 10px', fontSize: '10px', fontFamily: 'DM Mono, monospace', fontWeight: 700,
+                            border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer',
+                            background: 'transparent', color: 'var(--muted)',
+                          }}>{alert.status === 'ACTIVE' ? 'Pause' : 'Resume'}</button>
+                          <button onClick={() => handleDeleteAlert(alert.id)} style={{
+                            padding: '4px 10px', fontSize: '10px', fontFamily: 'DM Mono, monospace', fontWeight: 700,
+                            border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px', cursor: 'pointer',
+                            background: 'transparent', color: '#ef4444',
+                          }}>Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* SL Trades section */}
+          {slTrades.length > 0 && (
+            <div style={{ marginTop: '32px' }}>
+              <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 700, fontSize: '16px', marginBottom: '12px' }}>🛑 Open Trades with Stop Loss</div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      {['TICKER', 'STOP LOSS', 'CMP', 'STATUS'].map(h => (
+                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--muted)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {slTrades.map(trade => (
+                      <tr key={trade.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px', fontWeight: 700, color: 'var(--accent)' }}>{trade.ticker}</td>
+                        <td style={{ padding: '10px', color: '#ef4444' }}>₹{trade.stop_loss}</td>
+                        <td style={{ padding: '10px', fontWeight: 700 }}>{livePrices[trade.ticker] ? `₹${livePrices[trade.ticker]}` : '...'}</td>
+                        <td style={{ padding: '10px', color: '#22c55e' }}>{trade.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {showAdd && <AddAlertModal onClose={() => setShowAdd(false)} onAdd={handleAddAlert} />}
+    </>
+  )
+}
