@@ -137,9 +137,10 @@ export default function AllTradesPage() {
       return sortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
     })
   }
-  const downloadCSV = (list) => {
-    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Status']
-    const rows=list.map(t=>[t.ticker,t.account,t.direction,t.entry_date,t.entry_price,t.exit_price||'',t.quantity,t.status])
+  const downloadCSV = () => {
+    const list = statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===statusFilter)
+    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Status','Type']
+    const rows=list.map(({trade,isSubscriber})=>[trade.ticker,trade.account,trade.direction,trade.entry_date,trade.entry_price,trade.exit_price||'',trade.quantity,trade.status,isSubscriber?'Subscriber':'Admin'])
     const csv=[h,...rows].map(r=>r.join(',')).join('\n')
     const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob)
     const el=document.createElement('a');el.href=url;el.download='all-trades.csv';el.click();URL.revokeObjectURL(url)
@@ -316,7 +317,8 @@ export default function AllTradesPage() {
                   ■ gold = subscriber account
                 </span>
               </div>
-              <div style={{ display:'flex', gap:'6px' }}>
+              <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
+                <button onClick={downloadCSV} style={{ padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>⬇ CSV</button>
                 {['ALL','OPEN','CLOSED'].map(f => (
                   <button key={f} onClick={() => setStatusFilter(f)} style={{
                     padding:'5px 14px', borderRadius:'4px', cursor:'pointer', fontSize:'10px',
