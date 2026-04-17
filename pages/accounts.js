@@ -8,16 +8,17 @@ import EditTradeModal from '../components/EditTradeModal'
 import ExecutionPanel from '../components/ExecutionPanel'
 
 function triggerCSVDownload(csvContent, filename) {
+  if (typeof window === 'undefined') return
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
+  const url = window.URL.createObjectURL(blob)
+  const link = window.document.createElement('a')
   link.setAttribute('href', url)
   link.setAttribute('download', filename)
   link.style.display = 'none'
-  document.body.appendChild(link)
+  window.document.body.appendChild(link)
   link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  window.document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
 }
 
 
@@ -56,19 +57,27 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
   const mSortIcon = (col) => mSortCol===col ? (mSortDir==='asc'?' ↑':' ↓') : ' ↕'
 
   const mComputeVal = (trade, col) => {
-    const exs = mExecs.filter(e => e.trade_id === trade.id)
-    const totalSold = exs.reduce((s,e) => s+Number(e.quantity), 0)
-    const origQty = Number(trade.quantity) || 0
-    const currQty = Math.max(0, origQty - totalSold)
-    const entry = Number(trade.entry_price) || 0
-    switch(col) {
-      case 'curr_qty': return currQty
-      case 'cmp': return livePrices[trade.ticker]?.price || 0
-      case 'unrealised': { const lp=livePrices[trade.ticker]?.price; if(!lp||currQty===0) return -Infinity; return trade.direction==='LONG'?(lp-entry)*currQty:(entry-lp)*currQty }
-      case 'realised': return exs.length>0?exs.reduce((s,e)=>s+(Number(e.price)-entry)*Number(e.quantity),0):(Number(trade.realized_gains)||0)
-      case 'mtf_int': { const inv=Number(trade.invested_capital)||(entry*origQty); const actInv=Number(trade.actual_investment)||0; const base=inv-actInv; if(!base||!trade.mtf_interest_rate||!trade.entry_date) return 0; return base*(currQty/origQty)*trade.mtf_interest_rate*Math.max(1,Math.floor((new Date()-new Date(trade.entry_date))/86400000))/36500 }
-      default: return trade[col]
+    const mExs = mExecs.filter(e => e.trade_id === trade.id)
+    const mTotalSold = mExs.reduce((s,e) => s+Number(e.quantity), 0)
+    const mOrigQty = Number(trade.quantity) || 0
+    const mCurrQty = Math.max(0, mOrigQty - mTotalSold)
+    const mEntry = Number(trade.entry_price) || 0
+    if (col === 'curr_qty') return mCurrQty
+    if (col === 'cmp') return livePrices[trade.ticker]?.price || 0
+    if (col === 'unrealised') {
+      const mLp = livePrices[trade.ticker]?.price
+      if (!mLp || mCurrQty === 0) return -Infinity
+      return trade.direction === 'LONG' ? (mLp - mEntry) * mCurrQty : (mEntry - mLp) * mCurrQty
     }
+    if (col === 'realised') return mExs.length > 0 ? mExs.reduce((s,e) => s+(Number(e.price)-mEntry)*Number(e.quantity), 0) : (Number(trade.realized_gains)||0)
+    if (col === 'mtf_int') {
+      const mInv = Number(trade.invested_capital) || (mEntry * mOrigQty)
+      const mActInv = Number(trade.actual_investment) || 0
+      const mBase = mInv - mActInv
+      if (!mBase || !trade.mtf_interest_rate || !trade.entry_date) return 0
+      return mBase * (mCurrQty/mOrigQty) * trade.mtf_interest_rate * Math.max(1, Math.floor((new Date() - new Date(trade.entry_date))/86400000)) / 36500
+    }
+    return trade[col]
   }
 
   const mApplySort = (list) => {
