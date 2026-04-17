@@ -35,10 +35,10 @@ function NavPill({ active, isAdmin }) {
 
 function StatCard({ label, value, sub, color }) {
   return (
-    <div className="stat-card">
-      <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'6px' }}>{label}</div>
-      <div style={{ fontSize:'22px', fontWeight:700, fontFamily:'Bookman Old Style, serif', color: color||'var(--text)' }}>{value}</div>
-      {sub && <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'4px' }}>{sub}</div>}
+    <div className="stat-card" style={{ padding:'18px 20px' }}>
+      <div style={{ fontSize:'10px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'8px', fontFamily:'DM Mono, monospace' }}>{label}</div>
+      <div style={{ fontSize:'26px', fontWeight:800, fontFamily:'Bookman Old Style, serif', color: color||'var(--text)', lineHeight:1.1 }}>{value}</div>
+      {sub && <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'6px', fontFamily:'DM Mono, monospace' }}>{sub}</div>}
     </div>
   )
 }
@@ -373,10 +373,10 @@ export default function Dashboard() {
         <ExitMenu />
       </header>
 
-      <main style={{ maxWidth:'1300px', margin:'0 auto', padding:'24px 16px' }}>
+      <main style={{ maxWidth:'100%', margin:'0 auto', padding:'24px 32px' }}>
 
         <div style={{ marginBottom:'20px', display:'flex', alignItems:'baseline', gap:'10px' }}>
-          <h1 style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'20px', color:'var(--text)', margin:0 }}>
+          <h1 style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'24px', color:'var(--text)', margin:0 }}>
             {isAdmin ? 'Portfolio Overview' : 'My Dashboard'}
           </h1>
           {isAdmin && mirroredAccounts.length>0 && (
@@ -391,7 +391,7 @@ export default function Dashboard() {
         ) : (
           <>
             {/* STAT CARDS */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px,1fr))', gap:'12px', marginBottom:'24px' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:'14px', marginBottom:'28px' }}>
               <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
               <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
               <StatCard label="Win Rate" value={`${winRate}%`} color="var(--accent)" sub={`${wins.length}W · ${closedTrades.length-wins.length}L`} />
