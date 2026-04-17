@@ -207,7 +207,7 @@ export default function AlertsPage() {
     return () => subscription.unsubscribe()
   }, []) // eslint-disable-line
 
-  const loadAlerts = useCallback(async () => {
+  const loadAlerts = useCallback(async (silent = false) => {
     const token = await getToken()
     if (!token) return
     setLoading(true)
@@ -221,7 +221,14 @@ export default function AlertsPage() {
     setLoading(false)
   }, [getToken])
 
-  useEffect(() => { if (session) loadAlerts() }, [session, loadAlerts])
+  useEffect(() => { if (session) loadAlerts() }
+  // Silent refresh on tab focus
+  useEffect(() => {
+    const _onFocus = () => { if (session) loadAlerts(true) }
+    window.addEventListener('focus', _onFocus)
+    return () => window.removeEventListener('focus', _onFocus)
+  }, [session]) // eslint-disable-line
+, [session, loadAlerts])
 
   useEffect(() => {
     const tickers = [...new Set(alerts.filter(a => a.status === 'ACTIVE').map(a => a.ticker))]
