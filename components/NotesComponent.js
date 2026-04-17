@@ -33,61 +33,59 @@ function NavPill({ active, isAdmin }) {
 }
 
 function MiniCalendar({ selected, onSelect, dotDates }) {
-  const [view, setView] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
-  const today = new Date()
-  const yr = view.getFullYear(), mo = view.getMonth()
-  const firstDay = new Date(yr, mo, 1).getDay()
-  const days = new Date(yr, mo+1, 0).getDate()
-  const pad = firstDay === 0 ? 6 : firstDay - 1
-  const cells = [...Array(pad).fill(null), ...Array.from({length:days},(_,i)=>i+1)]
-  const toStr = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-  const todayStr = toStr(today.getFullYear(), today.getMonth(), today.getDate())
-  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const [calView, setCalView] = React.useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1)
+  })
+
+  const now2 = new Date()
+  const calYr = calView.getFullYear()
+  const calMo = calView.getMonth()
+  const calTodayStr = now2.getFullYear() + '-' + String(now2.getMonth()+1).padStart(2,'0') + '-' + String(now2.getDate()).padStart(2,'0')
+  const calDays = new Date(calYr, calMo+1, 0).getDate()
+  const calStart = new Date(calYr, calMo, 1).getDay()
+  const calPad = calStart === 0 ? 6 : calStart - 1
+  const calGrid = [...Array(calPad).fill(null), ...Array.from({length:calDays},(_,idx)=>idx+1)]
+  const CAL_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
+
+  const makeDateStr = (y, m, day) => y + '-' + String(m+1).padStart(2,'0') + '-' + String(day).padStart(2,'0')
 
   return (
     <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'10px', overflow:'hidden', width:'220px', flexShrink:0 }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 12px', borderBottom:'1px solid var(--border)' }}>
-        <button onClick={() => setView(new Date(yr, mo-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'12px' }}>‹</button>
-        <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>{MONTHS[mo]} {yr}</span>
-        <button onClick={() => setView(new Date(yr, mo+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'12px' }}>›</button>
+        <button onClick={() => setCalView(new Date(calYr, calMo-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'12px' }}>‹</button>
+        <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>{CAL_NAMES[calMo]} {calYr}</span>
+        <button onClick={() => setCalView(new Date(calYr, calMo+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'12px' }}>›</button>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', padding:'6px 4px 2px' }}>
-        {['M','T','W','T','F','S','S'].map((d,i) => (
-          <div key={i} style={{ textAlign:'center', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600, padding:'2px 0' }}>{d}</div>
+        {['M','T','W','T','F','S','S'].map((dayLabel, dayIdx) => (
+          <div key={dayIdx} style={{ textAlign:'center', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600, padding:'2px 0' }}>{dayLabel}</div>
         ))}
-        {cells.map((d, i) => {
-          if (!d) return <div key={i} />
-          const s = toStr(yr, mo, d)
-          const isTod = s === todayStr
-          const isSel = s === selected
-          const hasDot = dotDates.has(s)
+        {calGrid.map((calNum, gridIdx) => {
+          if (!calNum) return <div key={gridIdx} />
+          const dateStr = makeDateStr(calYr, calMo, calNum)
+          const isToday = dateStr === calTodayStr
+          const isSel = dateStr === selected
+          const hasDot = dotDates.has(dateStr)
+          const bgColor = isSel ? 'var(--accent)' : isToday ? 'var(--accent-dim)' : 'transparent'
           return (
-            <div key={i} onClick={() => onSelect(s)}
-              style={{ textAlign:'center', padding:'4px 2px', cursor:'pointer', borderRadius:'5px', margin:'1px',
-                background: isSel ? 'var(--accent)' : isTod ? 'var(--accent-dim)' : 'transparent' }}
+            <div key={gridIdx} onClick={() => onSelect(dateStr)}
+              style={{ textAlign:'center', padding:'4px 2px', cursor:'pointer', borderRadius:'5px', margin:'1px', background: bgColor }}
               onMouseEnter={e => { if(!isSel) e.currentTarget.style.background='rgba(14,165,233,0.1)' }}
-              onMouseLeave={e => { if(!isSel) e.currentTarget.style.background=isTod?'var(--accent-dim)':'transparent' }}>
-              <div style={{ fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:isSel||isTod?700:400,
-                color:isSel?'#fff':isTod?'var(--accent)':'var(--text)' }}>{d}</div>
+              onMouseLeave={e => { e.currentTarget.style.background = isSel ? 'var(--accent)' : isToday ? 'var(--accent-dim)' : 'transparent' }}>
+              <div style={{ fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight: isSel||isToday?700:400, color: isSel?'#fff':isToday?'var(--accent)':'var(--text)' }}>{calNum}</div>
               {hasDot && <div style={{ width:'4px', height:'4px', borderRadius:'50%', background:isSel?'#fff':'var(--accent)', margin:'0 auto' }} />}
             </div>
           )
         })}
       </div>
       <div style={{ padding:'8px', borderTop:'1px solid var(--border)' }}>
-        <button onClick={() => onSelect(todayStr)} style={{ width:'100%', padding:'5px', background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>Today</button>
+        <button onClick={() => onSelect(calTodayStr)} style={{ width:'100%', padding:'5px', background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>Today</button>
       </div>
     </div>
   )
 }
 
-// Base64 decode helper for Supabase Storage upload
-const decodeBase64 = (base64) => {
-  const bin = atob(base64)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return bytes
-}
 
 function NotesPage() {
   const router = useRouter()
@@ -223,10 +221,11 @@ function NotesPage() {
     setStockCards(prev => { const n = {...prev}; delete n[sym]; return n })
   }
 
-  // Formatting
+  // Formatting - use execCommand safely (client-only via ssr:false wrapper)
   const fmt = (cmd, value) => {
+    if (typeof document === 'undefined') return
     editorRef.current?.focus()
-    document.execCommand(cmd, false, value)
+    try { document.execCommand(cmd, false, value) } catch(e) {}
   }
   const applyColor = (color) => fmt('foreColor', color)
   const applySize = (size) => {
@@ -299,7 +298,7 @@ function NotesPage() {
 
 
   const removeImage = (url) => {
-    if (!window.confirm('🗑 Remove this photo from the note?')) return
+    if (typeof window !== 'undefined' && !window.confirm('🗑 Remove this photo from the note?')) return
     setImageUrls(prev => prev.filter(u => u !== url))
   }
 
