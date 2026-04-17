@@ -228,7 +228,7 @@ export default function AlertsPage() {
     window.addEventListener('focus', _onFocus)
     return () => window.removeEventListener('focus', _onFocus)
   }, [session]) // eslint-disable-line
-, [session, loadAlerts])
+
 
   useEffect(() => {
     const tickers = [...new Set(alerts.filter(a => a.status === 'ACTIVE').map(a => a.ticker))]
