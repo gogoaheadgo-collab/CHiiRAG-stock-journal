@@ -221,7 +221,7 @@ export default function AlertsPage() {
     setLoading(false)
   }, [getToken])
 
-  useEffect(() => { if (session) loadAlerts() }
+  useEffect(() => { if (session) loadAlerts() }, [session, loadAlerts])
   // Silent refresh on tab focus
   useEffect(() => {
     const _onFocus = () => { if (session) loadAlerts(true) }
