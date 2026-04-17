@@ -81,7 +81,7 @@ function MiniCalendar({ selected, onSelect, dotDates }) {
   )
 }
 
-export default function NotesPage() {
+function NotesPage() {
   const router = useRouter()
   const [session, setSession] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -647,3 +647,6 @@ export default function NotesPage() {
     </>
   )
 }
+
+import dynamic from 'next/dynamic'
+export default dynamic(() => Promise.resolve(NotesPage), { ssr: false })
