@@ -4,6 +4,21 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
 
+function triggerCSVDownload(csvContent, filename) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', filename)
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+
+
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 function NavPill({ active, isAdmin }) {
@@ -381,8 +396,7 @@ export default function RevenueSharingPage() {
       const h=['Ticker','Entry Date','Entry Price','Exit Price','Qty','Investment','Admin%','Gross P&L','Net P&L Admin']
       const rows=mtfTrades.map(t=>{ const r=calcTradePnL(t,execs); return [t.ticker,t.entry_date,r.entryPrice,r.exitPrice||'',r.originalQty,r.investment,(r.adminRatio*100).toFixed(1)+'%',r.grossPnL.toFixed(2),r.netPnLAdmin.toFixed(2)] })
       const csv=[h,...rows].map(r=>r.join(',')).join('\n')
-      const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob)
-      const el=document.createElement('a');el.href=url;el.download='revenue-sharing.csv';el.click();URL.revokeObjectURL(url)
+      triggerCSVDownload(csv, 'revenue-sharing.csv')
     }
     const allMtfTrades = trades.filter(t => Number(t.actual_investment) > 0)
     const mtfTrades = statusFilter === 'ALL' ? allMtfTrades : allMtfTrades.filter(t => t.status === statusFilter)
