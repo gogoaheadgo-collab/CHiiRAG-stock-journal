@@ -124,7 +124,7 @@ export default function NotesPage() {
   }, []) // eslint-disable-line
 
   // Load all notes (for calendar dots + sidebar)
-  const loadAll = useCallback(async () => {
+  const loadAll = useCallback(async (silent = false) => {
     const token = await getToken()
     if (!token) return
     const res = await fetch('/api/notes', { headers:{ Authorization:`Bearer ${token}` } })
@@ -133,6 +133,13 @@ export default function NotesPage() {
   }, [getToken])
 
   useEffect(() => { if (session) loadAll() }, [session, loadAll])
+
+  // Silent refresh on tab focus
+  useEffect(() => {
+    const onFocus = () => { if (session) { loadAll(true); if (selectedDate) loadNote(selectedDate) } }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [session, selectedDate, loadAll, loadNote])
 
   // Load shared notes from admin (for subscribers)
   const loadShared = useCallback(async () => {
