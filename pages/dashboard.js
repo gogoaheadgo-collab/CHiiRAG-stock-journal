@@ -136,9 +136,24 @@ export default function Dashboard() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const loadData = useCallback(async () => {
+  const CACHE_KEY = 'smk_dashboard_cache'
+
+  const loadData = useCallback(async (silent = false) => {
     if (!session) return
-    setLoading(true)
+    // Show cached data instantly — no loading spinner
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const { trades: ct, executions: ce } = JSON.parse(cached)
+        if (ct) { setTrades(ct); setExecutions(ce||{}); setLoading(false) }
+      }
+    } catch {}
+
+    if (!silent) setLoading(prev => {
+      // Only show loading if no cached data
+      try { return !sessionStorage.getItem(CACHE_KEY) } catch { return true }
+    })
+
     const token = await getToken()
     const res = await fetch('/api/trades', { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
@@ -150,6 +165,8 @@ export default function Dashboard() {
       const execMap = {}
       data.forEach((t,i) => { execMap[t.id] = Array.isArray(execResults[i]) ? execResults[i] : [] })
       setExecutions(execMap)
+      // Cache the data
+      try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ trades: data, executions: execMap })) } catch {}
       const tickers = [...new Set(data.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
       tickers.forEach(async ticker => {
         try { const r = await fetch(`/api/stock/${ticker}`); const d = await r.json(); if (d.price) setLivePrices(prev=>({...prev,[ticker]:d})) } catch {}
@@ -159,6 +176,13 @@ export default function Dashboard() {
   }, [session])
 
   useEffect(() => { if (session) loadData() }, [session, loadData])
+
+  // On tab focus — refresh silently (no loading spinner)
+  useEffect(() => {
+    const onFocus = () => { if (session) loadData(true) }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [session, loadData])
 
   // Load shared admin accounts for subscribers
   useEffect(() => {
