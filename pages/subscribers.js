@@ -39,7 +39,7 @@ function toINRd(n) { return Number(n).toLocaleString('en-IN', { minimumFractionD
 export default function SubscribersPage() {
   const router = useRouter()
   const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [subscribers, setSubscribers] = useState([])
   const [pendingUsers, setPendingUsers] = useState([])
   const [approving, setApproving] = useState(null)
