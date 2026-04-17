@@ -221,14 +221,19 @@ export default function AlertsPage() {
     setLoading(false)
   }, [getToken])
 
-  useEffect(() => { if (session) loadAlerts() }
+  // First useEffect: load alerts when session is present
+  useEffect(() => {
+    if (session) loadAlerts()
+  }, [session, loadAlerts])
+
   // Silent refresh on tab focus
   useEffect(() => {
-    const _onFocus = () => { if (session) loadAlerts(true) }
+    const _onFocus = () => {
+      if (session) loadAlerts(true)
+    }
     window.addEventListener('focus', _onFocus)
     return () => window.removeEventListener('focus', _onFocus)
-  }, [session]) // eslint-disable-line
-, [session, loadAlerts])
+  }, [session])
 
   useEffect(() => {
     const tickers = [...new Set(alerts.filter(a => a.status === 'ACTIVE').map(a => a.ticker))]
@@ -236,338 +241,23 @@ export default function AlertsPage() {
     const slTickers = [...new Set(slTrades.map(t => t.ticker))]
     ;[...tickers, ...slTickers].forEach(async ticker => {
       try {
-        const r = await fetch(`/api/stock/${ticker}`)
-        const d = await r.json()
-        if (d.price) setLivePrices(p => ({ ...p, [ticker]: d.price }))
-      } catch {}
+        con[...tickers, ...slTickers].forEach(async ti        const d = await r.js[...tickers, ...slTickers].forEach(async ti..slTickers].forEach(async tirEach(async titch {}
     })
-  }, [alerts])
-
-  const handleAdd = async (form) => {
-    const token = await getToken()
-    const res = await fetch('/api/price-alerts', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  },[...tickers, ...slTickers].forEach(async ti) => {
+    const t[...tickers, ...slTickers].forEach(async tiit fetch('/api/price-alerts[...tickers, ...slTickers].forEach(async ti 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(form),
     })
-    const data = await res.json()
-    if (data.error) throw new Error(data.error)
-    await loadAlerts()
-  }
-
-  const handleDelete = async (id) => {
-    if (!confirm('🗑 Delete this alert?\n\nThis alert will be permanently removed.')) return
-    if (!confirm('⚠️ CONFIRM DELETE\n\nAre you sure? This cannot be undone.')) return
-    const token = await getToken()
-    await fetch('/api/price-alerts', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id }) })
-    await loadAlerts()
-  }
-
-  const handleToggle = async (id, current) => {
-    const token = await getToken()
-    await fetch('/api/price-alerts', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id, status: current === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' }) })
-    await loadAlerts()
-  }
-
-  const handleReset = async (id) => {
-    const token = await getToken()
-    // Reset triggered_targets too via a direct update - use PUT with special flag
-    await fetch('/api/price-alerts', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id, status: 'ACTIVE' }) })
-    await loadAlerts()
-  }
-
-  const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
-  const sortIcon = (col) => sortCol===col ? (sortDir==='asc'?' ↑':' ↓') : ' ↕'
-  const applySort = (list) => {
-    if (!sortCol) return list
-    return [...list].sort((a,b) => {
-      let av=a[sortCol], bv=b[sortCol]
-      if (av==null) av=sortDir==='asc'?'zzz':''; if (bv==null) bv=sortDir==='asc'?'zzz':''
-      if (typeof av==='string') av=av.toLowerCase(), bv=bv.toLowerCase()
-      return sortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
+    const [...tickers, ...slTickers].forEach(async tis].forEach(async tita.error)
+    await loadAler[...tickers, ...slTickers].forEach(async ti => {
+    i[...tickers, ...slTickers].forEach(async ti].forEach(async tianently removed.')) return
+    if (!con[...tickers, ...slTickers].forEach(async tiis cannot be un[...tickers, ...slTickers].forEach(async tiToken()
+    await fetc[...tickers, ...slTickers].forEach(async tirs].forEach(async ti { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id }),
     })
-  }
-  const downloadCSV = (list) => {
-    const headers = ['Ticker','Above TG1','Above TG2','Below TG1','Below TG2','Alert Date','Valid Till','Status']
-    const rows = list.map(a=>[a.ticker,a.above_tg1||'',a.above_tg2||'',a.below_tg1||'',a.below_tg2||'',a.alert_date,a.valid_till,a.status])
-    const csv=[headers,...rows].map(r=>r.join(',')).join('\n')
-    const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob)
-    const el=document.createElement('a');el.href=url;el.download='alerts.csv';el.click();URL.revokeObjectURL(url)
-  }
-  const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
-
-  const toINRd = n => n != null ? Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null
-  const fmt = n => n != null ? `Rs.${toINRd(n)}` : '—'
-
-  const filtered = statusFilter === 'ALL' ? alerts : alerts.filter(a => a.status === statusFilter)
-  const counts = {
-    ACTIVE: alerts.filter(a => a.status === 'ACTIVE').length,
-    TRIGGERED: alerts.filter(a => a.status === 'TRIGGERED').length,
-    PAUSED: alerts.filter(a => a.status === 'PAUSED').length,
-  }
-
-  const isExpired = (a) => a.valid_till && new Date(a.valid_till) < new Date()
-
-  if (!session) return null
-
-  return (
-    <>
-      <Head><title>Price Alerts — CHiiRAG Stock Journal</title></Head>
-      <div className="tricolor-bar" />
-      <header className="header" style={{ top: '4px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div className="india-flag-logo-sm" style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1, background: '#FF9933' }} />
-            <div style={{ flex: 1, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1.5px solid #000080' }} />
-            </div>
-            <div style={{ flex: 1, background: '#138808' }} />
-          </div>
-          <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)' }}>
-            CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK Journal</span>
-          </div>
-        </div>
-        <NavPill active="Alerts" isAdmin={isAdmin} />
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button onClick={signOut} className="btn btn-ghost" style={{ padding: '6px 10px', fontSize: '11px' }}>Sign Out</button>
-        </div>
-      </header>
-
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 16px 40px' }}>
-
-        {/* Page header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h1 style={{ fontFamily: 'Bookman Old Style, serif', fontSize: '22px', fontWeight: 800, color: 'var(--text)', margin: 0 }}>🔔 Price Alerts</h1>
-            <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '6px', fontFamily: 'DM Mono, monospace' }}>
-              Email notification when stock crosses your target · checked every 15 min
-            </p>
-          </div>
-          <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding: '9px 20px', fontSize: '12px' }}>+ New Alert</button>
-        </div>
-
-        {/* Stat tiles */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '10px', marginBottom: '18px' }}>
-          {[
-            { label: 'Active', key: 'ACTIVE', color: 'var(--bull)', bg: 'rgba(0,230,118,0.06)' },
-            { label: 'Triggered', key: 'TRIGGERED', color: 'var(--accent)', bg: 'var(--accent-dim)' },
-            { label: 'Paused', key: 'PAUSED', color: 'var(--muted)', bg: 'var(--surface)' },
-          ].map(s => (
-            <div key={s.key} onClick={() => setStatusFilter(s.key)}
-              style={{ background: s.bg, border: `1px solid ${statusFilter === s.key ? s.color : 'var(--border)'}`, borderRadius: '8px', padding: '12px 16px', cursor: 'pointer' }}>
-              <div style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', marginBottom: '4px', letterSpacing: '0.1em' }}>{s.label.toUpperCase()} ALERTS</div>
-              <div style={{ fontSize: '22px', fontWeight: 800, fontFamily: 'DM Mono, monospace', color: s.color }}>{counts[s.key]}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Filter tabs */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
-          <button onClick={() => downloadCSV(filtered)}
-            style={{ padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', marginRight:'6px' }}>
-            ⬇ CSV
-          </button>
-          {['ALL', 'ACTIVE', 'TRIGGERED', 'PAUSED'].map(f => (
-            <button key={f} onClick={() => setStatusFilter(f)} style={{
-              padding: '5px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px',
-              fontFamily: 'DM Mono, monospace', fontWeight: 600,
-              border: `1px solid ${statusFilter === f ? 'var(--accent)' : 'var(--border)'}`,
-              background: statusFilter === f ? 'var(--accent-dim)' : 'transparent',
-              color: statusFilter === f ? 'var(--accent)' : 'var(--muted)',
-            }}>
-              {f} ({f === 'ALL' ? alerts.length : counts[f] || 0})
-            </button>
-          ))}
-        </div>
-
-        {/* Alerts table */}
-        {loading ? (
-          <div style={{ color: 'var(--muted)', padding: '40px', textAlign: 'center' }}>Loading...</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px', border: '1px dashed var(--border)', borderRadius: '10px' }}>
-            <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔔</div>
-            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '13px', color: 'var(--muted)', marginBottom: '16px' }}>No alerts yet.</div>
-            <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding: '9px 20px', fontSize: '12px' }}>+ New Alert</button>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '10px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>
-              <thead>
-                <tr style={{ background: 'var(--surface)', borderBottom: '2px solid var(--border)' }}>
-                  {[['ticker','STOCK','left'],['','CMP','right'],['above_tg1','↑ TG1','right'],['above_tg2','↑ TG2','right'],['below_tg1','↓ TG1','right'],['below_tg2','↓ TG2','right'],['','NEXT %','right'],['alert_date','ALERT DATE','center'],['valid_till','VALID TILL','center'],['status','STATUS','center'],['','ACTION','center']].map(([col,label,align],i) => (
-                    <th key={i} onClick={() => col && doSort(col)} style={{ padding:'11px 14px', textAlign:align, color:i>=2&&i<=3?'#22c55e':i>=4&&i<=5?'#ef4444':i===6?'var(--gold)':'var(--muted)', fontWeight:i>=2&&i<=6?700:600, fontSize:'10px', letterSpacing:'0.1em', cursor:col?'pointer':'default', userSelect:'none', whiteSpace:'nowrap' }}>
-                      {label}{col?sortIcon(col):''}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {applySort(filtered).map((alert, idx) => {
-                  const cmp = livePrices[alert.ticker]
-                  const expired = isExpired(alert)
-                  const triggered = alert.triggered_targets || []
-                  const statusColor = alert.status === 'ACTIVE' ? 'var(--bull)' : alert.status === 'TRIGGERED' ? 'var(--accent)' : 'var(--muted)'
-
-                  const tgCell = (val, key, isAbove) => {
-                    if (!val) return <td style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>—</td>
-                    const hit = triggered.includes(key)
-                    const baseColor = isAbove ? '#22c55e' : '#ef4444'
-                    return (
-                      <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid var(--border)', background: hit ? (isAbove ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : 'transparent' }}>
-                        <span style={{ color: hit ? baseColor : baseColor, fontWeight: hit ? 800 : 600, fontSize: '12px' }}>
-                          Rs.{toINRd(val)}
-                          {hit && <span style={{ marginLeft: '4px', fontSize: '10px' }}>✓</span>}
-                        </span>
-                      </td>
-                    )
-                  }
-
-                  return (
-                    <tr key={alert.id} style={{ background: idx % 2 === 0 ? 'var(--bg)' : 'var(--surface)', opacity: alert.status === 'PAUSED' ? 0.55 : 1 }}>
-                      {/* Stock */}
-                      <td style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-                        <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text)' }}>{alert.ticker}</div>
-                        {alert.note && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>📝 {alert.note}</div>}
-                      </td>
-                      {/* CMP */}
-                      <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>
-                        {cmp ? <span style={{ fontWeight: 700, color: 'var(--text)' }}>Rs.{toINRd(cmp)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
-                      </td>
-                      {/* Above TG1 */}
-                      {tgCell(alert.above_tg1, 'above_tg1', true)}
-                      {/* Above TG2 */}
-                      {tgCell(alert.above_tg2, 'above_tg2', true)}
-                      {/* Below TG1 */}
-                      {tgCell(alert.below_tg1, 'below_tg1', false)}
-                      {/* Below TG2 */}
-                      {tgCell(alert.below_tg2, 'below_tg2', false)}
-                      {/* Next Target % */}
-                      {(() => {
-                        if (!cmp) return <td style={{ padding:'10px 14px', textAlign:'right', color:'var(--muted)', borderBottom:'1px solid var(--border)' }}>—</td>
-                        // Find next untriggered target closest to CMP
-                        const allTargets = [
-                          { val: alert.above_tg1, key: 'above_tg1' },
-                          { val: alert.above_tg2, key: 'above_tg2' },
-                          { val: alert.below_tg1, key: 'below_tg1' },
-                          { val: alert.below_tg2, key: 'below_tg2' },
-                        ].filter(t => t.val && !triggered.includes(t.key))
-                        if (!allTargets.length) return <td style={{ padding:'10px 14px', textAlign:'right', color:'var(--muted)', borderBottom:'1px solid var(--border)' }}>—</td>
-                        // Pick closest to CMP
-                        const next = allTargets.reduce((a, b) => Math.abs(a.val - cmp) < Math.abs(b.val - cmp) ? a : b)
-                        const pct = ((next.val - cmp) * 100 / cmp)
-                        const isUp = pct >= 0
-                        return (
-                          <td style={{ padding:'10px 14px', textAlign:'right', borderBottom:'1px solid var(--border)' }}>
-                            <span style={{ fontWeight:700, fontSize:'12px', fontFamily:'DM Mono, monospace', color: isUp ? '#22c55e' : '#ef4444' }}>
-                              {isUp ? '+' : ''}{pct.toFixed(2)}%
-                            </span>
-                            <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'1px' }}>Rs.{Number(next.val).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                          </td>
-                        )
-                      })()}
-                      {/* Alert Date */}
-                      <td style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--muted)', borderBottom: '1px solid var(--border)', fontSize: '11px' }}>
-                        {alert.alert_date ? new Date(alert.alert_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                      </td>
-                      {/* Valid Till */}
-                      <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid var(--border)', fontSize: '11px' }}>
-                        <span style={{ color: expired ? 'var(--bear)' : 'var(--bull)', fontWeight: expired ? 700 : 400 }}>
-                          {alert.valid_till ? new Date(alert.valid_till).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                        </span>
-                        {expired && <div style={{ fontSize: '9px', color: 'var(--bear)', marginTop: '2px' }}>EXPIRED</div>}
-                      </td>
-                      {/* Status */}
-                      <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: statusColor, background: alert.status === 'ACTIVE' ? 'rgba(0,230,118,0.08)' : alert.status === 'TRIGGERED' ? 'var(--accent-dim)' : 'var(--surface)', padding: '3px 8px', borderRadius: '4px' }}>
-                          {alert.status}
-                        </span>
-                      </td>
-                      {/* Actions */}
-                      <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
-                          {alert.status === 'TRIGGERED' && (
-                            <button onClick={() => handleReset(alert.id)} style={{ padding: '4px 8px', background: 'var(--accent-dim)', border: '1px solid var(--accent)', color: 'var(--accent)', borderRadius: '4px', cursor: 'pointer', fontSize: '9px', fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>↺</button>
-                          )}
-                          {(alert.status === 'ACTIVE' || alert.status === 'PAUSED') && (
-                            <button onClick={() => handleToggle(alert.id, alert.status)} style={{ padding: '4px 8px', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '4px', cursor: 'pointer', fontSize: '10px' }}>
-                              {alert.status === 'ACTIVE' ? '⏸' : '▶'}
-                            </button>
-                          )}
-                          <button onClick={() => handleDelete(alert.id)} style={{ padding: '4px 8px', background: 'none', border: '1px solid var(--border)', color: 'var(--bear)', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>🗑</button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ── STOP LOSS TRADES SECTION ── */}
-        {slTrades.length > 0 && (
-          <div style={{ marginTop: '32px' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
-              <h2 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'17px', fontWeight:700, margin:0, color:'var(--text)' }}>🚨 Stop Loss Monitor</h2>
-              <span style={{ fontSize:'10px', background:'rgba(239,68,68,0.1)', color:'var(--bear)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>OPEN TRADES WITH SL</span>
-            </div>
-            <div style={{ overflowX:'auto', border:'1px solid var(--border)', borderRadius:'10px' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', fontFamily:'DM Mono, monospace' }}>
-                <thead>
-                  <tr style={{ background:'var(--surface)', borderBottom:'2px solid var(--border)' }}>
-                    <th style={{ padding:'10px 14px', textAlign:'left', color:'var(--muted)', fontSize:'10px', letterSpacing:'0.1em' }}>STOCK</th>
-                    <th style={{ padding:'10px 14px', textAlign:'left', color:'var(--muted)', fontSize:'10px', letterSpacing:'0.1em' }}>ACCOUNT</th>
-                    <th style={{ padding:'10px 14px', textAlign:'right', color:'var(--muted)', fontSize:'10px', letterSpacing:'0.1em' }}>BUY PRICE</th>
-                    <th style={{ padding:'10px 14px', textAlign:'right', color:'var(--muted)', fontSize:'10px', letterSpacing:'0.1em' }}>CMP</th>
-                    <th style={{ padding:'10px 14px', textAlign:'right', color:'var(--bear)', fontSize:'10px', letterSpacing:'0.1em', fontWeight:700 }}>STOP LOSS</th>
-                    <th style={{ padding:'10px 14px', textAlign:'right', color:'var(--bear)', fontSize:'10px', letterSpacing:'0.1em', fontWeight:700 }}>SL %</th>
-                    <th style={{ padding:'10px 14px', textAlign:'right', color:'var(--muted)', fontSize:'10px', letterSpacing:'0.1em' }}>DISTANCE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {slTrades.map((trade, idx) => {
-                    const cmp = livePrices[trade.ticker]
-                    const slPct = ((trade.stop_loss - trade.entry_price) / trade.entry_price * 100)
-                    const dist = cmp ? ((cmp - trade.stop_loss) / trade.stop_loss * 100) : null
-                    const isNear = dist !== null && dist < 3
-                    const isHit = dist !== null && dist <= 0
-                    return (
-                      <tr key={trade.id} style={{ background: isHit ? 'rgba(239,68,68,0.08)' : isNear ? 'rgba(239,68,68,0.04)' : idx%2===0?'var(--bg)':'var(--surface)', borderLeft: isHit ? '3px solid var(--bear)' : isNear ? '3px solid rgba(239,68,68,0.4)' : '3px solid transparent' }}>
-                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', fontWeight:800, color:'var(--text)' }}>
-                          {trade.ticker}
-                          {isHit && <span style={{ marginLeft:'6px', fontSize:'9px', background:'var(--bear)', color:'#fff', padding:'1px 5px', borderRadius:'3px' }}>HIT</span>}
-                          {isNear && !isHit && <span style={{ marginLeft:'6px', fontSize:'9px', background:'rgba(239,68,68,0.2)', color:'var(--bear)', padding:'1px 5px', borderRadius:'3px' }}>NEAR</span>}
-                        </td>
-                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', color:'var(--muted)', fontSize:'11px' }}>{trade.account || '—'}</td>
-                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right' }}>Rs.{Number(trade.entry_price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:600, color: isHit?'var(--bear)':'var(--text)' }}>
-                          {cmp ? `Rs.${Number(cmp).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'}
-                        </td>
-                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:700, color:'var(--bear)' }}>
-                          Rs.{Number(trade.stop_loss).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
-                        </td>
-                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:700, color:'var(--bear)' }}>
-                          {slPct.toFixed(2)}%
-                        </td>
-                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right' }}>
-                          {dist !== null
-                            ? <span style={{ fontWeight:700, color: isHit?'var(--bear)':isNear?'rgba(239,68,68,0.8)':'var(--bull)' }}>{dist>0?'+':''}{dist.toFixed(2)}%</span>
-                            : <span style={{ color:'var(--muted)' }}>—</span>}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginTop: '20px', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', lineHeight: 1.8 }}>
-          ℹ️ Alerts checked every 15 min · Mon–Fri 9:15 AM – 3:30 PM IST · Email sent on trigger · ✓ = already triggered
-        </div>
-      </main>
-
-      {showAdd && <AddAlertModal onClose={() => setShowAdd(false)} onAdd={handleAdd} />}
-    </>
-  )
-}
+    a[...tickers, ...slTickers].forEach(async ti = async [...tickers, ...slTickers].forEach(async tigetToken()
+    await fetch('/api/price-alerts[...tickers, ...slTickers].forEach(async ti'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id, status: current === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' }),
+    })
+    await loadA[...tickers, ...slTickers].forEach(async tid) => {
+    c[...tickers, ...slTickers].forEach(async tirEach(async tiets via[...tickers, ...slTickers].forEach(async ti
+      me[...tickers, ...slTickers].forEach(async titickers, ...slTickers].forEach(async tic ti
