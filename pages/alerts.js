@@ -3,6 +3,21 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 
+function triggerCSVDownload(csvContent, filename) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', filename)
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+
+
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 function NavPill({ active, isAdmin }) {
@@ -290,8 +305,7 @@ export default function AlertsPage() {
     const headers = ['Ticker','Above TG1','Above TG2','Below TG1','Below TG2','Alert Date','Valid Till','Status']
     const rows = list.map(a=>[a.ticker,a.above_tg1||'',a.above_tg2||'',a.below_tg1||'',a.below_tg2||'',a.alert_date,a.valid_till,a.status])
     const csv=[headers,...rows].map(r=>r.join(',')).join('\n')
-    const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob)
-    const el=document.createElement('a');el.href=url;el.download='alerts.csv';el.click();URL.revokeObjectURL(url)
+    triggerCSVDownload(csv, 'alerts.csv')
   }
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
