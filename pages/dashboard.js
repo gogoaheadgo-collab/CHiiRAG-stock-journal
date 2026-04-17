@@ -117,7 +117,7 @@ function PnLCalendar({ trades }) {
 export default function Dashboard() {
   const router = useRouter()
   const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [trades, setTrades] = useState([])
   const [executions, setExecutions] = useState({})
   const [livePrices, setLivePrices] = useState({})
@@ -138,7 +138,7 @@ export default function Dashboard() {
 
   const loadData = useCallback(async (silent = false) => {
     if (!session) return
-    if (!silent) setLoading(true)
+    if (!silent) setLoading(prev => trades.length === 0 ? true : prev)
     const token = await getToken()
     const res = await fetch('/api/trades', { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
