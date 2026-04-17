@@ -80,13 +80,22 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
             <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>READ ONLY · LIVE SYNC</span>
 
           </div>
-          <div style={{ display:'flex', gap:'6px' }}>
+          <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
             {['ALL','OPEN','CLOSED'].map(f => (
               <button key={f} onClick={() => setMirrorFilter(f)}
                 style={{ padding:'4px 12px', borderRadius:'4px', border:`1px solid ${mirrorFilter===f?'var(--gold)':'var(--border)'}`, background:mirrorFilter===f?'rgba(245,158,11,0.1)':'transparent', color:mirrorFilter===f?'var(--gold)':'var(--muted)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', fontWeight:600 }}>
                 {f} ({f==='ALL'?mTrades.length:mTrades.filter(t=>t.status===f).length})
               </button>
             ))}
+            <button onClick={() => {
+              const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Status']
+              const rows = baseFiltered.map(t => [t.ticker,t.direction,t.account||'',t.entry_date,t.entry_price,t.exit_price||'',t.quantity,t.status])
+              const csv = [headers,...rows].map(r=>r.join(',')).join('\n')
+              const blob = new Blob([csv],{type:'text/csv'}); const url = URL.createObjectURL(blob)
+              const a = document.createElement('a'); a.href=url; a.download=`${mirrorInfo?.subscriber_name||'trades'}_trades.csv`; a.click(); URL.revokeObjectURL(url)
+            }} style={{ padding:'4px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>
+              ⬇ CSV
+            </button>
           </div>
         </div>
         {mTrades.length === 0 ? (
@@ -926,8 +935,10 @@ export default function AccountsPage() {
                       <button onClick={() => setSelectedMonth(null)} style={{ background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontSize:'13px', padding:0, lineHeight:1 }}>×</button>
                     </span>
                   )}
-                  <button onClick={() => downloadCSV(monthFiltered, `${activeAccount}_trades.csv`)}
-                    style={{ marginLeft:'auto', padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>
+                  <button onClick={() => {
+                    const toDownload = selectedMonth ? filtered.filter(t => t.entry_date && t.entry_date.slice(0,7) === selectedMonth) : filtered
+                    downloadCSV(toDownload, `${activeAccount}_trades.csv`)
+                  }} style={{ marginLeft:'auto', padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>
                     ⬇ CSV
                   </button>
                 </div>
