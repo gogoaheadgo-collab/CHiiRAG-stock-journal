@@ -305,21 +305,9 @@ export default function AccountsPage() {
     data.forEach(m => loadMirroredTrades(m.subscriber_id, token))
   }, [loadMirroredTrades])
 
-  const ACC_CACHE = 'smk_accounts_cache'
-
   const loadData = useCallback(async (silent = false) => {
     if (!session) return
-    // Show cached data instantly
-    try {
-      const cached = sessionStorage.getItem(ACC_CACHE)
-      if (cached) {
-        const { trades: ct, accounts: ca, executions: ce } = JSON.parse(cached)
-        if (ct && ca) { setTrades(ct); setAccounts(ca); setExecutions(ce||{}); setLoading(false) }
-      }
-    } catch {}
-
-    if (!silent) setLoading(prev => { try { return !sessionStorage.getItem(ACC_CACHE) } catch { return true } })
-
+    if (!silent) setLoading(true)
     const token = await getToken()
     const [tRes, aRes] = await Promise.all([
       fetch('/api/trades', { headers:{ Authorization:`Bearer ${token}` } }),
@@ -335,18 +323,12 @@ export default function AccountsPage() {
       setAccounts(aData)
       if (aData.length > 0) setActiveAccount(prev => prev || aData[0].name)
     }
-    // Cache result
-    try {
-      const execSnap = {}
-      tData.forEach(t => { execSnap[t.id] = [] }) // light cache without execs
-      sessionStorage.setItem(ACC_CACHE, JSON.stringify({ trades: tData||[], accounts: aData||[], executions: execSnap }))
-    } catch {}
     setLoading(false)
   }, [session]) // eslint-disable-line
 
   useEffect(() => { if (session) loadData() }, [session, loadData])
 
-  // Silent background refresh on tab focus
+  // Refresh silently on tab focus — no spinner, always fresh
   useEffect(() => {
     const onFocus = () => { if (session) loadData(true) }
     window.addEventListener('focus', onFocus)
