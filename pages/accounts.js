@@ -7,6 +7,21 @@ import AddTradeModal from '../components/AddTradeModal'
 import EditTradeModal from '../components/EditTradeModal'
 import ExecutionPanel from '../components/ExecutionPanel'
 
+function triggerCSVDownload(csvContent, filename) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', filename)
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+
+
 function NavPill({ active, isAdmin }) {
   const router = useRouter()
   const items = [
@@ -91,8 +106,7 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
               const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Status']
               const rows = baseFiltered.map(t => [t.ticker,t.direction,t.account||'',t.entry_date,t.entry_price,t.exit_price||'',t.quantity,t.status])
               const csv = [headers,...rows].map(r=>r.join(',')).join('\n')
-              const blob = new Blob([csv],{type:'text/csv'}); const url = URL.createObjectURL(blob)
-              const a = document.createElement('a'); a.href=url; a.download=`${mirrorInfo?.subscriber_name||'trades'}_trades.csv`; a.click(); URL.revokeObjectURL(url)
+              triggerCSVDownload(csv, `${mirrorInfo?.subscriber_name||'trades'}_trades.csv`)
             }} style={{ padding:'4px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>
               ⬇ CSV
             </button>
@@ -618,10 +632,7 @@ export default function AccountsPage() {
     const headers = ['Ticker','Direction','Entry Date','Entry Price','Exit Price','Qty','Investment','Actual Inv','MTF Interest','Status']
     const rows = tradeList.map(t => [t.ticker,t.direction,t.entry_date,t.entry_price,t.exit_price||'',t.quantity,t.invested_capital||'',t.actual_investment||'',t.mtf_interest_rate||'',t.status])
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type:'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
-    URL.revokeObjectURL(url)
+    triggerCSVDownload(csv, filename)
   }
 
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
