@@ -81,6 +81,14 @@ function MiniCalendar({ selected, onSelect, dotDates }) {
   )
 }
 
+// Base64 decode helper for Supabase Storage upload
+const decodeBase64 = (base64) => {
+  const bin = atob(base64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes
+}
+
 function NotesPage() {
   const router = useRouter()
   const [session, setSession] = useState(null)
@@ -268,36 +276,28 @@ function NotesPage() {
     setSaving(false)
   }
 
-  // Image upload — base64 approach (no formidable needed)
+  // Image upload via API (uses service role key server-side)
   const handleImage = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     setImgUploading(true)
-    const token = await getToken()
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const base64 = reader.result.split(',')[1]
-      const ext = file.name.split('.').pop()
-      try {
-        const { data, error } = await supabase.storage.from('note-images')
-          .upload(`${Date.now()}.${ext}`, decode(base64), { contentType: file.type, upsert: false })
-        if (!error) {
-          const { data:{ publicUrl } } = supabase.storage.from('note-images').getPublicUrl(data.path)
-          setImageUrls(prev => [...prev, publicUrl])
-        }
-      } catch {}
-      setImgUploading(false)
-    }
-    reader.readAsDataURL(file)
+    try {
+      const token = await getToken()
+      const formData = new FormData()
+      formData.append('image', file)
+      const res = await fetch('/api/upload-note-image', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.url) setImageUrls(prev => [...prev, data.url])
+    } catch (err) { console.error('Image upload error:', err) }
+    setImgUploading(false)
+    if (fileRef.current) fileRef.current.value = ''
   }
 
-  // Simple base64 decode for storage upload
-  function decode(base64) {
-    const bin = atob(base64)
-    const bytes = new Uint8Array(bin.length)
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-    return bytes
-  }
+
 
   const removeImage = (url) => {
     if (!window.confirm('🗑 Remove this photo from the note?')) return
