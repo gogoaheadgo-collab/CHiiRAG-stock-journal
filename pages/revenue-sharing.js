@@ -22,6 +22,34 @@ function triggerCSVDownload(csvContent, filename) {
 
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
+
+function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR }) {
+  const [settlements, setSettlements] = React.useState([])
+  const [month, setMonth] = React.useState(new Date())
+  const [modalDate, setModalDate] = React.useState(null)
+  const [modalEdit, setModalEdit] = React.useState(null)
+  const [form, setForm] = React.useState({ value:'', remarks:'' })
+  const [saving, setSaving] = React.useState(false)
+  const [netPnL] = React.useState(0)
+  const today = new Date()
+
+  const load = React.useCallback(async () => {
+    const token = await getToken()
+    const res = await fetch(`/api/settlements?subscriber_id=${subscriber.id}`, { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (Array.isArray(data)) setSettlements(data)
+  }, [subscriber.id, getToken])
+
+  React.useEffect(() => { load() }, [load])
+
+  const save = async () => {
+    if (!form.value || saving) return
+    setSaving(true)
+    const token = await getToken()
+    await fetch('/api/settlements', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ subscriber_id: subscriber.id, date: modalDate, value: parseFloat(form.value), remarks: form.remarks }) })
+    setSaving(false); setModalDate(null); await load()
+  }
+
   const remove = async (id) => {
     if (!confirm('🗑 Delete this settlement?\n\nThis settlement record will be permanently removed.')) return
     if (!confirm('⚠️ CONFIRM DELETE\n\nAre you sure? The Unsettled P&L will change after deletion.')) return
@@ -186,6 +214,8 @@ const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
     </div>
   )
 
+
+}
 
 export default function RevenueSharingPage() {
   const router = useRouter()
