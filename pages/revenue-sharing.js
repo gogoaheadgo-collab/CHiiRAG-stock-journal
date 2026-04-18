@@ -379,12 +379,8 @@ export default function RevenueSharingPage() {
     }
 
     const removeSettlement = async (id) => {
-      if (!confirm('🗑 Delete this settlement?
-
-This settlement record will be permanently removed.')) return
-      if (!confirm('⚠️ CONFIRM DELETE
-
-Are you sure? The Unsettled P&L will change after deletion.')) return
+      if (!confirm('🗑 Delete this settlement?\n\nThis settlement record will be permanently removed.')) return
+      if (!confirm('⚠️ CONFIRM DELETE\n\nAre you sure? The Unsettled P&L will change after deletion.')) return
       const token = await getToken()
       await fetch('/api/settlements', { method:'DELETE', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ id }) })
       setModalEdit(null)
