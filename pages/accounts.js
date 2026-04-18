@@ -21,6 +21,10 @@ function triggerCSVDownload(csvContent, filename) {
   window.document.body.removeChild(link)
   window.URL.revokeObjectURL(url)
 }
+function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, setMirrorFilter, livePrices, toINRd, toINR, loadMirroredTrades, activeMirror, selectedMonth, setSelectedMonth }) {
+  const [mSortCol, setMSortCol] = React.useState(null)
+  const [mSortDir, setMSortDir] = React.useState('asc')
+  const mDoSort = (col) => { if(mSortCol===col) setMSortDir(d=>d==='asc'?'desc':'asc'); else { setMSortCol(col); setMSortDir('asc') } }
   const mSortIcon = (col) => mSortCol===col ? (mSortDir==='asc'?' ↑':' ↓') : ' ↕'
 
   const mComputeVal = (trade, col) => {
@@ -166,7 +170,7 @@ function triggerCSVDownload(csvContent, filename) {
       />
     </div>
   )
-
+}
 
 function AccountRightPanel({ trades, executions, livePrices, selectedMonth, setSelectedMonth }) {
   const allYears = [...new Set(trades.map(t => t.entry_date?.slice(0,4)).filter(Boolean))].sort().reverse()
