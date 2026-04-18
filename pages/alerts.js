@@ -419,7 +419,7 @@ export default function AlertsPage() {
                       </td>
                       {/* CMP */}
                       <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>
-                        {cmp ? <span style={{ fontWeight: 700, color: 'var(--text)' }}>\{toINRd(cmp)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        {cmp ? <span style={{ fontWeight: 700, color: 'var(--text)' }}>Rs.{toINRd(cmp)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
                       </td>
                       {/* Above TG1 */}
                       {tgCell(alert.above_tg1, 'above_tg1', true)}
