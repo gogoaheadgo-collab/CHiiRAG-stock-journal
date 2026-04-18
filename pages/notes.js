@@ -273,14 +273,14 @@ export default function NotesPage() {
             </div>
             <div style={{ flex:1, background:'#138808' }} />
           </div>
-          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
+          <div className="header-brand" style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
         </div>
         <NavPill active="Notes" isAdmin={isAdmin} />
         <button onClick={async () => { await supabase.auth.signOut(); window.location.href='/' }}
           className="btn btn-ghost" style={{ padding:'6px 12px', fontSize:'11px' }}>EXIT ▾</button>
       </header>
 
-      <main style={{ maxWidth:'100%', padding:'80px 24px 40px' }}>
+      <main style={{ maxWidth:'100%', padding:'72px 20px 40px' }}>
 
         {/* MY NOTES */}
         {(
