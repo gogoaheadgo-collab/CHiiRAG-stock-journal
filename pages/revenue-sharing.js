@@ -22,54 +22,6 @@ function triggerCSVDownload(csvContent, filename) {
 
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
-
-
-    { label:'Dashboard', path:'/dashboard' },
-    { label:'Accounts', path:'/accounts' },
-    ...(isAdmin ? [
-      { label:'Subscribers', path:'/subscribers' },
-      { label:'All Trades', path:'/all-trades' },
-    ] : []),
-    { label:'Revenue Sharing', path:'/revenue-sharing' },
-    { label:'Alerts', path:'/alerts' },
-    { label:'Notes', path:'/notes' },
-  ]
-
-// ── Mini Settlement Calendar ──
-function SettlementCalendar({ subscriberId, isAdmin, getToken, netPnL }) {
-  const today = new Date()
-  const [month, setMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
-  const [settlements, setSettlements] = useState([])
-  const [modalDate, setModalDate] = useState(null)  // date string 'YYYY-MM-DD'
-  const [modalEdit, setModalEdit] = useState(null)  // existing settlement to delete
-  const [form, setForm] = useState({ value:'', remarks:'' })
-  const [saving, setSaving] = useState(false)
-
-  const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
-
-  const load = useCallback(async () => {
-    if (!subscriberId) return
-    const token = await getToken()
-    const res = await fetch(`/api/settlements?subscriber_id=${subscriberId}`, { headers:{ Authorization:`Bearer ${token}` } })
-    const data = await res.json()
-    if (Array.isArray(data)) setSettlements(data)
-  }, [subscriberId, getToken])
-
-  useEffect(() => { load() }, [load])
-
-  const save = async () => {
-    if (!form.value) return
-    setSaving(true)
-    const token = await getToken()
-    await fetch('/api/settlements', {
-      method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-      body: JSON.stringify({ subscriber_id: subscriberId, date: modalDate, value: Number(form.value), remarks: form.remarks })
-    })
-    setForm({ value:'', remarks:'' }); setModalDate(null)
-    await load()
-    setSaving(false)
-  }
-
   const remove = async (id) => {
     if (!confirm('🗑 Delete this settlement?\n\nThis settlement record will be permanently removed.')) return
     if (!confirm('⚠️ CONFIRM DELETE\n\nAre you sure? The Unsettled P&L will change after deletion.')) return
@@ -233,7 +185,7 @@ function SettlementCalendar({ subscriberId, isAdmin, getToken, netPnL }) {
       )}
     </div>
   )
-}
+
 
 export default function RevenueSharingPage() {
   const router = useRouter()
