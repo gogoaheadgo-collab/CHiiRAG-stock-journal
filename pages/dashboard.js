@@ -401,7 +401,7 @@ export default function Dashboard() {
                             <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{t.filter(x=>x.status==='CLOSED').length}</td>
                             <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:unr>=0?'var(--bull)':'var(--bear)' }}>{unr>=0?'+':'−'}Rs.{toINR(Math.abs(unr))}</td>
                             <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:rel>=0?'var(--bull)':'var(--bear)' }}>{rel>=0?'+':'−'}Rs.{toINR(Math.abs(rel))}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>\{toINRd(mtf)}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(mtf)}</td>
                           </tr>
                         )
                       })}
@@ -441,7 +441,7 @@ export default function Dashboard() {
                           </div>
                           <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px' }}>
                             <span style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>MTF Int</span>
-                            <span style={{ color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>\{toINRd(mtf)}</span>
+                            <span style={{ color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(mtf)}</span>
                           </div>
                           <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px', marginTop:'2px', paddingTop:'4px', borderTop:'1px solid var(--border)' }}>
                             <span style={{ color:'var(--accent)', fontFamily:'DM Mono, monospace', fontWeight:600 }}>{open} Open</span>
@@ -496,8 +496,8 @@ export default function Dashboard() {
                                 background:trade.direction==='LONG'?'var(--accent-dim)':'var(--bear-dim)',
                                 color:trade.direction==='LONG'?'var(--accent)':'var(--bear)' }}>{trade.direction}</span>
                             </td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>\{toINRd(trade.entry_price)}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>Rs.{toINR(currentQty)}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(trade.entry_price)}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>{toINR(currentQty)}</td>
                             <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{cmp?`Rs.${toINRd(cmp)}`:'—'}</td>
                             <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700, color:lp?.change>=0?'var(--bull)':'var(--bear)' }}>
                               {lp?.changePercent!=null?`${lp.change>=0?'+':''}${lp.changePercent.toFixed(2)}%`:'—'}
