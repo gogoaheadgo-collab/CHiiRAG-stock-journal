@@ -353,6 +353,7 @@ export default function RevenueSharingPage() {
 
   const TradeTable = ({ trades, execs, subscriberId }) => {
     const [statusFilter, setStatusFilter] = React.useState('ALL')
+    const [calMonth, setCalMonth] = React.useState(new Date())
     const [sortCol, setSortCol] = React.useState(null)
     const [sortDir, setSortDir] = React.useState('asc')
     const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
@@ -467,11 +468,11 @@ export default function RevenueSharingPage() {
           </div>
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderBottom:'1px solid var(--border)' }}>
-              <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth()-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>‹</button>
+              <button onClick={() => setMonth(new Date(calMonth.getFullYear(), calMonth.getMonth()-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>‹</button>
               <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>
-                {month.toLocaleString('default',{month:'short'})} {month.getFullYear()}
+                {calMonth.toLocaleString('default',{month:'short'})} {calMonth.getFullYear()}
               </span>
-              <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth()+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>›</button>
+              <button onClick={() => setMonth(new Date(calMonth.getFullYear(), calMonth.getMonth()+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>›</button>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', background:'var(--surface)' }}>
               {['M','T','W','T','F','S','S'].map((dayL,di) => (
@@ -480,7 +481,7 @@ export default function RevenueSharingPage() {
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'1px', background:'var(--border)', padding:'1px' }}>
               {(() => {
-                const calYr = month.getFullYear(), calMo = month.getMonth()
+                const calYr = calMonth.getFullYear(), calMo = month.getMonth()
                 const calFmt = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
                 const calToday = new Date()
                 const calTodayStr = calFmt(calToday.getFullYear(), calToday.getMonth(), calToday.getDate())
