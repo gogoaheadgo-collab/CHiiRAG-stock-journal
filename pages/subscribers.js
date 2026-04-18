@@ -269,7 +269,7 @@ export default function SubscribersPage() {
         </div>
       </header>
 
-      <main style={{ paddingTop:'80px', maxWidth:'1400px', margin:'0 auto', padding:'80px 24px 40px' }}>
+      <main style={{ paddingTop:'80px', maxWidth:'1400px', margin:'0 auto', padding:'72px 20px 40px' }}>
 
         {/* Subscriber Summary Table */}
         <div style={{ marginBottom:'32px' }}>
