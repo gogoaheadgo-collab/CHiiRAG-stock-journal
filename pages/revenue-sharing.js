@@ -664,7 +664,13 @@ export default function RevenueSharingPage() {
                 </div>
                 {subLoading
                   ? <div style={{ color:'var(--muted)', padding:'20px' }}>Loading trades...</div>
-                  : <TradeTable trades={subTrades} execs={subExecs} subscriberId={selectedSub.id} />}
+                  : <>
+                      <SubscriberPanel subscriber={selectedSub} isAdmin={isAdmin} getToken={getToken} toINRd={toINRd} toINR={n => Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0})} />
+                      <div style={{ marginTop:'20px' }}>
+                        <TradeTable trades={subTrades} execs={subExecs} subscriberId={selectedSub.id} />
+                      </div>
+                    </>
+                }
               </div>
             )}
           </div>
@@ -674,7 +680,10 @@ export default function RevenueSharingPage() {
               <h2 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'17px', fontWeight:700, margin:0 }}>My Revenue Share</h2>
               <span style={{ fontSize:'10px', background:'var(--accent-dim)', color:'var(--accent)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>MTF TRADES ONLY</span>
             </div>
-            <TradeTable trades={ownTrades} execs={ownExecs} subscriberId={session.user.id} />
+            <SubscriberPanel subscriber={{ id: session.user.id, full_name: 'My Account' }} isAdmin={isAdmin} getToken={getToken} toINRd={toINRd} toINR={n => Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0})} />
+            <div style={{ marginTop:'20px' }}>
+              <TradeTable trades={ownTrades} execs={ownExecs} subscriberId={session.user.id} />
+            </div>
           </div>
         )}
       </main>
