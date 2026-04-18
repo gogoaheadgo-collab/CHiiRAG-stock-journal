@@ -356,11 +356,11 @@ export default function AllTradesPage() {
                         <td><span className="ticker-badge">{trade.ticker}</span></td>
                         <td><span className={`badge badge-${trade.direction?.toLowerCase()}`}>{trade.direction}</span></td>
                         <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                        <td className="right">\{toINRd(r.entryPrice)}</td>
+                        <td className="right">Rs.{toINRd(r.entryPrice)}</td>
                         <td className="right">
                           {r.cmp
                             ? <div>
-                                <div style={{ fontWeight:600 }}>\{toINRd(r.cmp)}</div>
+                                <div style={{ fontWeight:600 }}>Rs.{toINRd(r.cmp)}</div>
                                 <div style={{ fontSize:'10px', color: r.lp?.change>=0?'var(--bull)':'var(--bear)' }}>
                                   {r.lp?.change>=0?'+':''}{r.lp?.changePercent?.toFixed(2)}%
                                 </div>
@@ -378,7 +378,7 @@ export default function AllTradesPage() {
                         </td>
                         <td className="right">
                           {r.mtfInt > 0
-                            ? <span style={{ color:'var(--gold)' }}>\{toINRd(r.mtfInt)}</span>
+                            ? <span style={{ color:'var(--gold)' }}>Rs.{toINRd(r.mtfInt)}</span>
                             : <span className="neutral">—</span>}
                         </td>
                         <td className="right">
