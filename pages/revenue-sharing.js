@@ -23,14 +23,13 @@ function triggerCSVDownload(csvContent, filename) {
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
-function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR }) {
+function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR, netPnL = 0 }) {
   const [settlements, setSettlements] = React.useState([])
   const [month, setMonth] = React.useState(new Date())
   const [modalDate, setModalDate] = React.useState(null)
   const [modalEdit, setModalEdit] = React.useState(null)
   const [form, setForm] = React.useState({ value:'', remarks:'' })
   const [saving, setSaving] = React.useState(false)
-  const [netPnL] = React.useState(0)
   const [editMode, setEditMode] = React.useState(false)
   const [editForm, setEditForm] = React.useState({ value:'', remarks:'' })
   const today = new Date()
@@ -279,9 +278,11 @@ export default function RevenueSharingPage() {
   const [subTrades, setSubTrades] = useState([])
   const [subExecs, setSubExecs] = useState([])
   const [subLoading, setSubLoading] = useState(false)
+  const [subNetPnL, setSubNetPnL] = useState(0)
 
   const [ownTrades, setOwnTrades] = useState([])
-  const [ownExecs, setOwnExecs] = useState([])
+  const [ownExecs, setOwnExecs] = useState({})
+  const [ownNetPnL, setOwnNetPnL] = useState(0)
 
   const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
   const getToken = useCallback(async () => (await supabase.auth.getSession()).data.session?.access_token, [])
@@ -320,6 +321,20 @@ export default function RevenueSharingPage() {
     const tData = await tRes.json()
     if (!Array.isArray(tData)) { setLoading(false); return }
     setOwnTrades(tData)
+    // Compute own netPnL for SubscriberPanel
+    const ownMtf = tData.filter(t => Number(t.actual_investment) > 0)
+    let ownNet = 0
+    ownMtf.forEach(t => {
+      const entryP2 = Number(t.entry_price)
+      const origQty2 = Number(t.quantity)
+      const actualInv2 = Number(t.actual_investment) || 0
+      const borrowed2 = Math.max(0, entryP2 * origQty2 - actualInv2)
+      const adminRatio2 = entryP2 * origQty2 > 0 ? actualInv2 / (entryP2 * origQty2) : 0
+      const mtfRate2 = Number(t.mtf_interest_rate) || 0
+      const grossPnL2 = Number(t.realized_gains) || 0
+      ownNet += grossPnL2 * adminRatio2
+    })
+    setOwnNetPnL(ownNet)
     const mtfTrades = tData.filter(t => Number(t.actual_investment) > 0)
     if (mtfTrades.length > 0) {
       const results = await Promise.all(mtfTrades.map(t =>
@@ -338,7 +353,32 @@ export default function RevenueSharingPage() {
     const token = await getToken()
     const res = await fetch(`/api/admin/subscriber-trades?user_id=${sub.id}`, { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
-    setSubTrades(data.trades || []); setSubExecs(data.executions || [])
+    const loadedTrades = data.trades || []
+    const loadedExecs  = data.executions || []
+    setSubTrades(loadedTrades); setSubExecs(loadedExecs)
+    // Compute netPnLAdmin for SubscriberPanel settled/unsettled tiles
+    const mtfT = loadedTrades.filter(t => Number(t.actual_investment) > 0)
+    let subNet = 0
+    mtfT.forEach(t => {
+      const trExecs = loadedExecs.filter(e => e.trade_id === t.id)
+      const entryP = Number(t.entry_price)
+      const origQty = Number(t.quantity)
+      const actualInv = Number(t.actual_investment) || 0
+      const borrowed = Math.max(0, entryP * origQty - actualInv)
+      const adminRatio = entryP * origQty > 0 ? actualInv / (entryP * origQty) : 0
+      const soldQty = trExecs.reduce((s,e) => s + Number(e.quantity), 0)
+      const mtfDays = t.entry_date ? Math.max(1, Math.floor((new Date() - new Date(t.entry_date)) / 86400000)) : 1
+      const mtfRate = Number(t.mtf_interest_rate) || 0
+      const mtfIntClosed = trExecs.reduce((s,e) => {
+        const daysHeld = t.entry_date ? Math.max(1, Math.floor((new Date(e.date) - new Date(t.entry_date)) / 86400000)) : 1
+        return s + borrowed * (Number(e.quantity)/origQty) * mtfRate * daysHeld / 36500
+      }, 0)
+      let grossPnL = 0
+      if (trExecs.length > 0) grossPnL = trExecs.reduce((s,e) => s + (Number(e.price) - entryP) * Number(e.quantity), 0)
+      else grossPnL = Number(t.realized_gains) || 0
+      subNet += grossPnL * adminRatio - mtfIntClosed
+    })
+    setSubNetPnL(subNet)
     setSubLoading(false)
   }
 
@@ -404,40 +444,7 @@ export default function RevenueSharingPage() {
 
   const TradeTable = ({ trades, execs, subscriberId }) => {
     const [statusFilter, setStatusFilter] = React.useState('ALL')
-    const [calMonth, setCalMonth] = React.useState(new Date())
-    const [settlements, setSettlements] = React.useState([])
-    const [modalDate, setModalDate] = React.useState(null)
-    const [modalEdit, setModalEdit] = React.useState(null)
-    const [form, setForm] = React.useState({ value:'', remarks:'' })
-    const [saving, setSaving] = React.useState(false)
 
-    React.useEffect(() => {
-      if (!subscriberId) return
-      getToken().then(token => {
-        fetch(`/api/settlements?subscriber_id=${subscriberId}`, { headers:{ Authorization:`Bearer ${token}` } })
-          .then(r => r.json()).then(data => { if (Array.isArray(data)) setSettlements(data) }).catch(() => {})
-      })
-    }, [subscriberId])
-
-    const saveSettlement = async () => {
-      if (!form.value || saving) return
-      setSaving(true)
-      const token = await getToken()
-      await fetch('/api/settlements', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ subscriber_id: subscriberId, date: modalDate, value: parseFloat(form.value), remarks: form.remarks }) })
-      setSaving(false); setModalDate(null)
-      const res2 = await fetch(`/api/settlements?subscriber_id=${subscriberId}`, { headers:{ Authorization:`Bearer ${token}` } })
-      const data2 = await res2.json(); if (Array.isArray(data2)) setSettlements(data2)
-    }
-
-    const removeSettlement = async (id) => {
-      if (!confirm('🗑 Delete this settlement?\n\nThis settlement record will be permanently removed.')) return
-      if (!confirm('⚠️ CONFIRM DELETE\n\nAre you sure? The Unsettled P&L will change after deletion.')) return
-      const token = await getToken()
-      await fetch('/api/settlements', { method:'DELETE', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ id }) })
-      setModalEdit(null)
-      const res2 = await fetch(`/api/settlements?subscriber_id=${subscriberId}`, { headers:{ Authorization:`Bearer ${token}` } })
-      const data2 = await res2.json(); if (Array.isArray(data2)) setSettlements(data2)
-    }
     const [sortCol, setSortCol] = React.useState(null)
     const [sortDir, setSortDir] = React.useState('asc')
     const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
@@ -545,57 +552,6 @@ export default function RevenueSharingPage() {
           </div>
         </div>
 
-        {/* Right: settlement calendar */}
-        <div style={{ width:'220px', flexShrink:0 }}>
-          <div style={{ fontSize:'11px', fontWeight:700, fontFamily:'DM Mono, monospace', color:'var(--text)', marginBottom:'8px' }}>
-            Settlement Calendar
-          </div>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderBottom:'1px solid var(--border)' }}>
-              <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth()-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>‹</button>
-              <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>
-                {calMonth.toLocaleString('default',{month:'short'})} {calMonth.getFullYear()}
-              </span>
-              <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth()+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>›</button>
-            </div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', background:'var(--surface)' }}>
-              {['M','T','W','T','F','S','S'].map((dayL,di) => (
-                <div key={di} style={{ textAlign:'center', padding:'4px 0', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600 }}>{dayL}</div>
-              ))}
-            </div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'1px', background:'var(--border)', padding:'1px' }}>
-              {(() => {
-                const calYr = calMonth.getFullYear(), calMo = calMonth.getMonth()
-                const calFmt = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-                const calToday = new Date()
-                const calTodayStr = calFmt(calToday.getFullYear(), calToday.getMonth(), calToday.getDate())
-                const calFirstDay = new Date(calYr, calMo, 1).getDay()
-                const calDays = new Date(calYr, calMo+1, 0).getDate()
-                const calPad = calFirstDay === 0 ? 6 : calFirstDay - 1
-                const calCells = [...Array(calPad).fill(null), ...Array.from({length:calDays},(_,i)=>i+1)]
-                const calSettlementMap = {}
-                settlements.forEach(s => { calSettlementMap[s.date] = s })
-                return calCells.map((calD, calI) => {
-                  if (!calD) return <div key={calI} style={{ background:'var(--bg)', minHeight:'28px' }} />
-                  const calDateStr = calFmt(calYr, calMo, calD)
-                  const calSettled = calSettlementMap[calDateStr]
-                  const calIsToday = calDateStr === calTodayStr
-                  return (
-                    <div key={calI}
-                      onClick={() => { if (!isAdmin) return; if (calSettled) { setModalEdit(calSettled); setModalDate(null) } else { setModalDate(calDateStr); setForm({ value:'', remarks:'' }) } }}
-                      style={{ background: calSettled ? 'rgba(245,158,11,0.15)' : calIsToday ? 'var(--accent-dim)' : 'var(--surface)', minHeight:'28px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'2px', cursor: isAdmin ? 'pointer' : 'default', borderRadius:'2px' }}
-                      onMouseEnter={e => { if (isAdmin) e.currentTarget.style.background = calSettled ? 'rgba(245,158,11,0.25)' : 'rgba(14,165,233,0.1)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = calSettled ? 'rgba(245,158,11,0.15)' : calIsToday ? 'var(--accent-dim)' : 'var(--surface)' }}>
-                      <span style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color: calSettled?'var(--gold)':calIsToday?'var(--accent)':'var(--muted)', fontWeight: calIsToday||calSettled?700:400 }}>{calD}</span>
-                      {calSettled && <span style={{ fontSize:'8px', color:'var(--gold)', fontFamily:'DM Mono, monospace', lineHeight:1 }}>✓</span>}
-                    </div>
-                  )
-                })
-              })()}
-            </div>
-            {isAdmin && <div style={{ padding:'6px 10px', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', borderTop:'1px solid var(--border)' }}>Click date to record settlement</div>}
-          </div>
-        </div>
       </div>
     )
   }
@@ -665,7 +621,7 @@ export default function RevenueSharingPage() {
                 {subLoading
                   ? <div style={{ color:'var(--muted)', padding:'20px' }}>Loading trades...</div>
                   : <>
-                      <SubscriberPanel subscriber={selectedSub} isAdmin={isAdmin} getToken={getToken} toINRd={toINRd} toINR={n => Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0})} />
+                      <SubscriberPanel subscriber={selectedSub} isAdmin={isAdmin} getToken={getToken} toINRd={toINRd} toINR={n => Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0})} netPnL={subNetPnL} />
                       <div style={{ marginTop:'20px' }}>
                         <TradeTable trades={subTrades} execs={subExecs} subscriberId={selectedSub.id} />
                       </div>
@@ -680,7 +636,7 @@ export default function RevenueSharingPage() {
               <h2 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'17px', fontWeight:700, margin:0 }}>My Revenue Share</h2>
               <span style={{ fontSize:'10px', background:'var(--accent-dim)', color:'var(--accent)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>MTF TRADES ONLY</span>
             </div>
-            <SubscriberPanel subscriber={{ id: session.user.id, full_name: 'My Account' }} isAdmin={isAdmin} getToken={getToken} toINRd={toINRd} toINR={n => Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0})} />
+            <SubscriberPanel subscriber={{ id: session.user.id, full_name: 'My Account' }} isAdmin={isAdmin} getToken={getToken} toINRd={toINRd} toINR={n => Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0})} netPnL={ownNetPnL} />
             <div style={{ marginTop:'20px' }}>
               <TradeTable trades={ownTrades} execs={ownExecs} subscriberId={session.user.id} />
             </div>
