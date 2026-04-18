@@ -67,7 +67,7 @@ function PnLCalendar({ trades }) {
               <div style={{ fontSize:'10px', color:isToday?'var(--accent)':'var(--muted)', fontWeight:isToday?700:400 }}>{format(day,'d')}</div>
               {pnl!=null && (
                 <div style={{ fontSize:'8px', fontWeight:700, marginTop:'2px', color:pnl>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>
-                  {pnl>=0?'+':'−'}{toINRd(Math.abs(pnl))}
+                  {pnl>=0?'+':'−'}Rs.{toINRd(Math.abs(pnl))}
                 </div>
               )}
             </div>
@@ -369,8 +369,8 @@ export default function Dashboard() {
               <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}${toINRd(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
               <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}${toINRd(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
               <StatCard label="Win Rate" value={`${winRate}%`} color="var(--accent)" sub={`${wins.length}W · ${closedTrades.length-wins.length}L`} />
-              <StatCard label="Open Positions" value={openTrades.length} sub={`\${toINR(totalInvested)} deployed`} />
-              <StatCard label="MTF Interest" value={`\${toINRd(totalMTF)}`} color="var(--gold)" sub="Accrued" />
+              <StatCard label="Open Positions" value={openTrades.length} sub={`Rs.${toINR(totalInvested)} deployed`} />
+              <StatCard label="MTF Interest" value={`Rs.${toINRd(totalMTF)}`} color="var(--gold)" sub="Accrued" />
               <StatCard label="Total Trades" value={allTrades.length} sub={`${openTrades.length} open · ${closedTrades.length} closed`} />
             </div>
 
@@ -399,8 +399,8 @@ export default function Dashboard() {
                             </td>
                             <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>{t.filter(x=>x.status==='OPEN').length}</td>
                             <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{t.filter(x=>x.status==='CLOSED').length}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:unr>=0?'var(--bull)':'var(--bear)' }}>{unr>=0?'+':'−'}{toINR(Math.abs(unr))}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:rel>=0?'var(--bull)':'var(--bear)' }}>{rel>=0?'+':'−'}{toINR(Math.abs(rel))}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:unr>=0?'var(--bull)':'var(--bear)' }}>{unr>=0?'+':'−'}Rs.{toINR(Math.abs(unr))}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:rel>=0?'var(--bull)':'var(--bear)' }}>{rel>=0?'+':'−'}Rs.{toINR(Math.abs(rel))}</td>
                             <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>\{toINRd(mtf)}</td>
                           </tr>
                         )
@@ -433,11 +433,11 @@ export default function Dashboard() {
                         <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
                           <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px' }}>
                             <span style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>Unrealised</span>
-                            <span style={{ fontWeight:700, color:unr>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>{unr>=0?'+':'−'}{toINR(Math.abs(unr))}</span>
+                            <span style={{ fontWeight:700, color:unr>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>{unr>=0?'+':'−'}Rs.{toINR(Math.abs(unr))}</span>
                           </div>
                           <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px' }}>
                             <span style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>Realised</span>
-                            <span style={{ fontWeight:700, color:rel>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>{rel>=0?'+':'−'}{toINR(Math.abs(rel))}</span>
+                            <span style={{ fontWeight:700, color:rel>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>{rel>=0?'+':'−'}Rs.{toINR(Math.abs(rel))}</span>
                           </div>
                           <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px' }}>
                             <span style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>MTF Int</span>
@@ -497,8 +497,8 @@ export default function Dashboard() {
                                 color:trade.direction==='LONG'?'var(--accent)':'var(--bear)' }}>{trade.direction}</span>
                             </td>
                             <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>\{toINRd(trade.entry_price)}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>{toINR(currentQty)}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{cmp?`\${toINRd(cmp)}`:'—'}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>Rs.{toINR(currentQty)}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{cmp?`Rs.${toINRd(cmp)}`:'—'}</td>
                             <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700, color:lp?.change>=0?'var(--bull)':'var(--bear)' }}>
                               {lp?.changePercent!=null?`${lp.change>=0?'+':''}${lp.changePercent.toFixed(2)}%`:'—'}
                             </td>
@@ -535,7 +535,7 @@ export default function Dashboard() {
                           <div style={{ fontSize:'10px', color:'var(--muted)' }}>{t.account} · {t.exit_date?.slice(0,10)}</div>
                         </div>
                         <div style={{ fontSize:'12px', fontWeight:700, fontFamily:'DM Mono, monospace', color:t._realised>=0?'var(--bull)':'var(--bear)' }}>
-                          {t._realised>=0?'+':'−'}{toINR(Math.abs(t._realised))}
+                          {t._realised>=0?'+':'−'}Rs.{toINR(Math.abs(t._realised))}
                         </div>
                       </div>
                     ))}
