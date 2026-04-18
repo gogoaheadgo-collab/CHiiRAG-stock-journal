@@ -459,21 +459,21 @@ export default function NotesPage() {
             {tickers.length > 0 && (
               <div style={{ marginBottom:'10px', display:'flex', gap:'8px', flexWrap:'wrap', alignItems:'flex-start' }}>
                 {tickers.map(sym => {
-                  const sd = stockCards[sym]
-                  const isUp = sd ? sd.change >= 0 : true
+                  const tickerSd = stockCards[sym]
+                  const tickerIsUp = tickerSd ? tickerSd.change >= 0 : true
                   return (
-                    <div key={sym} style={{ display:'flex', alignItems:'center', gap:'10px', background:isUp?'rgba(0,230,118,0.06)':'rgba(239,68,68,0.06)', border:`1px solid ${isUp?'rgba(0,230,118,0.25)':'rgba(239,68,68,0.25)'}`, borderRadius:'8px', padding:'7px 12px' }}>
+                    <div key={sym} style={{ display:'flex', alignItems:'center', gap:'10px', background:tickerIsUp?'rgba(0,230,118,0.06)':'rgba(239,68,68,0.06)', border:`1px solid ${tickerIsUp?'rgba(0,230,118,0.25)':'rgba(239,68,68,0.25)'}`, borderRadius:'8px', padding:'7px 12px' }}>
                       <div>
                         <div style={{ fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'13px', color:'var(--text)' }}>{sym}</div>
-                        {sd && <div style={{ fontSize:'10px', color:'var(--muted)' }}>{sd.shortName||''}</div>}
+                        {tickerSd && <div style={{ fontSize:'10px', color:'var(--muted)' }}>{tickerSd.shortName||''}</div>}
                       </div>
-                      {sd && (
+                      {tickerSd && (
                         <div>
-                          <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'14px', color:isUp?'var(--bull)':'var(--bear)' }}>
-                            Rs.{Number(sd.price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                          <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'14px', color:tickerIsUp?'var(--bull)':'var(--bear)' }}>
+                            Rs.{Number(tickerSd.price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
                           </div>
-                          <div style={{ fontSize:'10px', color:isUp?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>
-                            {isUp?'+':''}{Number(sd.changePercent||0).toFixed(2)}%
+                          <div style={{ fontSize:'10px', color:tickerIsUp?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>
+                            {isUp?'+':''}{Number(tickerSd.changePercent||0).toFixed(2)}%
                           </div>
                         </div>
                       )}
