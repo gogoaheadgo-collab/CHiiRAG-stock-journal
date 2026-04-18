@@ -3,27 +3,27 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
+import NavPill from '../components/NavPill'
 
 function triggerCSVDownload(csvContent, filename) {
+  if (typeof window === 'undefined') return
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
+  const url = window.URL.createObjectURL(blob)
+  const link = window.document.createElement('a')
   link.setAttribute('href', url)
   link.setAttribute('download', filename)
   link.style.display = 'none'
-  document.body.appendChild(link)
+  window.document.body.appendChild(link)
   link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  window.document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
 }
 
 
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
-function NavPill({ active, isAdmin }) {
-  const router = useRouter()
-  const items = [
+
     { label:'Dashboard', path:'/dashboard' },
     { label:'Accounts', path:'/accounts' },
     ...(isAdmin ? [
@@ -34,19 +34,6 @@ function NavPill({ active, isAdmin }) {
     { label:'Alerts', path:'/alerts' },
     { label:'Notes', path:'/notes' },
   ]
-  return (
-    <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px' }}>
-      {items.map(({label,path}) => (
-        <button key={path} onClick={() => router.push(path)} style={{
-          padding:'7px 22px', borderRadius:'6px', border:'none', cursor:'pointer',
-          fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600,
-          background:active===label?'var(--accent)':'transparent',
-          color:active===label?'#fff':'var(--muted)',
-        }}>{label}</button>
-      ))}
-    </div>
-  )
-}
 
 function toINR(n) { return Number(n).toLocaleString('en-IN', { maximumFractionDigits:0 }) }
 function toINRd(n) { return Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 }) }
@@ -125,8 +112,16 @@ export default function SubscribersPage() {
   }
   const downloadCSV = () => {
     if (!selected) return
-    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Status']
-    const rows=subTrades.map(t=>[t.ticker,t.account,t.direction,t.entry_date,t.entry_price,t.exit_price||'',t.quantity,t.status])
+    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Realised P&L','Status']
+    const rows=subTrades.map(t => {
+      const exs=subExecs.filter(e=>e.trade_id===t.id)
+      const sold=exs.reduce((s,e)=>s+Number(e.quantity),0)
+      const orig=Number(t.quantity)||0
+      const curr=Math.max(0,orig-sold)
+      const entry=Number(t.entry_price)||0
+      const rel=exs.length>0?exs.reduce((s,e)=>s+(Number(e.price)-entry)*Number(e.quantity),0):(Number(t.realized_gains)||0)
+      return [t.ticker,t.account,t.direction,t.entry_date,entry,t.exit_price||'',orig,curr,rel.toFixed(2),t.status]
+    })
     const csv=[h,...rows].map(r=>r.join(',')).join('\n')
     triggerCSVDownload(csv, `${selected.email}_trades.csv`)
   }
@@ -381,10 +376,10 @@ export default function SubscribersPage() {
                       <td className="right">{sub.totalTrades}</td>
                       <td className="right"><span style={{ color:'var(--bull)', fontWeight:600 }}>{sub.openTrades}</span></td>
                       <td className="right"><span style={{ color:'var(--muted)' }}>{sub.closedTrades}</span></td>
-                      <td className="right">{sub.totalInvestment ? `Rs. ${toINR(sub.totalInvestment)}` : '—'}</td>
+                      <td className="right">{sub.totalInvestment ? `${toINR(sub.totalInvestment)}` : '—'}</td>
                       <td className="right">
                         {sub.realisedPnL !== 0
-                          ? <span style={{ color:pnlColor(sub.realisedPnL), fontWeight:600 }}>{pnlSign(sub.realisedPnL)}Rs. {toINRd(Math.abs(sub.realisedPnL))}</span>
+                          ? <span style={{ color:pnlColor(sub.realisedPnL), fontWeight:600 }}>{pnlSign(sub.realisedPnL)}{toINRd(Math.abs(sub.realisedPnL))}</span>
                           : <span className="neutral">—</span>}
                       </td>
                       <td className="right muted" style={{ fontSize:'11px' }}>{sub.created_at?.slice(0,10)}</td>
@@ -511,18 +506,18 @@ export default function SubscribersPage() {
                           <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                           <td className="muted" style={{ fontSize:'11px' }}>{trade.account || '—'}</td>
                           <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                          <td className="right">Rs. {toINRd(entryPrice)}</td>
+                          <td className="right">{toINRd(entryPrice)}</td>
                           <td className="right">
-                            {cmp ? <div><div style={{ fontWeight:600 }}>Rs. {toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
+                            {cmp ? <div><div style={{ fontWeight:600 }}>{toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
                           </td>
-                          <td className="right">{exitPrice ? `Rs. ${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{exitPrice ? `${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
                           <td className="right">{toINR(originalQty)}</td>
                           <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                          <td className="right">{investment ? `Rs. ${toINRd(investment)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{actualInv ? `Rs. ${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs. {toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                          <td className="right">{unrealisedPnL !== null ? <span style={{ color:pnlColor(unrealisedPnL), fontWeight:600 }}>{pnlSign(unrealisedPnL)}Rs. {toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                          <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:pnlColor(realisedPnL), fontWeight:600 }}>{pnlSign(realisedPnL)}Rs. {toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                          <td className="right">{investment ? `${toINRd(investment)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{actualInv ? `${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
+                          <td className="right">{unrealisedPnL !== null ? <span style={{ color:pnlColor(unrealisedPnL), fontWeight:600 }}>{pnlSign(unrealisedPnL)}{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                          <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:pnlColor(realisedPnL), fontWeight:600 }}>{pnlSign(realisedPnL)}{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                           <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
                         </tr>
                       )
