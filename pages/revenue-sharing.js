@@ -554,7 +554,7 @@ export default function RevenueSharingPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth:'1500px', margin:'0 auto', padding:'80px 16px 40px' }}>
+      <main style={{ maxWidth:'1500px', margin:'0 auto', padding:'72px 16px 40px' }}>
         <div style={{ marginBottom:'24px' }}>
           <h1 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'22px', fontWeight:800, color:'var(--text)', margin:0 }}>Revenue Sharing</h1>
           <p style={{ color:'var(--muted)', fontSize:'12px', marginTop:'6px', fontFamily:'DM Mono, monospace' }}>MTF profit sharing — tracks admin gross & net P&L · settlement calendar per subscriber</p>
