@@ -191,7 +191,7 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR, netPnL 
               </div>
             </div>
             <div style={{ display:'flex', gap:'8px', marginTop:'18px' }}>
-              <button onClick={saveSettlement} disabled={!form.value||saving}
+              <button onClick={save} disabled={!form.value||saving}
                 style={{ flex:1, padding:'9px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity:!form.value||saving?0.5:1 }}>
                 {saving ? 'Saving...' : 'Save'}
               </button>
