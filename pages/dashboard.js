@@ -341,13 +341,13 @@ export default function Dashboard() {
             </div>
             <div style={{ flex:1, background:'#138808' }} />
           </div>
-          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
+          <div className="header-brand" style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
         </div>
         <NavPill active="Dashboard" isAdmin={isAdmin} />
         <ExitMenu />
       </header>
 
-      <main style={{ maxWidth:'100%', margin:'0 auto', padding:'24px 32px' }}>
+      <main style={{ maxWidth:'100%', margin:'0 auto', padding:'72px 24px 32px' }}>
 
         <div style={{ marginBottom:'20px', display:'flex', alignItems:'baseline', gap:'10px' }}>
           <h1 style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'24px', color:'var(--text)', margin:0 }}>
