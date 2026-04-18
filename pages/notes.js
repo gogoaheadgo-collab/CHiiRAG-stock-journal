@@ -8,14 +8,14 @@ const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 function MiniCalendar({ selected, onSelect, dotDates }) {
   const [calView, setCalView] = React.useState(() => {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), 1)
+    const calInit = new Date()
+    return new Date(calInit.getFullYear(), calInit.getMonth(), 1)
   })
 
-  const now2 = new Date()
+  const calNow2 = new Date()
   const calYr = calView.getFullYear()
   const calMo = calView.getMonth()
-  const calTodayStr = now2.getFullYear() + '-' + String(now2.getMonth()+1).padStart(2,'0') + '-' + String(now2.getDate()).padStart(2,'0')
+  const calTodayStr = calNow2.getFullYear() + '-' + String(now2.getMonth()+1).padStart(2,'0') + '-' + String(now2.getDate()).padStart(2,'0')
   const calDays = new Date(calYr, calMo+1, 0).getDate()
   const calStart = new Date(calYr, calMo, 1).getDay()
   const calPad = calStart === 0 ? 6 : calStart - 1
@@ -162,9 +162,9 @@ export default function NotesPage() {
   // Fetch stock price for a ticker
   const fetchStock = async (sym) => {
     try {
-      const res = await fetch(`/api/stock/${sym}`)
-      const d = await res.json()
-      if (d.price) setStockCards(prev => ({ ...prev, [sym]: d }))
+      const stockRes = await fetch(`/api/stock/${sym}`)
+      const stockData = await stockRes.json()
+      if (stockData.price) setStockCards(prev => ({ ...prev, [sym]: d }))
     } catch {}
   }
 
@@ -177,9 +177,9 @@ export default function NotesPage() {
     setTickerInput(q.toUpperCase())
     if (q.length < 2) { setTickerSuggestions([]); setShowDrop(false); return }
     try {
-      const r = await fetch(`/api/ticker-search?q=${encodeURIComponent(q)}`)
-      const d = await r.json()
-      setTickerSuggestions(Array.isArray(d) ? d : [])
+      const searchResp = await fetch(`/api/ticker-search?q=${encodeURIComponent(q)}`)
+      const searchData = await searchResp.json()
+      setTickerSuggestions(Array.isArray(searchData) ? searchData : [])
       setShowDrop(true)
     } catch {}
   }
@@ -192,16 +192,16 @@ export default function NotesPage() {
 
   const removeTicker = (sym) => {
     setTickers(prev => prev.filter(t => t !== sym))
-    setStockCards(prev => { const n = {...prev}; delete n[sym]; return n })
+    setStockCards(prev => { const prevCards = {...prev}; delete prevCards[sym]; return prevCards })
   }
 
   // Formatting - use execCommand safely (client-only via ssr:false wrapper)
-  const fmt = (cmd, value) => {
+  const fmtCmd = (cmd, value) => {
     if (typeof document === 'undefined') return
     editorRef.current?.focus()
     try { document.execCommand(cmd, false, value) } catch(e) {}
   }
-  const applyColor = (color) => fmt('foreColor', color)
+  const applyColor = (color) => fmtCmd('foreColor', color)
   const applySize = (size) => {
     setFontSize(size)
     if (editorRef.current) editorRef.current.style.fontSize = size
