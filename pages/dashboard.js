@@ -366,8 +366,8 @@ export default function Dashboard() {
           <>
             {/* STAT CARDS */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:'14px', marginBottom:'28px' }}>
-              <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}${toINRd(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
-              <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}${toINRd(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
+              <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
+              <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
               <StatCard label="Win Rate" value={`${winRate}%`} color="var(--accent)" sub={`${wins.length}W · ${closedTrades.length-wins.length}L`} />
               <StatCard label="Open Positions" value={openTrades.length} sub={`Rs.${toINR(totalInvested)} deployed`} />
               <StatCard label="MTF Interest" value={`Rs.${toINRd(totalMTF)}`} color="var(--gold)" sub="Accrued" />
