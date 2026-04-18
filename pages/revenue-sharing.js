@@ -439,13 +439,13 @@ export default function RevenueSharingPage() {
                         </div>
                       </td>
                       <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                      <td className="right">\{toINRd(r.entryPrice)}</td>
+                      <td className="right">Rs.{toINRd(r.entryPrice)}</td>
                       <td className="right">{r.exitPrice?`Rs.${toINRd(r.exitPrice)}`:<span className="neutral">—</span>}</td>
                       <td className="right">{Number(r.originalQty).toLocaleString('en-IN')}</td>
-                      <td className="right">\{toINRd(r.investment)}</td>
-                      <td className="right">\{toINRd(r.actualInv)}</td>
+                      <td className="right">Rs.{toINRd(r.investment)}</td>
+                      <td className="right">Rs.{toINRd(r.actualInv)}</td>
                       <td className="right" style={{ color:'var(--gold)', fontWeight:600 }}>{(r.adminRatio*100).toFixed(1)}%</td>
-                      <td className="right">{r.mtfInt>0?<span style={{color:'var(--gold)'}}>\{toINRd(r.mtfInt)}</span>:<span className="neutral">—</span>}</td>
+                      <td className="right">{r.mtfInt>0?<span style={{color:'var(--gold)'}}>Rs.{toINRd(r.mtfInt)}</span>:<span className="neutral">—</span>}</td>
                       <td className="right"><span style={{fontWeight:600,color:r.grossPnL>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(r.grossPnL))}</span></td>
                       <td className="right"><span style={{fontWeight:600,color:r.grossPnLAdmin>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnLAdmin>=0?'+':'−'}Rs.{toINRd(Math.abs(r.grossPnLAdmin))}</span></td>
                       <td className="right"><span style={{fontWeight:700,fontSize:'13px',color:r.netPnLAdmin>=0?'var(--bull)':'var(--bear)',background:r.netPnLAdmin>=0?'rgba(0,230,118,0.06)':'rgba(239,68,68,0.06)',padding:'2px 8px',borderRadius:'4px'}}>{r.netPnLAdmin>=0?'+':'−'}Rs.{toINRd(Math.abs(r.netPnLAdmin))}</span></td>
