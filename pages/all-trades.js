@@ -23,6 +23,20 @@ const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 export default function AllTradesPage() {
   const router = useRouter()
+  const [session, setSession] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [ownTrades, setOwnTrades] = useState([])
+  const [ownExecs, setOwnExecs] = useState({})
+  const [subGroups, setSubGroups] = useState([])
+  const [livePrices, setLivePrices] = useState({})
+  const [statusFilter, setStatusFilter] = useState('ALL')
+
+  const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
+  const fetchPrice = async (ticker) => {
+    try { const r = await fetch(`/api/stock/${ticker}`); const d = await r.json(); if (d.price) setLivePrices(prev => ({...prev,[ticker]:d})) } catch {}
+  }
+
   // ── Auth ──
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session:s } }) => {
