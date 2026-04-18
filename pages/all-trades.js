@@ -248,7 +248,7 @@ export default function AllTradesPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth:'1500px', margin:'0 auto', padding:'80px 16px 40px' }}>
+      <main style={{ maxWidth:'1500px', margin:'0 auto', padding:'72px 16px 40px' }}>
 
         {/* ── Page title ── */}
         <div style={{ marginBottom:'24px' }}>
