@@ -88,16 +88,16 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR, netPnL 
   return (
     <div style={{ width:'100%' }}>
       {/* Settlement tiles */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'10px' }}>
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px 12px' }}>
-          <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>SETTLED P&L</div>
-          <div style={{ fontSize:'14px', fontWeight:800, fontFamily:'DM Mono, monospace', color:totalSettled>=0?'var(--bull)':'var(--bear)' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px', marginBottom:'8px' }}>
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'7px 10px' }}>
+          <div style={{ fontSize:'8px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'3px', letterSpacing:'0.08em' }}>SETTLED P&L</div>
+          <div style={{ fontSize:'12px', fontWeight:800, fontFamily:'DM Mono, monospace', color:totalSettled>=0?'var(--bull)':'var(--bear)' }}>
             {totalSettled>=0?'+':'−'}Rs.{toINRd(Math.abs(totalSettled))}
           </div>
         </div>
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px 12px' }}>
-          <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>UNSETTLED P&L</div>
-          <div style={{ fontSize:'14px', fontWeight:800, fontFamily:'DM Mono, monospace', color:unsettled>=0?'var(--bull)':'var(--bear)' }}>
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'7px 10px' }}>
+          <div style={{ fontSize:'8px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'3px', letterSpacing:'0.08em' }}>UNSETTLED P&L</div>
+          <div style={{ fontSize:'12px', fontWeight:800, fontFamily:'DM Mono, monospace', color:unsettled>=0?'var(--bull)':'var(--bear)' }}>
             {unsettled>=0?'+':'−'}Rs.{toINRd(Math.abs(unsettled))}
           </div>
         </div>
@@ -106,17 +106,17 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR, netPnL 
       {/* Calendar */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
         {/* Month nav */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderBottom:'1px solid var(--border)' }}>
-          <button onClick={() => setMonth(new Date(year, mon-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>‹</button>
-          <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 8px', borderBottom:'1px solid var(--border)' }}>
+          <button onClick={() => setMonth(new Date(year, mon-1, 1))} style={{ background:'none', border:'none', color:'var(--muted)', borderRadius:'3px', padding:'1px 6px', cursor:'pointer', fontSize:'12px' }}>‹</button>
+          <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'10px', color:'var(--text)' }}>
             {month.toLocaleString('default',{month:'short'})} {year}
           </span>
-          <button onClick={() => setMonth(new Date(year, mon+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>›</button>
+          <button onClick={() => setMonth(new Date(year, mon+1, 1))} style={{ background:'none', border:'none', color:'var(--muted)', borderRadius:'3px', padding:'1px 6px', cursor:'pointer', fontSize:'12px' }}>›</button>
         </div>
         {/* Day headers */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', background:'var(--surface)' }}>
           {['M','T','W','T','F','S','S'].map((d,i) => (
-            <div key={i} style={{ textAlign:'center', padding:'4px 0', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600 }}>{d}</div>
+            <div key={i} style={{ textAlign:'center', padding:'2px 0', fontSize:'8px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600 }}>{d}</div>
           ))}
         </div>
         {/* Day cells */}
@@ -135,8 +135,8 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR, netPnL 
                 }}
                 style={{
                   background: settled ? 'rgba(245,158,11,0.15)' : isToday ? 'var(--accent-dim)' : 'var(--surface)',
-                  minHeight:'28px', display:'flex', flexDirection:'column', alignItems:'center',
-                  justifyContent:'center', padding:'2px',
+                  minHeight:'22px', display:'flex', flexDirection:'column', alignItems:'center',
+                  justifyContent:'center', padding:'1px',
                   cursor: isAdmin ? 'pointer' : 'default',
                   transition:'background 0.1s',
                   borderRadius:'2px',
@@ -144,13 +144,13 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR, netPnL 
                 onMouseEnter={e => { if (isAdmin) e.currentTarget.style.background = settled ? 'rgba(245,158,11,0.25)' : 'rgba(14,165,233,0.1)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = settled ? 'rgba(245,158,11,0.15)' : isToday ? 'var(--accent-dim)' : 'var(--surface)' }}
               >
-                <span style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color: settled?'var(--gold)': isToday?'var(--accent)':'var(--muted)', fontWeight: isToday||settled?700:400 }}>{d}</span>
+                <span style={{ fontSize:'9px', fontFamily:'DM Mono, monospace', color: settled?'var(--gold)': isToday?'var(--accent)':'var(--muted)', fontWeight: isToday||settled?700:400 }}>{d}</span>
                 {settled && <span style={{ fontSize:'8px', color:'var(--gold)', fontFamily:'DM Mono, monospace', lineHeight:1 }}>✓</span>}
               </div>
             )
           })}
         </div>
-        {isAdmin && <div style={{ padding:'6px 10px', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', borderTop:'1px solid var(--border)' }}>Click date to record settlement</div>}
+        {isAdmin && <div style={{ padding:'3px 8px', fontSize:'8px', color:'var(--muted)', fontFamily:'DM Mono, monospace', borderTop:'1px solid var(--border)' }}>Click date to record settlement</div>}
       </div>
 
       {/* Settlement list */}
@@ -321,20 +321,7 @@ export default function RevenueSharingPage() {
     const tData = await tRes.json()
     if (!Array.isArray(tData)) { setLoading(false); return }
     setOwnTrades(tData)
-    // Compute own netPnL for SubscriberPanel
-    const ownMtf = tData.filter(t => Number(t.actual_investment) > 0)
-    let ownNet = 0
-    ownMtf.forEach(t => {
-      const entryP2 = Number(t.entry_price)
-      const origQty2 = Number(t.quantity)
-      const actualInv2 = Number(t.actual_investment) || 0
-      const borrowed2 = Math.max(0, entryP2 * origQty2 - actualInv2)
-      const adminRatio2 = entryP2 * origQty2 > 0 ? actualInv2 / (entryP2 * origQty2) : 0
-      const mtfRate2 = Number(t.mtf_interest_rate) || 0
-      const grossPnL2 = Number(t.realized_gains) || 0
-      ownNet += grossPnL2 * adminRatio2
-    })
-    setOwnNetPnL(ownNet)
+    // ownNetPnL computed after executions load (see useEffect below)
     const mtfTrades = tData.filter(t => Number(t.actual_investment) > 0)
     if (mtfTrades.length > 0) {
       const results = await Promise.all(mtfTrades.map(t =>
@@ -342,6 +329,12 @@ export default function RevenueSharingPage() {
       ))
       const flat = []; results.forEach(r => { if (Array.isArray(r)) r.forEach(e => flat.push(e)) })
       setOwnExecs(flat)
+      // Compute ownNetPnL using buildSummary
+      const ownSum = buildSummary(tData, flat)
+      setOwnNetPnL(ownSum.netPnLAdmin)
+    } else {
+      const ownSum = buildSummary(tData, [])
+      setOwnNetPnL(ownSum.netPnLAdmin)
     }
     setLoading(false)
   }
@@ -356,29 +349,9 @@ export default function RevenueSharingPage() {
     const loadedTrades = data.trades || []
     const loadedExecs  = data.executions || []
     setSubTrades(loadedTrades); setSubExecs(loadedExecs)
-    // Compute netPnLAdmin for SubscriberPanel settled/unsettled tiles
-    const mtfT = loadedTrades.filter(t => Number(t.actual_investment) > 0)
-    let subNet = 0
-    mtfT.forEach(t => {
-      const trExecs = loadedExecs.filter(e => e.trade_id === t.id)
-      const entryP = Number(t.entry_price)
-      const origQty = Number(t.quantity)
-      const actualInv = Number(t.actual_investment) || 0
-      const borrowed = Math.max(0, entryP * origQty - actualInv)
-      const adminRatio = entryP * origQty > 0 ? actualInv / (entryP * origQty) : 0
-      const soldQty = trExecs.reduce((s,e) => s + Number(e.quantity), 0)
-      const mtfDays = t.entry_date ? Math.max(1, Math.floor((new Date() - new Date(t.entry_date)) / 86400000)) : 1
-      const mtfRate = Number(t.mtf_interest_rate) || 0
-      const mtfIntClosed = trExecs.reduce((s,e) => {
-        const daysHeld = t.entry_date ? Math.max(1, Math.floor((new Date(e.date) - new Date(t.entry_date)) / 86400000)) : 1
-        return s + borrowed * (Number(e.quantity)/origQty) * mtfRate * daysHeld / 36500
-      }, 0)
-      let grossPnL = 0
-      if (trExecs.length > 0) grossPnL = trExecs.reduce((s,e) => s + (Number(e.price) - entryP) * Number(e.quantity), 0)
-      else grossPnL = Number(t.realized_gains) || 0
-      subNet += grossPnL * adminRatio - mtfIntClosed
-    })
-    setSubNetPnL(subNet)
+    // Compute netPnLAdmin using same calcTradePnL logic
+    const subSummary = buildSummary(loadedTrades, loadedExecs)
+    setSubNetPnL(subSummary.netPnLAdmin)
     setSubLoading(false)
   }
 
