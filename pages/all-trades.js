@@ -3,27 +3,27 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
+import NavPill from '../components/NavPill'
 
 function triggerCSVDownload(csvContent, filename) {
+  if (typeof window === 'undefined') return
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
+  const url = window.URL.createObjectURL(blob)
+  const link = window.document.createElement('a')
   link.setAttribute('href', url)
   link.setAttribute('download', filename)
   link.style.display = 'none'
-  document.body.appendChild(link)
+  window.document.body.appendChild(link)
   link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  window.document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
 }
 
 
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
-function NavPill({ active, isAdmin }) {
-  const router = useRouter()
-  const items = [
+
     { label:'Dashboard', path:'/dashboard' },
     { label:'Accounts', path:'/accounts' },
     ...(isAdmin ? [
@@ -34,19 +34,6 @@ function NavPill({ active, isAdmin }) {
     { label:'Alerts', path:'/alerts' },
     { label:'Notes', path:'/notes' },
   ]
-  return (
-    <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px', flexWrap:'wrap' }}>
-      {items.map(({label,path}) => (
-        <button key={path} onClick={() => router.push(path)} style={{
-          padding:'7px 18px', borderRadius:'6px', border:'none', cursor:'pointer',
-          fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600,
-          background:active===label?'var(--accent)':'transparent',
-          color:active===label?'#fff':'var(--muted)',
-        }}>{label}</button>
-      ))}
-    </div>
-  )
-}
 
 export default function AllTradesPage() {
   const router = useRouter()
@@ -154,8 +141,18 @@ export default function AllTradesPage() {
   }
   const downloadCSV = () => {
     const list = statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===statusFilter)
-    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Status','Type']
-    const rows=list.map(({trade,isSubscriber})=>[trade.ticker,trade.account,trade.direction,trade.entry_date,trade.entry_price,trade.exit_price||'',trade.quantity,trade.status,isSubscriber?'Subscriber':'Admin'])
+    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Unrealised P&L','Realised P&L','Status','Type']
+    const rows=list.map(({trade,isSubscriber,execs:rowExecs}) => {
+      const exs = rowExecs || []
+      const sold = exs.reduce((s,e)=>s+Number(e.quantity),0)
+      const orig = Number(trade.quantity)||0
+      const curr = Math.max(0,orig-sold)
+      const entry = Number(trade.entry_price)||0
+      const lp = livePrices[trade.ticker]?.price
+      const unr = lp&&curr>0?(trade.direction==='LONG'?(lp-entry)*curr:(entry-lp)*curr):''
+      const rel = exs.length>0?exs.reduce((s,e)=>s+(Number(e.price)-entry)*Number(e.quantity),0):(Number(trade.realized_gains)||0)
+      return [trade.ticker,trade.account,trade.direction,trade.entry_date,entry,trade.exit_price||'',orig,curr,unr!==''?unr.toFixed(2):'',rel.toFixed(2),trade.status,isSubscriber?'Subscriber':'Admin']
+    })
     const csv=[h,...rows].map(r=>r.join(',')).join('\n')
     triggerCSVDownload(csv, 'all-trades.csv')
   }
@@ -295,15 +292,15 @@ export default function AllTradesPage() {
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:'12px', marginBottom:'28px' }}>
               <StatTile
                 label="Unrealised P&L"
-                adminVal={`${pnlSign(adminStats.unr)}Rs.${toINRd(Math.abs(adminStats.unr))}`}
-                subVal={`${pnlSign(subStats.unr)}Rs.${toINRd(Math.abs(subStats.unr))}`}
+                adminVal={`${pnlSign(adminStats.unr)}${toINRd(Math.abs(adminStats.unr))}`}
+                subVal={`${pnlSign(subStats.unr)}${toINRd(Math.abs(subStats.unr))}`}
                 adminColor={pnlColor(adminStats.unr)}
                 subColor={subStats.unr >= 0 ? 'var(--bull)' : 'var(--bear)'}
               />
               <StatTile
                 label="Realised P&L"
-                adminVal={`${pnlSign(adminStats.rel)}Rs.${toINRd(Math.abs(adminStats.rel))}`}
-                subVal={`${pnlSign(subStats.rel)}Rs.${toINRd(Math.abs(subStats.rel))}`}
+                adminVal={`${pnlSign(adminStats.rel)}${toINRd(Math.abs(adminStats.rel))}`}
+                subVal={`${pnlSign(subStats.rel)}${toINRd(Math.abs(subStats.rel))}`}
                 adminColor={pnlColor(adminStats.rel)}
                 subColor={subStats.rel >= 0 ? 'var(--bull)' : 'var(--bear)'}
               />
@@ -385,11 +382,11 @@ export default function AllTradesPage() {
                         <td><span className="ticker-badge">{trade.ticker}</span></td>
                         <td><span className={`badge badge-${trade.direction?.toLowerCase()}`}>{trade.direction}</span></td>
                         <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                        <td className="right">Rs.{toINRd(r.entryPrice)}</td>
+                        <td className="right">\{toINRd(r.entryPrice)}</td>
                         <td className="right">
                           {r.cmp
                             ? <div>
-                                <div style={{ fontWeight:600 }}>Rs.{toINRd(r.cmp)}</div>
+                                <div style={{ fontWeight:600 }}>\{toINRd(r.cmp)}</div>
                                 <div style={{ fontSize:'10px', color: r.lp?.change>=0?'var(--bull)':'var(--bear)' }}>
                                   {r.lp?.change>=0?'+':''}{r.lp?.changePercent?.toFixed(2)}%
                                 </div>
@@ -397,7 +394,7 @@ export default function AllTradesPage() {
                             : <span className="neutral">—</span>}
                         </td>
                         <td className="right">
-                          {r.exitPrice ? `Rs.${toINRd(r.exitPrice)}` : <span className="neutral">—</span>}
+                          {r.exitPrice ? `\${toINRd(r.exitPrice)}` : <span className="neutral">—</span>}
                         </td>
                         <td className="right">{toINR(r.originalQty)}</td>
                         <td className="right">
@@ -407,20 +404,20 @@ export default function AllTradesPage() {
                         </td>
                         <td className="right">
                           {r.mtfInt > 0
-                            ? <span style={{ color:'var(--gold)' }}>Rs.{toINRd(r.mtfInt)}</span>
+                            ? <span style={{ color:'var(--gold)' }}>\{toINRd(r.mtfInt)}</span>
                             : <span className="neutral">—</span>}
                         </td>
                         <td className="right">
                           {r.unrealisedPnL !== null
                             ? <span style={{ fontWeight:600, color:pnlColor(r.unrealisedPnL) }}>
-                                {pnlSign(r.unrealisedPnL)}Rs.{toINRd(Math.abs(r.unrealisedPnL))}
+                                {pnlSign(r.unrealisedPnL)}{toINRd(Math.abs(r.unrealisedPnL))}
                               </span>
                             : <span className="neutral">—</span>}
                         </td>
                         <td className="right">
                           {r.realisedPnL !== 0 || trade.status==='CLOSED'
                             ? <span style={{ fontWeight:600, color:pnlColor(r.realisedPnL) }}>
-                                {pnlSign(r.realisedPnL)}Rs.{toINRd(Math.abs(r.realisedPnL))}
+                                {pnlSign(r.realisedPnL)}{toINRd(Math.abs(r.realisedPnL))}
                               </span>
                             : <span className="neutral">—</span>}
                         </td>
