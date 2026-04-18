@@ -321,7 +321,7 @@ export default function AlertsPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 16px 40px' }}>
+      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '72px 16px 40px' }}>
 
         {/* Page header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
