@@ -19,50 +19,10 @@ function triggerCSVDownload(csvContent, filename) {
   window.URL.revokeObjectURL(url)
 }
 
-
-
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
-
-
-    { label:'Dashboard', path:'/dashboard' },
-    { label:'Accounts', path:'/accounts' },
-    ...(isAdmin ? [
-      { label:'Subscribers', path:'/subscribers' },
-      { label:'All Trades', path:'/all-trades' },
-    ] : []),
-    { label:'Revenue Sharing', path:'/revenue-sharing' },
-    { label:'Alerts', path:'/alerts' },
-    { label:'Notes', path:'/notes' },
-  ]
 
 export default function AllTradesPage() {
   const router = useRouter()
-  const [session, setSession]       = useState(null)
-  const [isAdmin, setIsAdmin]       = useState(false)
-  const [loading, setLoading]       = useState(true)
-
-  // Own trades
-  const [ownTrades, setOwnTrades]   = useState([])
-  const [ownExecs, setOwnExecs]     = useState({})   // map trade_id → []
-
-  // Subscriber trades: [{subInfo, trades, execs}]
-  const [subGroups, setSubGroups]   = useState([])
-
-  const [livePrices, setLivePrices] = useState({})
-  const [statusFilter, setStatusFilter] = useState('ALL')
-
-  const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
-  const toINR  = n => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
-  const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
-
-  const fetchPrice = useCallback(async (ticker) => {
-    try {
-      const res = await fetch(`/api/stock/${ticker}`)
-      const data = await res.json()
-      if (data.price) setLivePrices(prev => ({ ...prev, [ticker]: data }))
-    } catch {}
-  }, [])
-
   // ── Auth ──
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session:s } }) => {
