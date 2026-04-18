@@ -22,7 +22,8 @@ function triggerCSVDownload(csvContent, filename) {
 
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
-function toINRd(n) { return Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 }) }
+function toINRd(n) { return Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 }) }
+const toINR = n => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
 
 export default function SubscribersPage() {
   const router = useRouter()
