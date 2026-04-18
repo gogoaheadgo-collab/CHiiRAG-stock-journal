@@ -362,7 +362,7 @@ export default function SubscribersPage() {
                       <td className="right">{sub.totalTrades}</td>
                       <td className="right"><span style={{ color:'var(--bull)', fontWeight:600 }}>{sub.openTrades}</span></td>
                       <td className="right"><span style={{ color:'var(--muted)' }}>{sub.closedTrades}</span></td>
-                      <td className="right">{sub.totalInvestment ? `${toINR(sub.totalInvestment)}` : '—'}</td>
+                      <td className="right">{sub.totalInvestment ? `Rs.${toINR(sub.totalInvestment)}` : '—'}</td>
                       <td className="right">
                         {sub.realisedPnL !== 0
                           ? <span style={{ color:pnlColor(sub.realisedPnL), fontWeight:600 }}>{pnlSign(sub.realisedPnL)}{toINRd(Math.abs(sub.realisedPnL))}</span>
@@ -492,16 +492,16 @@ export default function SubscribersPage() {
                           <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
                           <td className="muted" style={{ fontSize:'11px' }}>{trade.account || '—'}</td>
                           <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                          <td className="right">{toINRd(entryPrice)}</td>
+                          <td className="right">Rs.{toINRd(entryPrice)}</td>
                           <td className="right">
-                            {cmp ? <div><div style={{ fontWeight:600 }}>{toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
+                            {cmp ? <div><div style={{ fontWeight:600 }}>Rs.{toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
                           </td>
-                          <td className="right">{exitPrice ? `${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{toINR(originalQty)}</td>
-                          <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                          <td className="right">{investment ? `${toINRd(investment)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{actualInv ? `${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
-                          <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
+                          <td className="right">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">Rs.{toINR(originalQty)}</td>
+                          <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>Rs.{toINR(currentQty)}</span></td>
+                          <td className="right">{investment ? `Rs.${toINRd(investment)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{actualInv ? `Rs.${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
+                          <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs.{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
                           <td className="right">{unrealisedPnL !== null ? <span style={{ color:pnlColor(unrealisedPnL), fontWeight:600 }}>{pnlSign(unrealisedPnL)}{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
                           <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:pnlColor(realisedPnL), fontWeight:600 }}>{pnlSign(realisedPnL)}{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                           <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
