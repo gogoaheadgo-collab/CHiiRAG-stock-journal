@@ -2,50 +2,25 @@ import React, { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
+import NavPill from '../components/NavPill'
 
 function triggerCSVDownload(csvContent, filename) {
+  if (typeof window === 'undefined') return
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
+  const url = window.URL.createObjectURL(blob)
+  const link = window.document.createElement('a')
   link.setAttribute('href', url)
   link.setAttribute('download', filename)
   link.style.display = 'none'
-  document.body.appendChild(link)
+  window.document.body.appendChild(link)
   link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  window.document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
 }
 
 
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
-
-function NavPill({ active, isAdmin }) {
-  const router = useRouter()
-  const items = [
-    { label: 'Dashboard', path: '/dashboard' },
-    { label: 'Accounts', path: '/accounts' },
-    ...(isAdmin ? [
-      { label: 'Subscribers', path: '/subscribers' },
-      { label: 'All Trades', path: '/all-trades' },
-    ] : []),
-    { label: 'Revenue Sharing', path: '/revenue-sharing' },
-    { label: 'Alerts', path: '/alerts' },
-    { label: 'Notes', path: '/notes' },
-  ]
-  return (
-    <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '3px', gap: '2px', flexWrap: 'wrap' }}>
-      {items.map(({ label, path }) => (
-        <button key={path} onClick={() => router.push(path)} style={{
-          padding: '7px 18px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-          fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 600,
-          background: active === label ? 'var(--accent)' : 'transparent',
-          color: active === label ? '#fff' : 'var(--muted)',
-        }}>{label}</button>
-      ))}
-    </div>
-  )
-}
 
 function AddAlertModal({ onClose, onAdd }) {
   const [ticker, setTicker] = useState('')
@@ -310,7 +285,7 @@ export default function AlertsPage() {
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
   const toINRd = n => n != null ? Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null
-  const fmt = n => n != null ? `Rs.${toINRd(n)}` : '—'
+  const fmt = n => n != null ? `\${toINRd(n)}` : '—'
 
   const filtered = statusFilter === 'ALL' ? alerts : alerts.filter(a => a.status === statusFilter)
   const counts = {
@@ -444,7 +419,7 @@ export default function AlertsPage() {
                       </td>
                       {/* CMP */}
                       <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid var(--border)' }}>
-                        {cmp ? <span style={{ fontWeight: 700, color: 'var(--text)' }}>Rs.{toINRd(cmp)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        {cmp ? <span style={{ fontWeight: 700, color: 'var(--text)' }}>\{toINRd(cmp)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
                       </td>
                       {/* Above TG1 */}
                       {tgCell(alert.above_tg1, 'above_tg1', true)}
@@ -474,7 +449,7 @@ export default function AlertsPage() {
                             <span style={{ fontWeight:700, fontSize:'12px', fontFamily:'DM Mono, monospace', color: isUp ? '#22c55e' : '#ef4444' }}>
                               {isUp ? '+' : ''}{pct.toFixed(2)}%
                             </span>
-                            <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'1px' }}>Rs.{Number(next.val).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                            <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'1px' }}>{Number(next.val).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                           </td>
                         )
                       })()}
@@ -552,12 +527,12 @@ export default function AlertsPage() {
                           {isNear && !isHit && <span style={{ marginLeft:'6px', fontSize:'9px', background:'rgba(239,68,68,0.2)', color:'var(--bear)', padding:'1px 5px', borderRadius:'3px' }}>NEAR</span>}
                         </td>
                         <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', color:'var(--muted)', fontSize:'11px' }}>{trade.account || '—'}</td>
-                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right' }}>Rs.{Number(trade.entry_price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                        <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right' }}>{Number(trade.entry_price).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
                         <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:600, color: isHit?'var(--bear)':'var(--text)' }}>
                           {cmp ? `Rs.${Number(cmp).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'}
                         </td>
                         <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:700, color:'var(--bear)' }}>
-                          Rs.{Number(trade.stop_loss).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                          {Number(trade.stop_loss).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
                         </td>
                         <td style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', textAlign:'right', fontWeight:700, color:'var(--bear)' }}>
                           {slPct.toFixed(2)}%
