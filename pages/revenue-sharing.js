@@ -154,7 +154,7 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR }) {
                 {Number(s.value)>=0?'+':'−'}Rs.{toINRd(Math.abs(Number(s.value)))}
               </span>
               {s.remarks && <span style={{ color:'var(--muted)', fontSize:'10px', maxWidth:'80px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.remarks}</span>}
-              {isAdmin && <button onClick={() => remove(s.id)} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'12px', padding:'0 2px' }}>×</button>}
+              {isAdmin && <button onClick={() => removeSettlement(s.id)} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'12px', padding:'0 2px' }}>×</button>}
             </div>
           ))}
         </div>
@@ -182,7 +182,7 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR }) {
               </div>
             </div>
             <div style={{ display:'flex', gap:'8px', marginTop:'18px' }}>
-              <button onClick={save} disabled={!form.value||saving}
+              <button onClick={saveSettlement} disabled={!form.value||saving}
                 style={{ flex:1, padding:'9px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity:!form.value||saving?0.5:1 }}>
                 {saving ? 'Saving...' : 'Save'}
               </button>
@@ -354,6 +354,43 @@ export default function RevenueSharingPage() {
   const TradeTable = ({ trades, execs, subscriberId }) => {
     const [statusFilter, setStatusFilter] = React.useState('ALL')
     const [calMonth, setCalMonth] = React.useState(new Date())
+    const [settlements, setSettlements] = React.useState([])
+    const [modalDate, setModalDate] = React.useState(null)
+    const [modalEdit, setModalEdit] = React.useState(null)
+    const [form, setForm] = React.useState({ value:'', remarks:'' })
+    const [saving, setSaving] = React.useState(false)
+
+    React.useEffect(() => {
+      if (!subscriberId) return
+      getToken().then(token => {
+        fetch(`/api/settlements?subscriber_id=${subscriberId}`, { headers:{ Authorization:`Bearer ${token}` } })
+          .then(r => r.json()).then(data => { if (Array.isArray(data)) setSettlements(data) }).catch(() => {})
+      })
+    }, [subscriberId])
+
+    const saveSettlement = async () => {
+      if (!form.value || saving) return
+      setSaving(true)
+      const token = await getToken()
+      await fetch('/api/settlements', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ subscriber_id: subscriberId, date: modalDate, value: parseFloat(form.value), remarks: form.remarks }) })
+      setSaving(false); setModalDate(null)
+      const res2 = await fetch(`/api/settlements?subscriber_id=${subscriberId}`, { headers:{ Authorization:`Bearer ${token}` } })
+      const data2 = await res2.json(); if (Array.isArray(data2)) setSettlements(data2)
+    }
+
+    const removeSettlement = async (id) => {
+      if (!confirm('🗑 Delete this settlement?
+
+This settlement record will be permanently removed.')) return
+      if (!confirm('⚠️ CONFIRM DELETE
+
+Are you sure? The Unsettled P&L will change after deletion.')) return
+      const token = await getToken()
+      await fetch('/api/settlements', { method:'DELETE', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ id }) })
+      setModalEdit(null)
+      const res2 = await fetch(`/api/settlements?subscriber_id=${subscriberId}`, { headers:{ Authorization:`Bearer ${token}` } })
+      const data2 = await res2.json(); if (Array.isArray(data2)) setSettlements(data2)
+    }
     const [sortCol, setSortCol] = React.useState(null)
     const [sortDir, setSortDir] = React.useState('asc')
     const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
