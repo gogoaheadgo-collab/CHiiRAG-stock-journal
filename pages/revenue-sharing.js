@@ -465,12 +465,51 @@ export default function RevenueSharingPage() {
           <div style={{ fontSize:'11px', fontWeight:700, fontFamily:'DM Mono, monospace', color:'var(--text)', marginBottom:'8px' }}>
             Settlement Calendar
           </div>
-          <SettlementCalendar
-            subscriberId={subscriberId}
-            isAdmin={isAdmin}
-            getToken={getToken}
-            netPnL={summary.netPnLAdmin}
-          />
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderBottom:'1px solid var(--border)' }}>
+              <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth()-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>‹</button>
+              <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>
+                {month.toLocaleString('default',{month:'short'})} {month.getFullYear()}
+              </span>
+              <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth()+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>›</button>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', background:'var(--surface)' }}>
+              {['M','T','W','T','F','S','S'].map((dayL,di) => (
+                <div key={di} style={{ textAlign:'center', padding:'4px 0', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600 }}>{dayL}</div>
+              ))}
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'1px', background:'var(--border)', padding:'1px' }}>
+              {(() => {
+                const calYr = month.getFullYear(), calMo = month.getMonth()
+                const calFmt = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+                const calToday = new Date()
+                const calTodayStr = calFmt(calToday.getFullYear(), calToday.getMonth(), calToday.getDate())
+                const calFirstDay = new Date(calYr, calMo, 1).getDay()
+                const calDays = new Date(calYr, calMo+1, 0).getDate()
+                const calPad = calFirstDay === 0 ? 6 : calFirstDay - 1
+                const calCells = [...Array(calPad).fill(null), ...Array.from({length:calDays},(_,i)=>i+1)]
+                const calSettlementMap = {}
+                settlements.forEach(s => { calSettlementMap[s.date] = s })
+                return calCells.map((calD, calI) => {
+                  if (!calD) return <div key={calI} style={{ background:'var(--bg)', minHeight:'28px' }} />
+                  const calDateStr = calFmt(calYr, calMo, calD)
+                  const calSettled = calSettlementMap[calDateStr]
+                  const calIsToday = calDateStr === calTodayStr
+                  return (
+                    <div key={calI}
+                      onClick={() => { if (!isAdmin) return; if (calSettled) { setModalEdit(calSettled); setModalDate(null) } else { setModalDate(calDateStr); setForm({ value:'', remarks:'' }) } }}
+                      style={{ background: calSettled ? 'rgba(245,158,11,0.15)' : calIsToday ? 'var(--accent-dim)' : 'var(--surface)', minHeight:'28px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'2px', cursor: isAdmin ? 'pointer' : 'default', borderRadius:'2px' }}
+                      onMouseEnter={e => { if (isAdmin) e.currentTarget.style.background = calSettled ? 'rgba(245,158,11,0.25)' : 'rgba(14,165,233,0.1)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = calSettled ? 'rgba(245,158,11,0.15)' : calIsToday ? 'var(--accent-dim)' : 'var(--surface)' }}>
+                      <span style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color: calSettled?'var(--gold)':calIsToday?'var(--accent)':'var(--muted)', fontWeight: calIsToday||calSettled?700:400 }}>{calD}</span>
+                      {calSettled && <span style={{ fontSize:'8px', color:'var(--gold)', fontFamily:'DM Mono, monospace', lineHeight:1 }}>✓</span>}
+                    </div>
+                  )
+                })
+              })()}
+            </div>
+            {isAdmin && <div style={{ padding:'6px 10px', fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', borderTop:'1px solid var(--border)' }}>Click date to record settlement</div>}
+          </div>
         </div>
       </div>
     )
