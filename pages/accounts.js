@@ -792,7 +792,7 @@ export default function AccountsPage() {
             </div>
             <div style={{ flex:1, background:'#138808' }} />
           </div>
-          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
+          <div className="header-brand" style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
         </div>
         <NavPill active="Accounts" isAdmin={isAdmin} />
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
@@ -805,7 +805,7 @@ export default function AccountsPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth:'100%', margin:'0 auto', padding:'20px 24px' }}>
+      <main style={{ maxWidth:'100%', margin:'0 auto', padding:'72px 20px 32px' }}>
 
         {/* ── AGGREGATE STATS (always visible) ── */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px,1fr))', gap:'10px', marginBottom:'20px' }}>
