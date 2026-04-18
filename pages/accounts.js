@@ -213,8 +213,8 @@ function AccountRightPanel({ trades, executions, livePrices, selectedMonth, setS
   })
 
   const statCards = [
-    { label:'Unrealised P&L', value:`Rs.${acUnrealised>=0?'+':'−'}${toINRd(Math.abs(acUnrealised))}`, color:acUnrealised>=0?'var(--bull)':'var(--bear)' },
-    { label:'Realised P&L',   value:`Rs.${acRealised>=0?'+':'−'}${toINRd(Math.abs(acRealised))}`,   color:acRealised>=0?'var(--bull)':'var(--bear)' },
+    { label:'Unrealised P&L', value:`${acUnrealised>=0?'+':'−'}Rs.${toINRd(Math.abs(acUnrealised))}`, color:acUnrealised>=0?'var(--bull)':'var(--bear)' },
+    { label:'Realised P&L',   value:`${acRealised>=0?'+':'−'}Rs.${toINRd(Math.abs(acRealised))}`,   color:acRealised>=0?'var(--bull)':'var(--bear)' },
     { label:'MTF Interest',   value:`Rs.${toINRd(acMTF)}`, color:'var(--gold)' },
   ]
 
@@ -810,8 +810,8 @@ export default function AccountsPage() {
         {/* ── AGGREGATE STATS (always visible) ── */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px,1fr))', gap:'10px', marginBottom:'20px' }}>
           {[
-            { label:'Unrealised P&L', value:`${totalUnrealised>=0?'+':'−'}${toINRd(Math.abs(totalUnrealised))}`, color:totalUnrealised>=0?'var(--bull)':'var(--bear)' },
-            { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}${toINRd(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)' },
+            { label:'Unrealised P&L', value:`${totalUnrealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalUnrealised))}`, color:totalUnrealised>=0?'var(--bull)':'var(--bear)' },
+            { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)' },
             { label:'Open Positions', value:totalOpen, color:'var(--accent)' },
             { label:'Closed Trades', value:totalClosed },
             { label:'MTF Interest', value:`Rs.${toINRd(totalMTF)}`, color:'var(--gold)' },
