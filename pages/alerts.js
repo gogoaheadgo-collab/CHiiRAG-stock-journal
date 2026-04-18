@@ -285,7 +285,7 @@ export default function AlertsPage() {
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
   const toINRd = n => n != null ? Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null
-  const fmt = n => n != null ? `\${toINRd(n)}` : '—'
+  const fmt = n => n != null ? `Rs.${toINRd(n)}` : '—'
 
   const filtered = statusFilter === 'ALL' ? alerts : alerts.filter(a => a.status === statusFilter)
   const counts = {
