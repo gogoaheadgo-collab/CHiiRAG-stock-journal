@@ -3,27 +3,27 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
+import NavPill from '../components/NavPill'
 
 function triggerCSVDownload(csvContent, filename) {
+  if (typeof window === 'undefined') return
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
+  const url = window.URL.createObjectURL(blob)
+  const link = window.document.createElement('a')
   link.setAttribute('href', url)
   link.setAttribute('download', filename)
   link.style.display = 'none'
-  document.body.appendChild(link)
+  window.document.body.appendChild(link)
   link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  window.document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
 }
 
 
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
-function NavPill({ active, isAdmin }) {
-  const router = useRouter()
-  const items = [
+
     { label:'Dashboard', path:'/dashboard' },
     { label:'Accounts', path:'/accounts' },
     ...(isAdmin ? [
@@ -34,19 +34,6 @@ function NavPill({ active, isAdmin }) {
     { label:'Alerts', path:'/alerts' },
     { label:'Notes', path:'/notes' },
   ]
-  return (
-    <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'3px', gap:'2px', flexWrap:'wrap' }}>
-      {items.map(({label,path}) => (
-        <button key={path} onClick={() => router.push(path)} style={{
-          padding:'7px 18px', borderRadius:'6px', border:'none', cursor:'pointer',
-          fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600,
-          background:active===label?'var(--accent)':'transparent',
-          color:active===label?'#fff':'var(--muted)',
-        }}>{label}</button>
-      ))}
-    </div>
-  )
-}
 
 // ── Mini Settlement Calendar ──
 function SettlementCalendar({ subscriberId, isAdmin, getToken, netPnL }) {
@@ -116,13 +103,13 @@ function SettlementCalendar({ subscriberId, isAdmin, getToken, netPnL }) {
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px 12px' }}>
           <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>SETTLED P&L</div>
           <div style={{ fontSize:'14px', fontWeight:800, fontFamily:'DM Mono, monospace', color:totalSettled>=0?'var(--bull)':'var(--bear)' }}>
-            {totalSettled>=0?'+':'−'}Rs.{toINRd(Math.abs(totalSettled))}
+            {totalSettled>=0?'+':'−'}{toINRd(Math.abs(totalSettled))}
           </div>
         </div>
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'10px 12px' }}>
           <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>UNSETTLED P&L</div>
           <div style={{ fontSize:'14px', fontWeight:800, fontFamily:'DM Mono, monospace', color:unsettled>=0?'var(--bull)':'var(--bear)' }}>
-            {unsettled>=0?'+':'−'}Rs.{toINRd(Math.abs(unsettled))}
+            {unsettled>=0?'+':'−'}{toINRd(Math.abs(unsettled))}
           </div>
         </div>
       </div>
@@ -184,7 +171,7 @@ function SettlementCalendar({ subscriberId, isAdmin, getToken, netPnL }) {
             <div key={s.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 8px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', marginBottom:'4px', fontSize:'11px' }}>
               <span style={{ fontFamily:'DM Mono, monospace', color:'var(--muted)', fontSize:'10px' }}>{s.date}</span>
               <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, color:Number(s.value)>=0?'var(--bull)':'var(--bear)' }}>
-                {Number(s.value)>=0?'+':'−'}Rs.{toINRd(Math.abs(Number(s.value)))}
+                {Number(s.value)>=0?'+':'−'}{toINRd(Math.abs(Number(s.value)))}
               </span>
               {s.remarks && <span style={{ color:'var(--muted)', fontSize:'10px', maxWidth:'80px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.remarks}</span>}
               {isAdmin && <button onClick={() => remove(s.id)} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'12px', padding:'0 2px' }}>×</button>}
@@ -234,7 +221,7 @@ function SettlementCalendar({ subscriberId, isAdmin, getToken, netPnL }) {
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'24px', width:'300px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
             <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'15px', color:'var(--text)', marginBottom:'12px' }}>Settlement — {modalEdit.date}</div>
             <div style={{ fontFamily:'DM Mono, monospace', fontSize:'20px', fontWeight:800, color:Number(modalEdit.value)>=0?'var(--bull)':'var(--bear)', marginBottom:'6px' }}>
-              {Number(modalEdit.value)>=0?'+':'−'}Rs.{toINRd(Math.abs(Number(modalEdit.value)))}
+              {Number(modalEdit.value)>=0?'+':'−'}{toINRd(Math.abs(Number(modalEdit.value)))}
             </div>
             {modalEdit.remarks && <div style={{ fontSize:'12px', color:'var(--muted)', marginBottom:'14px' }}>{modalEdit.remarks}</div>}
             <div style={{ display:'flex', gap:'8px', marginTop:'16px' }}>
@@ -413,11 +400,11 @@ export default function RevenueSharingPage() {
           {/* Summary stat cards */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:'10px', marginBottom:'16px' }}>
             {[
-              { label:'Gross P&L (Trade)',   value:`${summary.grossPnL>=0?'+':'−'}Rs.${toINRd(Math.abs(summary.grossPnL))}`, color:summary.grossPnL>=0?'var(--bull)':'var(--bear)' },
-              { label:'Gross P&L (Admin)',   value:`${summary.grossPnLAdmin>=0?'+':'−'}Rs.${toINRd(Math.abs(summary.grossPnLAdmin))}`, color:summary.grossPnLAdmin>=0?'var(--bull)':'var(--bear)' },
-              { label:'MTF Interest (Closed)', value:`Rs.${toINRd(summary.mtfIntClosed)}`, color:'var(--gold)' },
-              { label:'MTF Interest (Open)',   value:`Rs.${toINRd(summary.mtfIntOpen)}`, color:'rgba(245,158,11,0.6)' },
-              { label:'Net P&L (Admin)',      value:`${summary.netPnLAdmin>=0?'+':'−'}Rs.${toINRd(Math.abs(summary.netPnLAdmin))}`, color:summary.netPnLAdmin>=0?'var(--bull)':'var(--bear)' },
+              { label:'Gross P&L (Trade)',   value:`${summary.grossPnL>=0?'+':'−'}${toINRd(Math.abs(summary.grossPnL))}`, color:summary.grossPnL>=0?'var(--bull)':'var(--bear)' },
+              { label:'Gross P&L (Admin)',   value:`${summary.grossPnLAdmin>=0?'+':'−'}${toINRd(Math.abs(summary.grossPnLAdmin))}`, color:summary.grossPnLAdmin>=0?'var(--bull)':'var(--bear)' },
+              { label:'MTF Interest (Closed)', value:`\${toINRd(summary.mtfIntClosed)}`, color:'var(--gold)' },
+              { label:'MTF Interest (Open)',   value:`\${toINRd(summary.mtfIntOpen)}`, color:'rgba(245,158,11,0.6)' },
+              { label:'Net P&L (Admin)',      value:`${summary.netPnLAdmin>=0?'+':'−'}${toINRd(Math.abs(summary.netPnLAdmin))}`, color:summary.netPnLAdmin>=0?'var(--bull)':'var(--bear)' },
               { label:'MTF Trades', value:`${summary.count} (${summary.closedCount} closed)`, color:'var(--text)' },
             ].map(({ label, value, color }) => (
               <div key={label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'12px 14px' }}>
@@ -470,16 +457,16 @@ export default function RevenueSharingPage() {
                         </div>
                       </td>
                       <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                      <td className="right">Rs.{toINRd(r.entryPrice)}</td>
-                      <td className="right">{r.exitPrice?`Rs.${toINRd(r.exitPrice)}`:<span className="neutral">—</span>}</td>
+                      <td className="right">\{toINRd(r.entryPrice)}</td>
+                      <td className="right">{r.exitPrice?`\${toINRd(r.exitPrice)}`:<span className="neutral">—</span>}</td>
                       <td className="right">{Number(r.originalQty).toLocaleString('en-IN')}</td>
-                      <td className="right">Rs.{toINRd(r.investment)}</td>
-                      <td className="right">Rs.{toINRd(r.actualInv)}</td>
+                      <td className="right">\{toINRd(r.investment)}</td>
+                      <td className="right">\{toINRd(r.actualInv)}</td>
                       <td className="right" style={{ color:'var(--gold)', fontWeight:600 }}>{(r.adminRatio*100).toFixed(1)}%</td>
-                      <td className="right">{r.mtfInt>0?<span style={{color:'var(--gold)'}}>Rs.{toINRd(r.mtfInt)}</span>:<span className="neutral">—</span>}</td>
-                      <td className="right"><span style={{fontWeight:600,color:r.grossPnL>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(r.grossPnL))}</span></td>
-                      <td className="right"><span style={{fontWeight:600,color:r.grossPnLAdmin>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnLAdmin>=0?'+':'−'}Rs.{toINRd(Math.abs(r.grossPnLAdmin))}</span></td>
-                      <td className="right"><span style={{fontWeight:700,fontSize:'13px',color:r.netPnLAdmin>=0?'var(--bull)':'var(--bear)',background:r.netPnLAdmin>=0?'rgba(0,230,118,0.06)':'rgba(239,68,68,0.06)',padding:'2px 8px',borderRadius:'4px'}}>{r.netPnLAdmin>=0?'+':'−'}Rs.{toINRd(Math.abs(r.netPnLAdmin))}</span></td>
+                      <td className="right">{r.mtfInt>0?<span style={{color:'var(--gold)'}}>\{toINRd(r.mtfInt)}</span>:<span className="neutral">—</span>}</td>
+                      <td className="right"><span style={{fontWeight:600,color:r.grossPnL>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnL>=0?'+':'−'}{toINRd(Math.abs(r.grossPnL))}</span></td>
+                      <td className="right"><span style={{fontWeight:600,color:r.grossPnLAdmin>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnLAdmin>=0?'+':'−'}{toINRd(Math.abs(r.grossPnLAdmin))}</span></td>
+                      <td className="right"><span style={{fontWeight:700,fontSize:'13px',color:r.netPnLAdmin>=0?'var(--bull)':'var(--bear)',background:r.netPnLAdmin>=0?'rgba(0,230,118,0.06)':'rgba(239,68,68,0.06)',padding:'2px 8px',borderRadius:'4px'}}>{r.netPnLAdmin>=0?'+':'−'}{toINRd(Math.abs(r.netPnLAdmin))}</span></td>
                     </tr>
                   )
                 })}
