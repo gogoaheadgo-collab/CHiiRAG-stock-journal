@@ -22,20 +22,6 @@ function triggerCSVDownload(csvContent, filename) {
 
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
-
-
-    { label:'Dashboard', path:'/dashboard' },
-    { label:'Accounts', path:'/accounts' },
-    ...(isAdmin ? [
-      { label:'Subscribers', path:'/subscribers' },
-      { label:'All Trades', path:'/all-trades' },
-    ] : []),
-    { label:'Revenue Sharing', path:'/revenue-sharing' },
-    { label:'Alerts', path:'/alerts' },
-    { label:'Notes', path:'/notes' },
-  ]
-
-function toINR(n) { return Number(n).toLocaleString('en-IN', { maximumFractionDigits:0 }) }
 function toINRd(n) { return Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 }) }
 
 export default function SubscribersPage() {
