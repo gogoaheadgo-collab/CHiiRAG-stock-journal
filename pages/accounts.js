@@ -144,14 +144,14 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
                       <td className="muted">{trade.entry_date?.slice(0,10)}</td>
                       <td className="right">\{toINRd(entryPrice)}</td>
                       <td className="right">{cmp ? <div><div style={{ fontWeight:600 }}>\{toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}</td>
-                      <td className="right">{exitPrice ? `\${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
-                      <td className="right">{toINR(originalQty)}</td>
-                      <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                      <td className="right">{investment ? `\${toINRd(investment)}` : <span className="neutral">—</span>}</td>
-                      <td className="right">{actualInv ? `\${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
+                      <td className="right">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                      <td className="right">Rs.{toINR(originalQty)}</td>
+                      <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>Rs.{toINR(currentQty)}</span></td>
+                      <td className="right">{investment ? `Rs.${toINRd(investment)}` : <span className="neutral">—</span>}</td>
+                      <td className="right">{actualInv ? `Rs.${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
                       <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>\{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                      <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                      <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                      <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                      <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                       <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
                     </tr>
                   )
@@ -217,7 +217,7 @@ function AccountRightPanel({ trades, executions, livePrices, selectedMonth, setS
     { label:'Realised P&L',   value:`${acRealised>=0?'+':'−'}${toINRd(acRealised)}`,   color:acRealised>=0?'var(--bull)':'var(--bear)' },
     { label:'Open Positions', value:acOpen,   color:'var(--accent)' },
     { label:'Closed Trades',  value:acClosed, color:'var(--muted)' },
-    { label:'MTF Interest',   value:`\${toINRd(acMTF)}`, color:'var(--gold)' },
+    { label:'MTF Interest',   value:`Rs.${toINRd(acMTF)}`, color:'var(--gold)' },
   ]
 
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -818,7 +818,7 @@ export default function AccountsPage() {
             { label:'Realised P&L', value:`${totalRealised>=0?'+':'−'}${toINRd(Math.abs(totalRealised))}`, color:totalRealised>=0?'var(--bull)':'var(--bear)' },
             { label:'Open Positions', value:totalOpen, color:'var(--accent)' },
             { label:'Closed Trades', value:totalClosed },
-            { label:'MTF Interest', value:`\${toINRd(totalMTF)}`, color:'var(--gold)' },
+            { label:'MTF Interest', value:`Rs.${toINRd(totalMTF)}`, color:'var(--gold)' },
           ].map(s => (
             <div key={s.label} className="stat-card">
               <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'6px' }}>
@@ -1048,14 +1048,14 @@ export default function AccountsPage() {
                             <td className="right">
                               {isOpen && lp ? <div><div style={{ fontWeight:600 }}>\{toINRd(lp.price)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
                             </td>
-                            <td className="right">{exitPrice ? `\${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{toINR(originalQty)}</td>
-                            <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                            <td className="right">{investment ? `\${toINRd(investment)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{actualInv ? `\${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">Rs.{toINR(originalQty)}</td>
+                            <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>Rs.{toINR(currentQty)}</span></td>
+                            <td className="right">{investment ? `Rs.${toINRd(investment)}` : <span className="neutral">—</span>}</td>
+                            <td className="right">{actualInv ? `Rs.${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
                             <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>\{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                            <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
                             <td style={{ textAlign:'center', position:'relative' }} onClick={e => e.stopPropagation()}>
                               <button onClick={e => { e.preventDefault(); e.stopPropagation(); setOpenMenu(prev => prev===trade.id ? null : trade.id) }} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
                               {openMenu === trade.id && (
