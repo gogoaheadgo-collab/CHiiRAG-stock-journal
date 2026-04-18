@@ -31,6 +31,8 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR }) {
   const [form, setForm] = React.useState({ value:'', remarks:'' })
   const [saving, setSaving] = React.useState(false)
   const [netPnL] = React.useState(0)
+  const [editMode, setEditMode] = React.useState(false)
+  const [editForm, setEditForm] = React.useState({ value:'', remarks:'' })
   const today = new Date()
 
   const load = React.useCallback(async () => {
@@ -48,6 +50,14 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR }) {
     const token = await getToken()
     await fetch('/api/settlements', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ subscriber_id: subscriber.id, date: modalDate, value: parseFloat(form.value), remarks: form.remarks }) })
     setSaving(false); setModalDate(null); await load()
+  }
+
+  const update = async () => {
+    if (!editForm.value || saving) return
+    setSaving(true)
+    const token = await getToken()
+    await fetch('/api/settlements', { method:'PUT', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body: JSON.stringify({ id: modalEdit.id, value: parseFloat(editForm.value), remarks: editForm.remarks }) })
+    setSaving(false); setModalEdit(null); setEditMode(false); await load()
   }
 
   const remove = async (id) => {
@@ -154,7 +164,7 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR }) {
                 {Number(s.value)>=0?'+':'−'}Rs.{toINRd(Math.abs(Number(s.value)))}
               </span>
               {s.remarks && <span style={{ color:'var(--muted)', fontSize:'10px', maxWidth:'80px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.remarks}</span>}
-              {isAdmin && <button onClick={() => removeSettlement(s.id)} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'12px', padding:'0 2px' }}>×</button>}
+              {isAdmin && <button onClick={() => remove(s.id)} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'12px', padding:'0 2px' }}>×</button>}
             </div>
           ))}
         </div>
@@ -195,19 +205,60 @@ function SubscriberPanel({ subscriber, isAdmin, getToken, toINRd, toINR }) {
         </div>
       )}
 
-      {/* View/delete existing settlement modal */}
+      {/* View/Edit/Delete settlement modal */}
       {modalEdit && isAdmin && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'24px', width:'300px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
-            <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'15px', color:'var(--text)', marginBottom:'12px' }}>Settlement — {modalEdit.date}</div>
-            <div style={{ fontFamily:'DM Mono, monospace', fontSize:'20px', fontWeight:800, color:Number(modalEdit.value)>=0?'var(--bull)':'var(--bear)', marginBottom:'6px' }}>
-              {Number(modalEdit.value)>=0?'+':'−'}Rs.{toINRd(Math.abs(Number(modalEdit.value)))}
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'24px', width:'340px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
+            <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'15px', color:'var(--text)', marginBottom:'12px' }}>
+              Settlement — {modalEdit.date}
             </div>
-            {modalEdit.remarks && <div style={{ fontSize:'12px', color:'var(--muted)', marginBottom:'14px' }}>{modalEdit.remarks}</div>}
-            <div style={{ display:'flex', gap:'8px', marginTop:'16px' }}>
-              <button onClick={() => remove(modalEdit.id)} style={{ flex:1, padding:'9px', background:'var(--bear)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px' }}>Delete</button>
-              <button onClick={() => setModalEdit(null)} style={{ flex:1, padding:'9px', background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontSize:'12px' }}>Close</button>
-            </div>
+            {!editMode ? (
+              <>
+                <div style={{ fontFamily:'DM Mono, monospace', fontSize:'22px', fontWeight:800, color:Number(modalEdit.value)>=0?'var(--bull)':'var(--bear)', marginBottom:'4px' }}>
+                  {Number(modalEdit.value)>=0?'+':'−'}Rs.{toINRd(Math.abs(Number(modalEdit.value)))}
+                </div>
+                {modalEdit.remarks && <div style={{ fontSize:'12px', color:'var(--muted)', marginBottom:'12px', fontFamily:'DM Mono, monospace' }}>{modalEdit.remarks}</div>}
+                <div style={{ display:'flex', gap:'8px', marginTop:'16px' }}>
+                  <button onClick={() => { setEditForm({ value: modalEdit.value, remarks: modalEdit.remarks || '' }); setEditMode(true) }}
+                    style={{ flex:1, padding:'9px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px' }}>
+                    ✏ Edit
+                  </button>
+                  <button onClick={() => remove(modalEdit.id)}
+                    style={{ flex:1, padding:'9px', background:'var(--bear)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px' }}>
+                    🗑 Delete
+                  </button>
+                  <button onClick={() => { setModalEdit(null); setEditMode(false) }}
+                    style={{ flex:1, padding:'9px', background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontSize:'12px' }}>
+                    Close
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+                  <div>
+                    <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>VALUE (Rs.)</div>
+                    <input type="number" value={editForm.value} onChange={e=>setEditForm(p=>({...p,value:e.target.value}))}
+                      style={{ width:'100%', background:'var(--bg)', border:'1px solid var(--accent)', borderRadius:'6px', padding:'8px 10px', color:'var(--text)', fontSize:'13px', fontFamily:'DM Mono, monospace', boxSizing:'border-box' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'4px' }}>REMARKS (optional)</div>
+                    <input type="text" value={editForm.remarks} onChange={e=>setEditForm(p=>({...p,remarks:e.target.value}))}
+                      style={{ width:'100%', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'6px', padding:'8px 10px', color:'var(--text)', fontSize:'13px', fontFamily:'DM Mono, monospace', boxSizing:'border-box' }} />
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:'8px', marginTop:'16px' }}>
+                  <button onClick={update} disabled={!editForm.value||saving}
+                    style={{ flex:1, padding:'9px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'12px', opacity:!editForm.value||saving?0.5:1 }}>
+                    {saving ? 'Saving...' : '✓ Update'}
+                  </button>
+                  <button onClick={() => setEditMode(false)}
+                    style={{ flex:1, padding:'9px', background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'6px', cursor:'pointer', fontFamily:'DM Mono, monospace', fontSize:'12px' }}>
+                    ← Back
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
