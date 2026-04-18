@@ -468,11 +468,11 @@ export default function RevenueSharingPage() {
           </div>
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderBottom:'1px solid var(--border)' }}>
-              <button onClick={() => setMonth(new Date(calMonth.getFullYear(), calMonth.getMonth()-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>‹</button>
+              <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth()-1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>‹</button>
               <span style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color:'var(--text)' }}>
                 {calMonth.toLocaleString('default',{month:'short'})} {calMonth.getFullYear()}
               </span>
-              <button onClick={() => setMonth(new Date(calMonth.getFullYear(), calMonth.getMonth()+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>›</button>
+              <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth()+1, 1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontSize:'11px' }}>›</button>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', background:'var(--surface)' }}>
               {['M','T','W','T','F','S','S'].map((dayL,di) => (
@@ -481,7 +481,7 @@ export default function RevenueSharingPage() {
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'1px', background:'var(--border)', padding:'1px' }}>
               {(() => {
-                const calYr = calMonth.getFullYear(), calMo = month.getMonth()
+                const calYr = calMonth.getFullYear(), calMo = calMonth.getMonth()
                 const calFmt = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
                 const calToday = new Date()
                 const calTodayStr = calFmt(calToday.getFullYear(), calToday.getMonth(), calToday.getDate())
