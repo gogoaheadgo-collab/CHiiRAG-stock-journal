@@ -81,7 +81,6 @@ export default function NotesPage() {
   const [sharing, setSharing] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
   const [sharedNotes, setSharedNotes] = useState([])
-  const [activeTab, setActiveTab] = useState('mine')
   const editorRef = useRef(null)
   const fileRef = useRef(null)
 
@@ -136,7 +135,7 @@ export default function NotesPage() {
     if (Array.isArray(sharedData)) setSharedNotes(sharedData)
   }, [getToken])
 
-  useEffect(() => { if (session && !isAdmin) loadShared() }, [session, isAdmin]) // eslint-disable-line
+  useEffect(() => { if (session) loadShared() }, [session]) // eslint-disable-line
 
   const fetchStock = async (sym) => {
     try {
@@ -283,57 +282,8 @@ export default function NotesPage() {
 
       <main style={{ maxWidth:'100%', padding:'80px 24px 40px' }}>
 
-        {/* Tabs: My Notes / Shared (subscriber only) */}
-        {!isAdmin && (
-          <div style={{ display:'flex', gap:'8px', marginBottom:'20px' }}>
-            {['mine','shared'].map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                padding:'7px 20px', borderRadius:'6px', border:`1px solid ${activeTab===tab?'var(--accent)':'var(--border)'}`,
-                background: activeTab===tab?'var(--accent-dim)':'transparent',
-                color: activeTab===tab?'var(--accent)':'var(--muted)',
-                cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:600,
-              }}>{tab === 'mine' ? '📝 My Notes' : '🔗 Shared by Admin'}</button>
-            ))}
-          </div>
-        )}
-
-        {/* SHARED NOTES TAB */}
-        {activeTab === 'shared' && !isAdmin && (
-          <div>
-            {sharedNotes.length === 0 ? (
-              <div style={{ color:'var(--muted)', fontFamily:'DM Mono, monospace', fontSize:'13px', padding:'40px', textAlign:'center' }}>No shared notes yet.</div>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
-                {sharedNotes.map(note => (
-                  <div key={note.id} style={{ background:'#fefef8', border:'1px solid #e8e0c8', borderRadius:'8px', boxShadow:'0 2px 8px rgba(0,0,0,0.1)', overflow:'hidden', borderLeft:'4px solid var(--gold)' }}>
-                    <div style={{ padding:'10px 16px', borderBottom:'1px solid rgba(173,140,100,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center', background:'rgba(245,158,11,0.04)' }}>
-                      <div style={{ fontFamily:'Caveat, cursive', fontSize:'16px', color:'#5a4a3a', fontWeight:600 }}>
-                        {new Date(note.note_date+'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
-                      </div>
-                      <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
-                        {(note.tickers||[]).map(sym => (
-                          <span key={sym} style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'10px', color:'var(--gold)', background:'rgba(245,158,11,0.1)', padding:'2px 7px', borderRadius:'4px' }}>{sym}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <div dangerouslySetInnerHTML={{ __html: note.content || '<i style="color:rgba(44,24,16,0.3)">No content</i>' }}
-                      style={{ padding:'12px 16px', fontFamily:'Caveat, cursive', fontSize:'19px', color:'#2c1810', lineHeight:'32px', minHeight:'80px' }} />
-                    {(note.image_urls||[]).length > 0 && (
-                      <div style={{ padding:'0 16px 12px', display:'flex', gap:'8px', flexWrap:'wrap' }}>
-                        {note.image_urls.map((url,imgI) => (
-                          <img key={imgI} src={url} alt="" style={{ width:'100px', height:'70px', objectFit:'cover', borderRadius:'5px', border:'1px solid #e8e0c8' }} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* MY NOTES TAB */}
-        {activeTab === 'mine' && (
+        {/* MY NOTES */}
+        {(
           <div style={{ display:'flex', gap:'20px', alignItems:'flex-start' }}>
 
             {/* Sidebar */}
@@ -533,6 +483,42 @@ export default function NotesPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* SHARED NOTES (admin shares shown below for all users) */}
+        {sharedNotes.length > 0 && (
+          <div style={{ marginTop:'40px', paddingTop:'32px', borderTop:'2px solid var(--border)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'20px' }}>
+              <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'16px', color:'var(--text)' }}>🔗 Shared by Admin</span>
+              <span style={{ fontSize:'11px', background:'var(--accent-dim)', color:'var(--accent)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>READ ONLY</span>
+              <span style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{sharedNotes.length} note{sharedNotes.length>1?'s':''}</span>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
+              {sharedNotes.map(note => (
+                <div key={note.id} style={{ background:'#fefef8', border:'1px solid #e8e0c8', borderRadius:'8px', boxShadow:'0 2px 8px rgba(0,0,0,0.1)', overflow:'hidden', borderLeft:'4px solid var(--gold)' }}>
+                  <div style={{ padding:'10px 16px', borderBottom:'1px solid rgba(173,140,100,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center', background:'rgba(245,158,11,0.04)' }}>
+                    <div style={{ fontFamily:'Caveat, cursive', fontSize:'16px', color:'#5a4a3a', fontWeight:600 }}>
+                      {new Date(note.note_date+'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+                    </div>
+                    <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+                      {(note.tickers||[]).map(sym => (
+                        <span key={sym} style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'10px', color:'var(--gold)', background:'rgba(245,158,11,0.1)', padding:'2px 7px', borderRadius:'4px' }}>{sym}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div dangerouslySetInnerHTML={{ __html: note.content || '<i style="color:rgba(44,24,16,0.3)">No content</i>' }}
+                    style={{ padding:'12px 16px', fontFamily:'Caveat, cursive', fontSize:'19px', color:'#2c1810', lineHeight:'32px', minHeight:'80px' }} />
+                  {(note.image_urls||[]).length > 0 && (
+                    <div style={{ padding:'0 16px 12px', display:'flex', gap:'8px', flexWrap:'wrap' }}>
+                      {note.image_urls.map((url,imgI) => (
+                        <img key={imgI} src={url} alt="" style={{ width:'100px', height:'70px', objectFit:'cover', borderRadius:'5px', border:'1px solid #e8e0c8' }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
