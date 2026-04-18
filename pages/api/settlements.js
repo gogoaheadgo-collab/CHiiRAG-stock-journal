@@ -45,5 +45,16 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true })
   }
 
+  // PUT — update settlement (admin only)
+  if (req.method === 'PUT') {
+    if (user.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Admin only' })
+    const { id, value, remarks } = req.body
+    if (!id || value === undefined) return res.status(400).json({ error: 'id and value required' })
+    const { data, error } = await adminSupabase
+      .from('settlements').update({ value: Number(value), remarks: remarks || null }).eq('id', id).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    return res.status(200).json(data)
+  }
+
   res.status(405).json({ error: 'Method not allowed' })
 }
