@@ -125,7 +125,7 @@ export default function AllTradesPage() {
       const curr = Math.max(0,orig-sold)
       const entry = Number(trade.entry_price)||0
       const lp = livePrices[trade.ticker]?.price
-      const unr = lp&&curr>0?(trade.direction==='LONG'?(lp-entry)*curr:(entry-lp)*curr):''
+      const unr = trade.status==='OPEN' && lp && curr>0?(trade.direction==='LONG'?(lp-entry)*curr:(entry-lp)*curr):''
       const rel = exs.length>0?exs.reduce((s,e)=>s+(Number(e.price)-entry)*Number(e.quantity),0):(Number(trade.realized_gains)||0)
       return [trade.ticker,trade.account,trade.direction,trade.entry_date,entry,trade.exit_price||'',orig,curr,unr!==''?unr.toFixed(2):'',rel.toFixed(2),trade.status,isSubscriber?'Subscriber':'Admin']
     })
