@@ -249,6 +249,153 @@ function RecordTransactionModal({ bankAcct, allBankAccts, onClose, onRecord }) {
   )
 }
 
+// ── Edit Account Modal ───────────────────────────────────────────
+function EditAccountModal({ bankAcct: editAcct, onClose, onSave }) {
+  const [eaBankName, setEaBankName] = useState(editAcct.bank_name)
+  const [eaHolder, setEaHolder]     = useState(editAcct.holder_name)
+  const [eaSugs, setEaSugs]         = useState([])
+  const [eaShowDrop, setEaShowDrop] = useState(false)
+  const [eaSaving, setEaSaving]     = useState(false)
+  const [eaErr, setEaErr]           = useState('')
+  const eaFld = { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'8px 12px', color:'var(--text)', fontSize:'13px', fontFamily:'DM Mono, monospace', width:'100%', outline:'none', boxSizing:'border-box' }
+  const eaLbl = { fontSize:'10px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Mono, monospace', display:'block', marginBottom:'4px' }
+  const eaBankSearch = q => { setEaBankName(q); if (!q) { setEaSugs([]); setEaShowDrop(false); return }; const f = INDIAN_BANKS.filter(b => b.toLowerCase().includes(q.toLowerCase())).slice(0,6); setEaSugs(f); setEaShowDrop(f.length > 0) }
+  const handleEaSave = async () => {
+    setEaErr('')
+    if (!eaBankName.trim()) return setEaErr('Bank name required')
+    if (!eaHolder.trim()) return setEaErr('Holder name required')
+    setEaSaving(true)
+    try { await onSave({ id: editAcct.id, bank_name: eaBankName.trim(), holder_name: eaHolder.trim() }); onClose() }
+    catch (eaE) { setEaErr(eaE.message) }
+    setEaSaving(false)
+  }
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'12px', padding:'28px', width:'100%', maxWidth:'400px', boxShadow:'0 20px 60px rgba(0,0,0,0.15)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
+          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'17px', color:'var(--text)' }}>Edit Account</div>
+          <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'20px', color:'var(--muted)', cursor:'pointer' }}>×</button>
+        </div>
+        <div style={{ marginBottom:'14px', position:'relative' }}>
+          <label style={eaLbl}>Bank Name *</label>
+          <input value={eaBankName} onChange={e => eaBankSearch(e.target.value)} onBlur={() => setTimeout(() => setEaShowDrop(false), 200)} style={eaFld} />
+          {eaShowDrop && eaSugs.length > 0 && (
+            <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:999, background:'var(--bg)', border:'1px solid var(--accent)', borderRadius:'6px', boxShadow:'0 8px 20px rgba(0,0,0,0.15)', maxHeight:'160px', overflowY:'auto', marginTop:'2px' }}>
+              {eaSugs.map((bk, bi) => (<div key={bi} onMouseDown={() => { setEaBankName(bk); setEaShowDrop(false) }} style={{ padding:'8px 14px', cursor:'pointer', borderBottom:'1px solid var(--border)', fontSize:'12px', fontFamily:'DM Mono, monospace' }} onMouseEnter={e=>e.currentTarget.style.background='var(--surface)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>{bk}</div>))}
+            </div>
+          )}
+        </div>
+        <div style={{ marginBottom:'20px' }}>
+          <label style={eaLbl}>Holder Name *</label>
+          <input value={eaHolder} onChange={e => setEaHolder(e.target.value)} style={eaFld} />
+        </div>
+        {eaErr && <div style={{ color:'var(--bear)', fontSize:'12px', marginBottom:'12px', fontFamily:'DM Mono, monospace' }}>{eaErr}</div>}
+        <div style={{ display:'flex', gap:'8px' }}>
+          <button onClick={onClose} style={{ flex:1, padding:'10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', color:'var(--muted)', cursor:'pointer', fontSize:'13px' }}>Cancel</button>
+          <button onClick={handleEaSave} disabled={eaSaving} style={{ flex:2, padding:'10px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:'6px', fontWeight:700, fontSize:'13px', cursor:'pointer', opacity:eaSaving?0.7:1 }}>{eaSaving?'Saving...':'Save Changes'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Edit Transaction Modal ────────────────────────────────────────
+function EditTransactionModal({ txn, bankAcct: etAcct, allBankAccts: etAllAccts, onClose, onUpdate }) {
+  const [etType, setEtType]       = useState(txn.transaction_type)
+  const [etSrc, setEtSrc]         = useState(txn.source_type)
+  const [etSrcDetail, setEtSrcDetail] = useState(txn.source_detail || '')
+  const [etWdMode, setEtWdMode]   = useState(txn.withdrawal_mode || '')
+  const [etAmount, setEtAmount]   = useState(String(txn.amount))
+  const [etDate, setEtDate]       = useState(txn.transaction_date)
+  const [etNotes, setEtNotes]     = useState(txn.notes || '')
+  const [etSaving, setEtSaving]   = useState(false)
+  const [etErr, setEtErr]         = useState('')
+  const etOtherAccts = etAllAccts.filter(a => a.id !== etAcct.id)
+  const etAmtNum = parseFloat(etAmount) || 0
+  const etFld = { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'8px 12px', color:'var(--text)', fontSize:'13px', fontFamily:'DM Mono, monospace', width:'100%', outline:'none', boxSizing:'border-box' }
+  const etLbl = { fontSize:'10px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Mono, monospace', display:'block', marginBottom:'4px' }
+  const etSec = { fontSize:'9px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', fontFamily:'DM Mono, monospace', borderBottom:'1px solid var(--border)', paddingBottom:'6px', marginBottom:'12px', marginTop:'16px' }
+  const handleEtTypeSwitch = v => { setEtType(v); setEtSrc(v==='CREDIT'?'CASH_DEPOSIT':'CASH_WITHDRAWAL'); setEtSrcDetail(''); setEtWdMode('') }
+  const handleEtSave = async () => {
+    setEtErr('')
+    if (!etAmount || etAmtNum <= 0) return setEtErr('Enter a valid amount')
+    if (etSrc === 'A2A_TRANSFER' && !etSrcDetail) return setEtErr('Select source/destination account')
+    setEtSaving(true)
+    try {
+      const etSrcDetailVal = etSrc === 'CASH_DEPOSIT' ? 'બેંકમાં જમા' : etSrc === 'A2A_TRANSFER' ? etSrcDetail : etAcct.bank_name
+      await onUpdate({ id: txn.id, transaction_date: etDate, transaction_type: etType, source_type: etSrc, source_detail: etSrcDetailVal, withdrawal_mode: etWdMode || null, amount: etAmtNum, notes: etNotes || null })
+      onClose()
+    } catch (etE) { setEtErr(etE.message) }
+    setEtSaving(false)
+  }
+  const etCreditSrcOpts = [{ val:'CASH_DEPOSIT', lbl:'Cash Deposit' }, { val:'A2A_TRANSFER', lbl:'A2A Transfer' }]
+  const etDebitSrcOpts  = [{ val:'CASH_WITHDRAWAL', lbl:'Cash Withdrawal' }, { val:'A2A_TRANSFER', lbl:'A2A Transfer' }]
+  const etActiveSrcOpts = etType === 'CREDIT' ? etCreditSrcOpts : etDebitSrcOpts
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'12px', padding:'28px', width:'100%', maxWidth:'460px', maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.15)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'4px' }}>
+          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'17px', color:'var(--text)' }}>Edit Transaction</div>
+          <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'20px', color:'var(--muted)', cursor:'pointer' }}>×</button>
+        </div>
+        <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'16px' }}>{etAcct.bank_name} · {etAcct.holder_name}</div>
+        <div style={etSec}>Transaction Type</div>
+        <div style={{ display:'flex', gap:'8px', marginBottom:'16px' }}>
+          {[{ val:'CREDIT', label:'↑ પૈસા આવ્યા', color:'var(--bull)', bg:'rgba(14,165,233,0.08)' }, { val:'DEBIT', label:'↓ પૈસા ગયા', color:'var(--bear)', bg:'rgba(239,68,68,0.08)' }].map(etOpt => (
+            <button key={etOpt.val} onClick={() => handleEtTypeSwitch(etOpt.val)} style={{ flex:1, padding:'10px 8px', borderRadius:'6px', cursor:'pointer', fontSize:'13px', fontFamily:'DM Mono, monospace', fontWeight:etType===etOpt.val?700:400, border:`2px solid ${etType===etOpt.val?etOpt.color:'var(--border)'}`, background:etType===etOpt.val?etOpt.bg:'var(--surface)', color:etType===etOpt.val?etOpt.color:'var(--muted)' }}>{etOpt.label}</button>
+          ))}
+        </div>
+        <div style={etSec}>Source</div>
+        <div style={{ display:'flex', gap:'8px', marginBottom:'14px' }}>
+          {etActiveSrcOpts.map(etSrcOpt => (
+            <button key={etSrcOpt.val} onClick={() => { setEtSrc(etSrcOpt.val); setEtSrcDetail(''); setEtWdMode('') }} style={{ flex:1, padding:'8px', borderRadius:'6px', cursor:'pointer', fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:etSrc===etSrcOpt.val?700:400, border:`1px solid ${etSrc===etSrcOpt.val?(etType==='CREDIT'?'var(--bull)':'var(--bear)'):'var(--border)'}`, background:etSrc===etSrcOpt.val?(etType==='CREDIT'?'rgba(14,165,233,0.06)':'rgba(239,68,68,0.06)'):'var(--surface)', color:etSrc===etSrcOpt.val?(etType==='CREDIT'?'var(--bull)':'var(--bear)'):'var(--muted)' }}>{etSrcOpt.lbl}</button>
+          ))}
+        </div>
+        {etSrc === 'A2A_TRANSFER' && (
+          <div style={{ marginBottom:'14px' }}>
+            <label style={etLbl}>{etType==='CREDIT'?'Transfer From':'Transfer To'} *</label>
+            <select value={etSrcDetail} onChange={e => setEtSrcDetail(e.target.value)} style={etFld}>
+              <option value="">— Select Account —</option>
+              {etOtherAccts.map(oa => <option key={oa.id} value={`${oa.bank_name} (${oa.holder_name})`}>{oa.bank_name} — {oa.holder_name}</option>)}
+            </select>
+          </div>
+        )}
+        {etSrc === 'CASH_WITHDRAWAL' && (
+          <div style={{ marginBottom:'14px' }}>
+            <label style={etLbl}>Mode of Withdrawal</label>
+            <select value={etWdMode} onChange={e => setEtWdMode(e.target.value)} style={etFld}>
+              <option value="">— Select Mode —</option>
+              <option value="ATM">ATM</option>
+              <option value="CHEQUE">Cheque</option>
+              <option value="OTHER_TRANSFER">Other Account Transfer</option>
+            </select>
+          </div>
+        )}
+        <div style={etSec}>Amount & Date</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'14px' }}>
+          <div>
+            <label style={etLbl}>Amount (Rs.) *</label>
+            <input type="number" value={etAmount} onChange={e => setEtAmount(e.target.value)} style={{ ...etFld, borderColor: etAmount?(etType==='CREDIT'?'var(--bull)':'var(--bear)'):'var(--border)' }} step="0.01" min="0" />
+          </div>
+          <div>
+            <label style={etLbl}>Date *</label>
+            <input type="date" value={etDate} onChange={e => setEtDate(e.target.value)} style={etFld} />
+          </div>
+        </div>
+        <div style={{ marginBottom:'14px' }}>
+          <label style={etLbl}>Notes (optional)</label>
+          <input value={etNotes} onChange={e => setEtNotes(e.target.value)} style={etFld} />
+        </div>
+        {etErr && <div style={{ color:'var(--bear)', fontSize:'12px', marginBottom:'12px', fontFamily:'DM Mono, monospace' }}>{etErr}</div>}
+        <div style={{ display:'flex', gap:'8px' }}>
+          <button onClick={onClose} style={{ flex:1, padding:'10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', color:'var(--muted)', cursor:'pointer', fontSize:'13px' }}>Cancel</button>
+          <button onClick={handleEtSave} disabled={etSaving} style={{ flex:2, padding:'10px', background:etType==='CREDIT'?'var(--bull)':'var(--bear)', color:'#fff', border:'none', borderRadius:'6px', fontWeight:700, fontSize:'13px', cursor:'pointer', opacity:etSaving?0.7:1 }}>{etSaving?'Saving...':'Save Changes'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ────────────────────────────────────────────────────
 export default function BankPage() {
   const router = useRouter()
@@ -265,6 +412,9 @@ export default function BankPage() {
   const [bankAcctsLoad, setBankAcctsLoad] = useState(false)
   const [bankShowAdd, setBankShowAdd] = useState(false)
   const [bankShowTxn, setBankShowTxn] = useState(false)
+  const [bankEditAcct, setBankEditAcct] = useState(null)
+  const [bankEditTxn, setBankEditTxn]   = useState(null)
+  const [bankApproving, setBankApproving] = useState(null)
 
   const getToken = useCallback(async () => (await supabase.auth.getSession()).data.session?.access_token, [])
 
@@ -376,6 +526,38 @@ export default function BankPage() {
 
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
+  const handleApproveToggle = async (bankSub) => {
+    setBankApproving(bankSub.id)
+    const approveToken = await getToken()
+    const newStatus = bankSub.status === 'approved' ? 'rejected' : 'approved'
+    await fetch('/api/admin/approve-user', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${approveToken}` }, body: JSON.stringify({ user_id: bankSub.id, status: newStatus }) })
+    // Reload subscriber list — disapproved subscriber will be filtered out
+    const bankSubsRes2 = await fetch('/api/admin/subscribers', { headers: { Authorization: `Bearer ${approveToken}` } })
+    const bankSubsData2 = await bankSubsRes2.json()
+    if (Array.isArray(bankSubsData2)) setBankSubscribers(bankSubsData2.filter(subRow => !subRow.isAdmin && subRow.status === 'approved'))
+    if (newStatus === 'rejected' && bankSelSubId === bankSub.id) { setBankSelSubId(null); setBankSelSubName(''); setBankAccts([]); setBankSelAcct(null); setBankTxns([]) }
+    setBankApproving(null)
+  }
+
+  const handleEditAcct = async (editAcctData) => {
+    const editAcctToken = await getToken()
+    const editAcctRes = await fetch('/api/bank-accounts', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${editAcctToken}` }, body: JSON.stringify(editAcctData) })
+    const editAcctResult = await editAcctRes.json()
+    if (editAcctResult.error) throw new Error(editAcctResult.error)
+    const preserveId = bankSelAcct?.id
+    await loadBankAccounts(bankIsAdmin ? bankSelSubId : null, preserveId)
+  }
+
+  const handleEditTxn = async (editTxnData) => {
+    const editTxnToken = await getToken()
+    const editTxnRes = await fetch('/api/bank-transactions', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${editTxnToken}` }, body: JSON.stringify(editTxnData) })
+    const editTxnResult = await editTxnRes.json()
+    if (editTxnResult.error) throw new Error(editTxnResult.error)
+    const savedAcctId2 = bankSelAcct.id
+    await loadBankTxns(savedAcctId2)
+    await loadBankAccounts(bankIsAdmin ? bankSelSubId : null, savedAcctId2)
+  }
+
   if (bankPageLoad || !bankSession) return null
 
   return (
@@ -413,19 +595,23 @@ export default function BankPage() {
               ) : bankSubscribers.map(bankSub => {
                 const subIsSelected = bankSelSubId === bankSub.id
                 return (
-                  <div key={bankSub.id} onClick={() => handleSelectSub(bankSub)} style={{
-                    border: `2px solid ${subIsSelected ? 'var(--accent)' : 'var(--border)'}`,
-                    background: subIsSelected ? 'var(--accent-dim)' : 'var(--surface)',
-                    borderRadius: '10px', padding: '14px 18px', cursor: 'pointer', minWidth: '130px', transition: 'all 0.15s',
-                  }}>
-                    <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: '13px', color: subIsSelected ? 'var(--accent)' : 'var(--text)' }}>
-                      {bankSub.full_name || bankSub.email?.split('@')[0]}
-                    </div>
+                  <div key={bankSub.id} style={{ border: `2px solid ${subIsSelected ? 'var(--accent)' : 'var(--border)'}`, background: subIsSelected ? 'var(--accent-dim)' : 'var(--surface)', borderRadius: '10px', cursor: 'pointer', minWidth: '140px', transition: 'all 0.15s', overflow: 'hidden' }}>
+                    <div onClick={() => handleSelectSub(bankSub)} style={{ padding: '14px 18px 10px' }}>
+                      <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: '13px', color: subIsSelected ? 'var(--accent)' : 'var(--text)' }}>
+                        {bankSub.full_name || bankSub.email?.split('@')[0]}
+                      </div>
                     <div style={{ fontSize: '9px', color: 'var(--bull)', background: 'rgba(14,165,233,0.08)', display: 'inline-block', padding: '1px 6px', borderRadius: '3px', fontFamily: 'DM Mono, monospace', fontWeight: 700, letterSpacing: '0.06em', marginTop: '3px', marginBottom: '3px' }}>✓ APPROVED</div>
                     <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px', fontFamily: 'DM Mono, monospace' }}>
                       {subIsSelected ? '▼ viewing' : '▶ click to view'}
                     </div>
                   </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleApproveToggle(bankSub) }}
+                    disabled={bankApproving === bankSub.id}
+                    style={{ width: '100%', padding: '5px', background: 'rgba(239,68,68,0.06)', border: 'none', borderTop: '1px solid var(--border)', color: 'var(--bear)', cursor: 'pointer', fontSize: '10px', fontFamily: 'DM Mono, monospace', fontWeight: 700, borderRadius: '0 0 8px 8px', opacity: bankApproving === bankSub.id ? 0.5 : 1 }}
+                  >
+                    {bankApproving === bankSub.id ? '...' : '✕ Disapprove'}
+                  </button>
                 )
               })}
             </div>
@@ -478,7 +664,8 @@ export default function BankPage() {
                             </div>
                           </div>
                           <div style={{ borderTop: '1px solid var(--border)', display: 'flex' }}>
-                            <button onClick={() => handleDeleteAcct(bankAcctTile.id)} style={{ flex: 1, padding: '6px', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '12px' }} title="Delete account">🗑 Delete</button>
+                            <button onClick={e => { e.stopPropagation(); setBankEditAcct(bankAcctTile) }} style={{ flex: 1, padding: '6px', background: 'none', border: 'none', borderRight: '1px solid var(--border)', color: 'var(--accent)', cursor: 'pointer', fontSize: '12px' }} title="Edit account">✎ Edit</button>
+                            <button onClick={e => { e.stopPropagation(); handleDeleteAcct(bankAcctTile.id) }} style={{ flex: 1, padding: '6px', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '12px' }} title="Delete account">🗑 Delete</button>
                           </div>
                         </div>
                       )
@@ -513,7 +700,7 @@ export default function BankPage() {
                     <table className="trade-table" style={{ width: '100%' }}>
                       <thead>
                         <tr>
-                          {['Transaction Date', 'Transaction Type', 'Source', 'Amount', 'Balance', ''].map((colHdr, colIdx) => (
+                          {['Transaction Date', 'Transaction Type', 'Source', 'Amount', 'Balance', 'Actions'].map((colHdr, colIdx) => (
                             <th key={colIdx} style={{ padding: '10px 14px', textAlign: colIdx >= 3 && colIdx < 5 ? 'right' : 'left', fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{colHdr}</th>
                           ))}
                         </tr>
@@ -554,7 +741,8 @@ export default function BankPage() {
                               <td style={{ padding: '11px 14px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)', fontSize: '13px' }}>
                                 Rs.{bankFmt(bankTxnRow.balance_after)}
                               </td>
-                              <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                              <td style={{ padding: '11px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                <button onClick={() => setBankEditTxn(bankTxnRow)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--accent)', cursor: 'pointer', fontSize: '11px', padding: '3px 8px', borderRadius: '4px', fontFamily: 'DM Mono, monospace', marginRight: '4px' }} title="Edit">✎</button>
                                 <button onClick={() => handleDeleteTxn(bankTxnRow.id)} style={{ background: 'none', border: 'none', color: 'var(--bear)', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }} title="Delete">×</button>
                               </td>
                             </tr>
@@ -577,6 +765,8 @@ export default function BankPage() {
 
       {bankShowAdd && <AddAccountModal onClose={() => setBankShowAdd(false)} onAdd={handleAddAcct} />}
       {bankShowTxn && bankSelAcct && <RecordTransactionModal bankAcct={bankSelAcct} allBankAccts={bankAccts} onClose={() => setBankShowTxn(false)} onRecord={handleRecordTxn} />}
+      {bankEditAcct && <EditAccountModal bankAcct={bankEditAcct} onClose={() => setBankEditAcct(null)} onSave={handleEditAcct} />}
+      {bankEditTxn && bankSelAcct && <EditTransactionModal txn={bankEditTxn} bankAcct={bankSelAcct} allBankAccts={bankAccts} onClose={() => setBankEditTxn(null)} onUpdate={handleEditTxn} />}
     </>
   )
 }
