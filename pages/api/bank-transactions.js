@@ -20,11 +20,11 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { account_id: postAcctId, transaction_date, transaction_type, source_type, source_detail, withdrawal_mode, amount, notes } = req.body
+    const { account_id: postAcctId, transaction_date, transaction_type, source_type, source_detail, withdrawal_mode, amount, notes, a2a_partner_account_id } = req.body
     if (!postAcctId || !transaction_date || !transaction_type || !source_type || !amount)
       return res.status(400).json({ error: 'Required fields missing' })
 
-    const { data: acctForBal } = await svcClient.from('bank_accounts').select('balance').eq('id', postAcctId).single()
+    const { data: acctForBal } = await svcClient.from('bank_accounts').select('balance, bank_name, holder_name').eq('id', postAcctId).single()
     if (!acctForBal) return res.status(404).json({ error: 'Account not found' })
 
     const postAmtNum = Number(amount)
@@ -45,8 +45,31 @@ export default async function handler(req, res) {
       created_by:       txnUser.id,
     }]).select().single()
     if (newTxnErr) return res.status(500).json({ error: newTxnErr.message })
-
     await svcClient.from('bank_accounts').update({ balance: newBal }).eq('id', postAcctId)
+
+    // ── A2A double-entry: also post to the partner account ──
+    if (source_type === 'A2A_TRANSFER' && a2a_partner_account_id) {
+      const { data: partnerAcct } = await svcClient.from('bank_accounts').select('balance, bank_name, holder_name').eq('id', a2a_partner_account_id).single()
+      if (partnerAcct) {
+        const partnerTxnType = isPostCredit ? 'DEBIT' : 'CREDIT'   // opposite direction
+        const partnerNewBal  = partnerTxnType === 'CREDIT' ? partnerAcct.balance + postAmtNum : partnerAcct.balance - postAmtNum
+        const partnerSrcDetail = `${acctForBal.holder_name} (${acctForBal.bank_name})`
+        await svcClient.from('bank_transactions').insert([{
+          account_id:       a2a_partner_account_id,
+          user_id:          txnUser.id,
+          transaction_date,
+          transaction_type: partnerTxnType,
+          source_type:      'A2A_TRANSFER',
+          source_detail:    partnerSrcDetail,
+          amount:           postAmtNum,
+          balance_after:    partnerNewBal,
+          notes:            notes || null,
+          created_by:       txnUser.id,
+        }])
+        await svcClient.from('bank_accounts').update({ balance: partnerNewBal }).eq('id', a2a_partner_account_id)
+      }
+    }
+
     return res.status(200).json(newTxnData)
   }
 
