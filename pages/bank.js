@@ -612,6 +612,7 @@ export default function BankPage() {
                   >
                     {bankApproving === bankSub.id ? '...' : '✕ Disapprove'}
                   </button>
+                </div>
                 )
               })}
             </div>
