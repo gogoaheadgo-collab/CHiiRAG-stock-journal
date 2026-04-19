@@ -50,6 +50,36 @@ export default async function handler(req, res) {
     return res.status(200).json(newTxnData)
   }
 
+  if (req.method === 'PUT') {
+    const { id: putTxnId, transaction_date, transaction_type, source_type, source_detail, withdrawal_mode, amount, notes } = req.body
+    if (!putTxnId) return res.status(400).json({ error: 'id required' })
+
+    // Update the transaction fields
+    const { data: updatedTxn, error: putErr } = await svcClient.from('bank_transactions').update({
+      transaction_date,
+      transaction_type,
+      source_type,
+      source_detail:   source_detail || null,
+      withdrawal_mode: withdrawal_mode || null,
+      amount:          Number(amount),
+      notes:           notes || null,
+    }).eq('id', putTxnId).select('account_id').single()
+    if (putErr) return res.status(500).json({ error: putErr.message })
+
+    // Full balance recalculation from initial_balance + all transactions sorted by date
+    const putAcctId = updatedTxn.account_id
+    const { data: acctForPut } = await svcClient.from('bank_accounts').select('initial_balance').eq('id', putAcctId).single()
+    const { data: allTxnsForRecalc } = await svcClient.from('bank_transactions').select('id, amount, transaction_type, transaction_date, created_at').eq('account_id', putAcctId).order('transaction_date', { ascending: true }).order('created_at', { ascending: true })
+
+    let runningBal = Number(acctForPut?.initial_balance || 0)
+    for (const recalcTxn of (allTxnsForRecalc || [])) {
+      runningBal = recalcTxn.transaction_type === 'CREDIT' ? runningBal + Number(recalcTxn.amount) : runningBal - Number(recalcTxn.amount)
+      await svcClient.from('bank_transactions').update({ balance_after: runningBal }).eq('id', recalcTxn.id)
+    }
+    await svcClient.from('bank_accounts').update({ balance: runningBal }).eq('id', putAcctId)
+    return res.status(200).json({ success: true })
+  }
+
   if (req.method === 'DELETE') {
     const { id: delTxnId } = req.body
     if (!delTxnId) return res.status(400).json({ error: 'id required' })
