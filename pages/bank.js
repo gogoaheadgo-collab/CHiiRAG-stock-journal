@@ -94,104 +94,135 @@ function AddAccountModal({ onClose, onAdd }) {
 
 // ── Record Transaction Modal ─────────────────────────────────────
 function RecordTransactionModal({ bankAcct, allBankAccts, onClose, onRecord }) {
-  const [rtxType, setRtxType] = useState('CREDIT')
-  const [rtxSrc, setRtxSrc] = useState('CASH_DEPOSIT')
-  const [rtxSrcDetail, setRtxSrcDetail] = useState('')
-  const [rtxWdMode, setRtxWdMode] = useState('')
-  const [rtxAmount, setRtxAmount] = useState('')
-  const [rtxDate, setRtxDate] = useState(new Date().toISOString().slice(0, 10))
-  const [rtxNotes, setRtxNotes] = useState('')
-  const [rtxSaving, setRtxSaving] = useState(false)
-  const [rtxErr, setRtxErr] = useState('')
+  const [rtxSrc, setRtxSrc]           = useState('CASH_DEPOSIT')
+  const [rtxA2aDir, setRtxA2aDir]     = useState('TO')      // TO = sending out, FROM = receiving
+  const [rtxA2aPartner, setRtxA2aPartner] = useState('')    // partner account id
+  const [rtxWdMode, setRtxWdMode]     = useState('')
+  const [rtxAmount, setRtxAmount]     = useState('')
+  const [rtxDate, setRtxDate]         = useState(new Date().toISOString().slice(0, 10))
+  const [rtxNotes, setRtxNotes]       = useState('')
+  const [rtxSaving, setRtxSaving]     = useState(false)
+  const [rtxErr, setRtxErr]           = useState('')
 
   const otherAccts = allBankAccts.filter(a => a.id !== bankAcct.id)
-  const rtxAmtNum = parseFloat(rtxAmount) || 0
-  const rtxPreviewBal = rtxType === 'CREDIT' ? bankAcct.balance + rtxAmtNum : bankAcct.balance - rtxAmtNum
+  const rtxAmtNum  = parseFloat(rtxAmount) || 0
 
-  const handleTypeSwitch = typeVal => {
-    setRtxType(typeVal)
-    setRtxSrc(typeVal === 'CREDIT' ? 'CASH_DEPOSIT' : 'CASH_WITHDRAWAL')
-    setRtxSrcDetail(''); setRtxWdMode('')
-  }
-
-  const handleRecordSave = async () => {
-    setRtxErr('')
-    if (!rtxAmount || rtxAmtNum <= 0) return setRtxErr('Enter a valid amount')
-    if (rtxSrc === 'A2A_TRANSFER' && !rtxSrcDetail) return setRtxErr('Select the source/destination account')
-    setRtxSaving(true)
-    try {
-      const rtxSrcDetailVal = rtxSrc === 'CASH_DEPOSIT' ? 'બેંકમાં જમા' : rtxSrc === 'A2A_TRANSFER' ? rtxSrcDetail : bankAcct.bank_name
-      await onRecord({ transaction_date: rtxDate, transaction_type: rtxType, source_type: rtxSrc, source_detail: rtxSrcDetailVal, withdrawal_mode: rtxWdMode || null, amount: rtxAmtNum, notes: rtxNotes || null })
-      onClose()
-    } catch (rtxE) { setRtxErr(rtxE.message) }
-    setRtxSaving(false)
-  }
+  // Derive credit/debit from source selection
+  const rtxIsCredit = rtxSrc === 'CASH_DEPOSIT' || (rtxSrc === 'A2A_TRANSFER' && rtxA2aDir === 'FROM')
+  const rtxTxnType  = rtxIsCredit ? 'CREDIT' : 'DEBIT'
+  const rtxPreviewBal = rtxIsCredit ? bankAcct.balance + rtxAmtNum : bankAcct.balance - rtxAmtNum
 
   const rtxFld = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px 12px', color: 'var(--text)', fontSize: '13px', fontFamily: 'DM Mono, monospace', width: '100%', outline: 'none', boxSizing: 'border-box' }
   const rtxLbl = { fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'DM Mono, monospace', display: 'block', marginBottom: '4px' }
   const rtxSec = { fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'DM Mono, monospace', borderBottom: '1px solid var(--border)', paddingBottom: '6px', marginBottom: '12px', marginTop: '16px' }
 
-  const creditSrcOptions  = [{ val: 'CASH_DEPOSIT', lbl: 'Cash Deposit' }, { val: 'A2A_TRANSFER', lbl: 'A2A Transfer' }]
-  const debitSrcOptions   = [{ val: 'CASH_WITHDRAWAL', lbl: 'Cash Withdrawal' }, { val: 'A2A_TRANSFER', lbl: 'A2A Transfer' }]
-  const activeSrcOptions  = rtxType === 'CREDIT' ? creditSrcOptions : debitSrcOptions
+  const handleSrcSwitch = newSrc => { setRtxSrc(newSrc); setRtxA2aPartner(''); setRtxWdMode('') }
+
+  const handleRecordSave = async () => {
+    setRtxErr('')
+    if (!rtxAmount || rtxAmtNum <= 0) return setRtxErr('Enter a valid amount')
+    if (rtxSrc === 'A2A_TRANSFER' && !rtxA2aPartner) return setRtxErr('Select the other account')
+    setRtxSaving(true)
+    try {
+      let rtxSrcDetail = ''
+      if (rtxSrc === 'CASH_DEPOSIT')    rtxSrcDetail = 'બેંકમાં જમા'
+      if (rtxSrc === 'CASH_WITHDRAWAL') rtxSrcDetail = bankAcct.bank_name
+      if (rtxSrc === 'A2A_TRANSFER') {
+        const partnerAcct = otherAccts.find(a => a.id === rtxA2aPartner)
+        rtxSrcDetail = partnerAcct ? `${partnerAcct.holder_name} (${partnerAcct.bank_name})` : ''
+      }
+      await onRecord({
+        transaction_date:        rtxDate,
+        transaction_type:        rtxTxnType,
+        source_type:             rtxSrc,
+        source_detail:           rtxSrcDetail,
+        withdrawal_mode:         rtxWdMode || null,
+        amount:                  rtxAmtNum,
+        notes:                   rtxNotes || null,
+        a2a_partner_account_id:  rtxSrc === 'A2A_TRANSFER' ? rtxA2aPartner : null,
+      })
+      onClose()
+    } catch (rtxE) { setRtxErr(rtxE.message) }
+    setRtxSaving(false)
+  }
+
+  // Source option config
+  const rtxSrcOpts = [
+    { val: 'CASH_DEPOSIT',    label: '↑ Cash Deposit',    sub: 'પૈસા આવ્યા', color: 'var(--bull)',  bg: 'rgba(14,165,233,0.08)',  border: 'var(--bull)'  },
+    { val: 'CASH_WITHDRAWAL', label: '↓ Cash Withdrawal', sub: 'પૈસા ગયા',  color: 'var(--bear)',  bg: 'rgba(239,68,68,0.08)',   border: 'var(--bear)'  },
+    { val: 'A2A_TRANSFER',    label: '↔ A2A Transfer',    sub: 'ખાતા બદલી', color: 'var(--gold)',  bg: 'rgba(245,158,11,0.08)',  border: 'var(--gold)'  },
+  ]
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '460px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
           <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 700, fontSize: '17px', color: 'var(--text)' }}>Record Transaction</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--muted)', cursor: 'pointer' }}>×</button>
         </div>
         <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', marginBottom: '20px' }}>
-          {bankAcct.bank_name} · {bankAcct.holder_name} · Balance: Rs.{bankFmt(bankAcct.balance)}
+          {bankAcct.holder_name} · {bankAcct.bank_name} · Balance: Rs.{bankFmt(bankAcct.balance)}
         </div>
 
-        {/* Transaction Type */}
+        {/* Source — 3 primary options */}
         <div style={rtxSec}>Transaction Type</div>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          {[
-            { val: 'CREDIT', label: '↑ પૈસા આવ્યા', sub: 'Credit', color: 'var(--bull)', bg: 'rgba(14,165,233,0.08)' },
-            { val: 'DEBIT',  label: '↓ પૈસા ગયા',  sub: 'Debit',  color: 'var(--bear)', bg: 'rgba(239,68,68,0.08)' },
-          ].map(txOpt => (
-            <button key={txOpt.val} onClick={() => handleTypeSwitch(txOpt.val)} style={{
-              flex: 1, padding: '10px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontFamily: 'DM Mono, monospace', fontWeight: rtxType === txOpt.val ? 700 : 400,
-              border: `2px solid ${rtxType === txOpt.val ? txOpt.color : 'var(--border)'}`,
-              background: rtxType === txOpt.val ? txOpt.bg : 'var(--surface)',
-              color: rtxType === txOpt.val ? txOpt.color : 'var(--muted)',
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+          {rtxSrcOpts.map(opt => (
+            <button key={opt.val} onClick={() => handleSrcSwitch(opt.val)} style={{
+              padding: '10px 6px', borderRadius: '6px', cursor: 'pointer', textAlign: 'center',
+              fontFamily: 'DM Mono, monospace', fontWeight: rtxSrc === opt.val ? 700 : 400,
+              border: `2px solid ${rtxSrc === opt.val ? opt.border : 'var(--border)'}`,
+              background: rtxSrc === opt.val ? opt.bg : 'var(--surface)',
+              color: rtxSrc === opt.val ? opt.color : 'var(--muted)',
             }}>
-              {txOpt.label}<br/><span style={{ fontSize: '10px', opacity: 0.7 }}>({txOpt.sub})</span>
+              <div style={{ fontSize: '12px' }}>{opt.label}</div>
+              <div style={{ fontSize: '10px', opacity: 0.75, marginTop: '2px' }}>{opt.sub}</div>
             </button>
           ))}
         </div>
 
-        {/* Source */}
-        <div style={rtxSec}>Source</div>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
-          {activeSrcOptions.map(srcOpt => (
-            <button key={srcOpt.val} onClick={() => { setRtxSrc(srcOpt.val); setRtxSrcDetail(''); setRtxWdMode('') }} style={{
-              flex: 1, padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: rtxSrc === srcOpt.val ? 700 : 400,
-              border: `1px solid ${rtxSrc === srcOpt.val ? (rtxType === 'CREDIT' ? 'var(--bull)' : 'var(--bear)') : 'var(--border)'}`,
-              background: rtxSrc === srcOpt.val ? (rtxType === 'CREDIT' ? 'rgba(14,165,233,0.06)' : 'rgba(239,68,68,0.06)') : 'var(--surface)',
-              color: rtxSrc === srcOpt.val ? (rtxType === 'CREDIT' ? 'var(--bull)' : 'var(--bear)') : 'var(--muted)',
-            }}>{srcOpt.lbl}</button>
-          ))}
-        </div>
-
+        {/* A2A: direction + account picker */}
         {rtxSrc === 'A2A_TRANSFER' && (
-          <div style={{ marginBottom: '14px' }}>
-            <label style={rtxLbl}>{rtxType === 'CREDIT' ? 'Transfer From (Account)' : 'Transfer To (Account)'} *</label>
-            {otherAccts.length === 0 ? (
-              <div style={{ padding: '10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>No other accounts found — add another account first.</div>
-            ) : (
-              <select value={rtxSrcDetail} onChange={e => setRtxSrcDetail(e.target.value)} style={rtxFld}>
-                <option value="">— Select Account —</option>
-                {otherAccts.map(oa => <option key={oa.id} value={`${oa.bank_name} (${oa.holder_name})`}>{oa.bank_name} — {oa.holder_name}</option>)}
-              </select>
-            )}
-          </div>
+          <>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={rtxLbl}>Direction</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[
+                  { val: 'TO',   label: '→ Transfer To',   sub: 'Send money out (Debit)',   color: 'var(--bear)' },
+                  { val: 'FROM', label: '← Transfer From', sub: 'Receive money (Credit)',   color: 'var(--bull)' },
+                ].map(dirOpt => (
+                  <button key={dirOpt.val} onClick={() => setRtxA2aDir(dirOpt.val)} style={{
+                    flex: 1, padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px',
+                    fontFamily: 'DM Mono, monospace', fontWeight: rtxA2aDir === dirOpt.val ? 700 : 400,
+                    border: `1px solid ${rtxA2aDir === dirOpt.val ? dirOpt.color : 'var(--border)'}`,
+                    background: rtxA2aDir === dirOpt.val ? (dirOpt.val === 'TO' ? 'rgba(239,68,68,0.06)' : 'rgba(14,165,233,0.06)') : 'var(--surface)',
+                    color: rtxA2aDir === dirOpt.val ? dirOpt.color : 'var(--muted)',
+                  }}>
+                    <div>{dirOpt.label}</div>
+                    <div style={{ fontSize: '9px', opacity: 0.7, marginTop: '2px' }}>{dirOpt.sub}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={rtxLbl}>{rtxA2aDir === 'TO' ? 'Transfer To Account' : 'Transfer From Account'} *</label>
+              {otherAccts.length === 0 ? (
+                <div style={{ padding: '10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>No other accounts — add another account first.</div>
+              ) : (
+                <select value={rtxA2aPartner} onChange={e => setRtxA2aPartner(e.target.value)} style={rtxFld}>
+                  <option value="">— Select Account —</option>
+                  {otherAccts.map(oa => <option key={oa.id} value={oa.id}>{oa.holder_name} — {oa.bank_name}</option>)}
+                </select>
+              )}
+            </div>
+            <div style={{ marginBottom: '14px', padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '6px', fontSize: '11px', color: 'var(--gold)', fontFamily: 'DM Mono, monospace' }}>
+              ↔ This will automatically create entries in <strong>both accounts</strong>
+            </div>
+          </>
         )}
 
+        {/* Cash Withdrawal: mode selector */}
         {rtxSrc === 'CASH_WITHDRAWAL' && (
           <div style={{ marginBottom: '14px' }}>
             <label style={rtxLbl}>Mode of Withdrawal</label>
@@ -204,18 +235,21 @@ function RecordTransactionModal({ bankAcct, allBankAccts, onClose, onRecord }) {
           </div>
         )}
 
+        {/* Cash Deposit: show bank name info */}
+        {rtxSrc === 'CASH_DEPOSIT' && (
+          <div style={{ marginBottom: '14px', padding: '8px 14px', background: 'rgba(14,165,233,0.05)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: '6px', fontSize: '11px', color: 'var(--bull)', fontFamily: 'DM Mono, monospace' }}>
+            💰 Depositing into: <strong>{bankAcct.holder_name} · {bankAcct.bank_name}</strong> — Source: બેંકમાં જમા
+          </div>
+        )}
+
         {/* Amount + Date */}
         <div style={rtxSec}>Amount & Date</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
           <div>
             <label style={rtxLbl}>Amount (Rs.) *</label>
             <input type="number" value={rtxAmount} onChange={e => setRtxAmount(e.target.value)} placeholder="0.00"
-              style={{ ...rtxFld, borderColor: rtxAmount ? (rtxType === 'CREDIT' ? 'var(--bull)' : 'var(--bear)') : 'var(--border)' }} step="0.01" min="0" />
-            {rtxAmtNum > 0 && (
-              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '3px', fontFamily: 'DM Mono, monospace' }}>
-                Rs.{rtxAmtNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </div>
-            )}
+              style={{ ...rtxFld, borderColor: rtxAmount ? (rtxIsCredit ? 'var(--bull)' : 'var(--bear)') : 'var(--border)' }} step="0.01" min="0" />
+            {rtxAmtNum > 0 && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '3px', fontFamily: 'DM Mono, monospace' }}>Rs.{rtxAmtNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>}
           </div>
           <div>
             <label style={rtxLbl}>Date *</label>
@@ -228,10 +262,13 @@ function RecordTransactionModal({ bankAcct, allBankAccts, onClose, onRecord }) {
           <input value={rtxNotes} onChange={e => setRtxNotes(e.target.value)} placeholder="Reference, reason, description..." style={rtxFld} />
         </div>
 
+        {/* Balance preview */}
         {rtxAmtNum > 0 && (
           <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>Balance after transaction</div>
-            <div style={{ fontWeight: 700, fontFamily: 'DM Mono, monospace', fontSize: '15px', color: rtxType === 'CREDIT' ? 'var(--bull)' : 'var(--bear)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>
+              {bankAcct.holder_name} balance after
+            </div>
+            <div style={{ fontWeight: 700, fontFamily: 'DM Mono, monospace', fontSize: '15px', color: rtxIsCredit ? 'var(--bull)' : 'var(--bear)' }}>
               Rs.{rtxPreviewBal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
           </div>
@@ -240,8 +277,11 @@ function RecordTransactionModal({ bankAcct, allBankAccts, onClose, onRecord }) {
         {rtxErr && <div style={{ color: 'var(--bear)', fontSize: '12px', marginBottom: '12px', fontFamily: 'DM Mono, monospace' }}>{rtxErr}</div>}
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={onClose} style={{ flex: 1, padding: '10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--muted)', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
-          <button onClick={handleRecordSave} disabled={rtxSaving} style={{ flex: 2, padding: '10px', background: rtxType === 'CREDIT' ? 'var(--bull)' : 'var(--bear)', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', opacity: rtxSaving ? 0.7 : 1 }}>
-            {rtxSaving ? 'Recording...' : rtxType === 'CREDIT' ? '↑ Record Credit' : '↓ Record Debit'}
+          <button onClick={handleRecordSave} disabled={rtxSaving} style={{
+            flex: 2, padding: '10px', border: 'none', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', opacity: rtxSaving ? 0.7 : 1,
+            background: rtxSrc === 'CASH_DEPOSIT' ? 'var(--bull)' : rtxSrc === 'CASH_WITHDRAWAL' ? 'var(--bear)' : 'var(--gold)', color: '#fff',
+          }}>
+            {rtxSaving ? 'Recording...' : rtxSrc === 'CASH_DEPOSIT' ? '↑ Record Deposit' : rtxSrc === 'CASH_WITHDRAWAL' ? '↓ Record Withdrawal' : '↔ Record Transfer'}
           </button>
         </div>
       </div>
@@ -738,9 +778,9 @@ export default function BankPage() {
             {bankSelAcct && (
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
                 <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-                  <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 700, fontSize: '15px', color: 'var(--text)', marginBottom: '2px' }}>{bankSelAcct.bank_name}</div>
+                  <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 700, fontSize: '15px', color: 'var(--text)', marginBottom: '2px' }}>{bankSelAcct.holder_name}</div>
                   <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>
-                    {bankSelAcct.holder_name} · Current Balance: <strong style={{ color: 'var(--text)', fontFamily: 'DM Mono, monospace' }}>Rs.{bankFmt(bankSelAcct.balance)}</strong>
+                    {bankSelAcct.bank_name} · Current Balance: <strong style={{ color: 'var(--text)', fontFamily: 'DM Mono, monospace' }}>Rs.{bankFmt(bankSelAcct.balance)}</strong>
                   </div>
                 </div>
 
