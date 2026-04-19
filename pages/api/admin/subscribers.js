@@ -16,77 +16,80 @@ export default async function handler(req, res) {
   if (user.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Admin only' })
 
   try {
+    // Get all trades and executions using service role (bypasses RLS)
     const { data: trades, error: tErr } = await adminSupabase.from('trades').select('*')
     if (tErr) return res.status(500).json({ error: 'trades fetch failed', detail: tErr.message })
 
     const { data: executions } = await adminSupabase.from('executions').select('*')
     const { data: profiles } = await adminSupabase.from('profiles').select('*')
 
-    // Build approved-only set — only users with status='approved' in profiles (admin always included)
-    const approvedIds = new Set(
-      (profiles || []).filter(p => p.status === 'approved').map(p => p.id)
-    )
-    approvedIds.add(user.id) // admin always visible
-
+    // Build unique user list from trades (works even without profiles table)
     const userMap = {}
 
-    // 1. Try to get all users from Supabase auth admin API — filter to approved only
-    try {
-      const { data: authData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 })
-      ;(authData?.users || []).forEach(u => {
-        if (!approvedIds.has(u.id)) return // skip pending/rejected
-        userMap[u.id] = {
-          id: u.id,
-          email: u.email,
-          full_name: u.user_metadata?.full_name || u.user_metadata?.name || null,
-          avatar_url: u.user_metadata?.avatar_url || null,
-          created_at: u.created_at,
-        }
-      })
-    } catch {}
-
-    // 2. Fallback: profiles table (approved only)
-    ;(profiles || []).forEach(p => {
-      if (!approvedIds.has(p.id)) return
-      if (!userMap[p.id]) userMap[p.id] = { id: p.id, email: p.email, full_name: p.full_name, avatar_url: p.avatar_url, created_at: p.created_at }
-    })
-
-    // 3. Fallback: users found in trades (only if already approved)
-    ;(trades || []).forEach(t => {
-      if (!approvedIds.has(t.user_id)) return
-      if (!userMap[t.user_id]) {
-        userMap[t.user_id] = { id: t.user_id, email: t.account || 'Unknown', full_name: null, avatar_url: null, created_at: t.entry_date }
+    // Add from profiles if available — include status field
+    ;(profiles || []).forEach(profileRow => {
+      userMap[profileRow.id] = {
+        id:         profileRow.id,
+        email:      profileRow.email,
+        full_name:  profileRow.full_name,
+        avatar_url: profileRow.avatar_url,
+        created_at: profileRow.created_at,
+        status:     profileRow.status || 'pending',   // ← status now included
       }
     })
 
-    // 4. Ensure admin is always present
+    // Add any users found in trades but not in profiles
+    ;(trades || []).forEach(tradeRow => {
+      if (!userMap[tradeRow.user_id]) {
+        userMap[tradeRow.user_id] = {
+          id:         tradeRow.user_id,
+          email:      tradeRow.account || 'Unknown',
+          full_name:  null,
+          avatar_url: null,
+          created_at: tradeRow.entry_date,
+          status:     'approved',   // trades exist → treat as approved
+        }
+      }
+    })
+
+    // Make sure admin is included
     if (!userMap[user.id]) {
-      userMap[user.id] = { id: user.id, email: user.email, full_name: user.user_metadata?.full_name || null, avatar_url: user.user_metadata?.avatar_url || null, created_at: user.created_at }
+      userMap[user.id] = {
+        id:         user.id,
+        email:      user.email,
+        full_name:  user.user_metadata?.full_name || null,
+        avatar_url: user.user_metadata?.avatar_url || null,
+        created_at: user.created_at,
+        status:     'approved',
+      }
     }
 
-    const summary = Object.values(userMap).map(u => {
-      const userTrades = (trades || []).filter(t => t.user_id === u.id)
-      const userExecs = (executions || []).filter(e => e.user_id === u.id)
-      const totalInvestment = userTrades.reduce((s, t) => s + (Number(t.invested_capital) || 0), 0)
-      const realisedPnL = userTrades.reduce((sum, t) => {
-        const execs = userExecs.filter(e => e.trade_id === t.id)
-        if (execs.length > 0) {
-          return sum + execs.reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
-        }
-        return sum + (Number(t.realized_gains) || 0)
+    const summary = Object.values(userMap).map(subRow => {
+      const userTradesArr = (trades || []).filter(trRow => trRow.user_id === subRow.id)
+      const userExecsArr  = (executions || []).filter(exRow => exRow.user_id === subRow.id)
+      const totalInvestment = userTradesArr.reduce((sumInv, trInv) => sumInv + (Number(trInv.invested_capital) || 0), 0)
+      const realisedPnL = userTradesArr.reduce((sumPnl, trPnl) => {
+        const trExecs = userExecsArr.filter(exPnl => exPnl.trade_id === trPnl.id)
+        return sumPnl + trExecs.reduce((sEx, eEx) => sEx + (Number(eEx.price) - Number(trPnl.entry_price)) * Number(eEx.quantity), 0)
       }, 0)
       return {
-        id: u.id, email: u.email, full_name: u.full_name, avatar_url: u.avatar_url, created_at: u.created_at,
-        totalTrades: userTrades.length,
-        openTrades: userTrades.filter(t => t.status === 'OPEN').length,
-        closedTrades: userTrades.filter(t => t.status === 'CLOSED').length,
-        totalInvestment, realisedPnL,
-        isAdmin: u.email === ADMIN_EMAIL,
+        id:           subRow.id,
+        email:        subRow.email,
+        full_name:    subRow.full_name,
+        avatar_url:   subRow.avatar_url,
+        created_at:   subRow.created_at,
+        status:       subRow.status,               // ← status in final response
+        totalTrades:  userTradesArr.length,
+        openTrades:   userTradesArr.filter(trO => trO.status === 'OPEN').length,
+        closedTrades: userTradesArr.filter(trC => trC.status === 'CLOSED').length,
+        totalInvestment,
+        realisedPnL,
+        isAdmin:      subRow.email === ADMIN_EMAIL,
       }
     })
 
     return res.status(200).json(summary)
-  } catch (e) {
-    return res.status(500).json({ error: e.message })
+  } catch (catchErr) {
+    return res.status(500).json({ error: catchErr.message })
   }
 }
