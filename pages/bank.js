@@ -1,0 +1,564 @@
+import React, { useState, useEffect, useCallback } from 'react'
+import Head from 'next/head'
+import { useRouter } from 'next/router'
+import { supabase } from '../lib/supabase'
+import NavPill from '../components/NavPill'
+
+const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
+
+const INDIAN_BANKS = [
+  'State Bank of India', 'HDFC Bank', 'ICICI Bank', 'Axis Bank', 'Bank of Baroda',
+  'Punjab National Bank', 'Canara Bank', 'Union Bank of India', 'Kotak Mahindra Bank',
+  'IndusInd Bank', 'Yes Bank', 'IDFC First Bank', 'Bank of India', 'Central Bank of India',
+  'Indian Bank', 'UCO Bank', 'Bank of Maharashtra', 'Indian Overseas Bank', 'Federal Bank',
+  'RBL Bank', 'South Indian Bank', 'DCB Bank', 'City Union Bank', 'Karur Vysya Bank',
+  'Paytm Payments Bank', 'Airtel Payments Bank', 'Fino Payments Bank', 'NSDL Payments Bank',
+]
+
+const bankFmt = n => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+// ── Add Account Modal ─────────────────────────────────────────────
+function AddAccountModal({ onClose, onAdd }) {
+  const [addBankName, setAddBankName] = useState('')
+  const [addHolder, setAddHolder] = useState('')
+  const [addInitBal, setAddInitBal] = useState('')
+  const [addBankSugs, setAddBankSugs] = useState([])
+  const [addShowDrop, setAddShowDrop] = useState(false)
+  const [addSaving, setAddSaving] = useState(false)
+  const [addErr, setAddErr] = useState('')
+
+  const bankSearch = q => {
+    setAddBankName(q)
+    if (!q) { setAddBankSugs([]); setAddShowDrop(false); return }
+    const filtered = INDIAN_BANKS.filter(b => b.toLowerCase().includes(q.toLowerCase())).slice(0, 6)
+    setAddBankSugs(filtered); setAddShowDrop(filtered.length > 0)
+  }
+
+  const handleAddSave = async () => {
+    setAddErr('')
+    if (!addBankName.trim()) return setAddErr('Bank name required')
+    if (!addHolder.trim()) return setAddErr('Holder name required')
+    setAddSaving(true)
+    try {
+      await onAdd({ bank_name: addBankName.trim(), holder_name: addHolder.trim(), balance: addInitBal ? parseFloat(addInitBal) : 0 })
+      onClose()
+    } catch (addE) { setAddErr(addE.message) }
+    setAddSaving(false)
+  }
+
+  const addFld = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px 12px', color: 'var(--text)', fontSize: '13px', fontFamily: 'DM Mono, monospace', width: '100%', outline: 'none', boxSizing: 'border-box' }
+  const addLbl = { fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'DM Mono, monospace', display: 'block', marginBottom: '4px' }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 700, fontSize: '17px', color: 'var(--text)' }}>Add Bank Account</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--muted)', cursor: 'pointer' }}>×</button>
+        </div>
+        <div style={{ marginBottom: '14px', position: 'relative' }}>
+          <label style={addLbl}>Bank Name *</label>
+          <input value={addBankName} onChange={e => bankSearch(e.target.value)} onBlur={() => setTimeout(() => setAddShowDrop(false), 200)} placeholder="e.g. HDFC Bank, SBI..." style={addFld} />
+          {addShowDrop && addBankSugs.length > 0 && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--bg)', border: '1px solid var(--accent)', borderRadius: '6px', boxShadow: '0 8px 20px rgba(0,0,0,0.15)', maxHeight: '180px', overflowY: 'auto', marginTop: '2px' }}>
+              {addBankSugs.map((bankOpt, bankIdx) => (
+                <div key={bankIdx} onMouseDown={() => { setAddBankName(bankOpt); setAddShowDrop(false) }}
+                  style={{ padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>{bankOpt}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ marginBottom: '14px' }}>
+          <label style={addLbl}>Account Holder Name *</label>
+          <input value={addHolder} onChange={e => setAddHolder(e.target.value)} placeholder="e.g. Gopal Chavda" style={addFld} />
+        </div>
+        <div style={{ marginBottom: '20px' }}>
+          <label style={addLbl}>Current Balance (Rs.)</label>
+          <input type="number" value={addInitBal} onChange={e => setAddInitBal(e.target.value)} placeholder="0.00" style={addFld} step="0.01" min="0" />
+          <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '3px', fontFamily: 'DM Mono, monospace' }}>Enter your current account balance</div>
+        </div>
+        {addErr && <div style={{ color: 'var(--bear)', fontSize: '12px', marginBottom: '12px', fontFamily: 'DM Mono, monospace' }}>{addErr}</div>}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--muted)', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+          <button onClick={handleAddSave} disabled={addSaving} style={{ flex: 2, padding: '10px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', opacity: addSaving ? 0.7 : 1 }}>
+            {addSaving ? 'Adding...' : 'Add Account'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Record Transaction Modal ─────────────────────────────────────
+function RecordTransactionModal({ bankAcct, allBankAccts, onClose, onRecord }) {
+  const [rtxType, setRtxType] = useState('CREDIT')
+  const [rtxSrc, setRtxSrc] = useState('CASH_DEPOSIT')
+  const [rtxSrcDetail, setRtxSrcDetail] = useState('')
+  const [rtxWdMode, setRtxWdMode] = useState('')
+  const [rtxAmount, setRtxAmount] = useState('')
+  const [rtxDate, setRtxDate] = useState(new Date().toISOString().slice(0, 10))
+  const [rtxNotes, setRtxNotes] = useState('')
+  const [rtxSaving, setRtxSaving] = useState(false)
+  const [rtxErr, setRtxErr] = useState('')
+
+  const otherAccts = allBankAccts.filter(a => a.id !== bankAcct.id)
+  const rtxAmtNum = parseFloat(rtxAmount) || 0
+  const rtxPreviewBal = rtxType === 'CREDIT' ? bankAcct.balance + rtxAmtNum : bankAcct.balance - rtxAmtNum
+
+  const handleTypeSwitch = typeVal => {
+    setRtxType(typeVal)
+    setRtxSrc(typeVal === 'CREDIT' ? 'CASH_DEPOSIT' : 'CASH_WITHDRAWAL')
+    setRtxSrcDetail(''); setRtxWdMode('')
+  }
+
+  const handleRecordSave = async () => {
+    setRtxErr('')
+    if (!rtxAmount || rtxAmtNum <= 0) return setRtxErr('Enter a valid amount')
+    if (rtxSrc === 'A2A_TRANSFER' && !rtxSrcDetail) return setRtxErr('Select the source/destination account')
+    setRtxSaving(true)
+    try {
+      const rtxSrcDetailVal = rtxSrc === 'CASH_DEPOSIT' ? 'બેંકમાં જમા' : rtxSrc === 'A2A_TRANSFER' ? rtxSrcDetail : bankAcct.bank_name
+      await onRecord({ transaction_date: rtxDate, transaction_type: rtxType, source_type: rtxSrc, source_detail: rtxSrcDetailVal, withdrawal_mode: rtxWdMode || null, amount: rtxAmtNum, notes: rtxNotes || null })
+      onClose()
+    } catch (rtxE) { setRtxErr(rtxE.message) }
+    setRtxSaving(false)
+  }
+
+  const rtxFld = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px 12px', color: 'var(--text)', fontSize: '13px', fontFamily: 'DM Mono, monospace', width: '100%', outline: 'none', boxSizing: 'border-box' }
+  const rtxLbl = { fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'DM Mono, monospace', display: 'block', marginBottom: '4px' }
+  const rtxSec = { fontSize: '9px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'DM Mono, monospace', borderBottom: '1px solid var(--border)', paddingBottom: '6px', marginBottom: '12px', marginTop: '16px' }
+
+  const creditSrcOptions  = [{ val: 'CASH_DEPOSIT', lbl: 'Cash Deposit' }, { val: 'A2A_TRANSFER', lbl: 'A2A Transfer' }]
+  const debitSrcOptions   = [{ val: 'CASH_WITHDRAWAL', lbl: 'Cash Withdrawal' }, { val: 'A2A_TRANSFER', lbl: 'A2A Transfer' }]
+  const activeSrcOptions  = rtxType === 'CREDIT' ? creditSrcOptions : debitSrcOptions
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '460px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+          <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 700, fontSize: '17px', color: 'var(--text)' }}>Record Transaction</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--muted)', cursor: 'pointer' }}>×</button>
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', marginBottom: '20px' }}>
+          {bankAcct.bank_name} · {bankAcct.holder_name} · Balance: Rs.{bankFmt(bankAcct.balance)}
+        </div>
+
+        {/* Transaction Type */}
+        <div style={rtxSec}>Transaction Type</div>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          {[
+            { val: 'CREDIT', label: '↑ પૈસા આવ્યા', sub: 'Credit', color: 'var(--bull)', bg: 'rgba(14,165,233,0.08)' },
+            { val: 'DEBIT',  label: '↓ પૈસા ગયા',  sub: 'Debit',  color: 'var(--bear)', bg: 'rgba(239,68,68,0.08)' },
+          ].map(txOpt => (
+            <button key={txOpt.val} onClick={() => handleTypeSwitch(txOpt.val)} style={{
+              flex: 1, padding: '10px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontFamily: 'DM Mono, monospace', fontWeight: rtxType === txOpt.val ? 700 : 400,
+              border: `2px solid ${rtxType === txOpt.val ? txOpt.color : 'var(--border)'}`,
+              background: rtxType === txOpt.val ? txOpt.bg : 'var(--surface)',
+              color: rtxType === txOpt.val ? txOpt.color : 'var(--muted)',
+            }}>
+              {txOpt.label}<br/><span style={{ fontSize: '10px', opacity: 0.7 }}>({txOpt.sub})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Source */}
+        <div style={rtxSec}>Source</div>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+          {activeSrcOptions.map(srcOpt => (
+            <button key={srcOpt.val} onClick={() => { setRtxSrc(srcOpt.val); setRtxSrcDetail(''); setRtxWdMode('') }} style={{
+              flex: 1, padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: rtxSrc === srcOpt.val ? 700 : 400,
+              border: `1px solid ${rtxSrc === srcOpt.val ? (rtxType === 'CREDIT' ? 'var(--bull)' : 'var(--bear)') : 'var(--border)'}`,
+              background: rtxSrc === srcOpt.val ? (rtxType === 'CREDIT' ? 'rgba(14,165,233,0.06)' : 'rgba(239,68,68,0.06)') : 'var(--surface)',
+              color: rtxSrc === srcOpt.val ? (rtxType === 'CREDIT' ? 'var(--bull)' : 'var(--bear)') : 'var(--muted)',
+            }}>{srcOpt.lbl}</button>
+          ))}
+        </div>
+
+        {rtxSrc === 'A2A_TRANSFER' && (
+          <div style={{ marginBottom: '14px' }}>
+            <label style={rtxLbl}>{rtxType === 'CREDIT' ? 'Transfer From (Account)' : 'Transfer To (Account)'} *</label>
+            {otherAccts.length === 0 ? (
+              <div style={{ padding: '10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>No other accounts found — add another account first.</div>
+            ) : (
+              <select value={rtxSrcDetail} onChange={e => setRtxSrcDetail(e.target.value)} style={rtxFld}>
+                <option value="">— Select Account —</option>
+                {otherAccts.map(oa => <option key={oa.id} value={`${oa.bank_name} (${oa.holder_name})`}>{oa.bank_name} — {oa.holder_name}</option>)}
+              </select>
+            )}
+          </div>
+        )}
+
+        {rtxSrc === 'CASH_WITHDRAWAL' && (
+          <div style={{ marginBottom: '14px' }}>
+            <label style={rtxLbl}>Mode of Withdrawal</label>
+            <select value={rtxWdMode} onChange={e => setRtxWdMode(e.target.value)} style={rtxFld}>
+              <option value="">— Select Mode —</option>
+              <option value="ATM">ATM</option>
+              <option value="CHEQUE">Cheque</option>
+              <option value="OTHER_TRANSFER">Other Account Transfer</option>
+            </select>
+          </div>
+        )}
+
+        {/* Amount + Date */}
+        <div style={rtxSec}>Amount & Date</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+          <div>
+            <label style={rtxLbl}>Amount (Rs.) *</label>
+            <input type="number" value={rtxAmount} onChange={e => setRtxAmount(e.target.value)} placeholder="0.00"
+              style={{ ...rtxFld, borderColor: rtxAmount ? (rtxType === 'CREDIT' ? 'var(--bull)' : 'var(--bear)') : 'var(--border)' }} step="0.01" min="0" />
+            {rtxAmtNum > 0 && (
+              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '3px', fontFamily: 'DM Mono, monospace' }}>
+                Rs.{rtxAmtNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+            )}
+          </div>
+          <div>
+            <label style={rtxLbl}>Date *</label>
+            <input type="date" value={rtxDate} onChange={e => setRtxDate(e.target.value)} style={rtxFld} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={rtxLbl}>Notes (optional)</label>
+          <input value={rtxNotes} onChange={e => setRtxNotes(e.target.value)} placeholder="Reference, reason, description..." style={rtxFld} />
+        </div>
+
+        {rtxAmtNum > 0 && (
+          <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>Balance after transaction</div>
+            <div style={{ fontWeight: 700, fontFamily: 'DM Mono, monospace', fontSize: '15px', color: rtxType === 'CREDIT' ? 'var(--bull)' : 'var(--bear)' }}>
+              Rs.{rtxPreviewBal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </div>
+          </div>
+        )}
+
+        {rtxErr && <div style={{ color: 'var(--bear)', fontSize: '12px', marginBottom: '12px', fontFamily: 'DM Mono, monospace' }}>{rtxErr}</div>}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--muted)', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+          <button onClick={handleRecordSave} disabled={rtxSaving} style={{ flex: 2, padding: '10px', background: rtxType === 'CREDIT' ? 'var(--bull)' : 'var(--bear)', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', opacity: rtxSaving ? 0.7 : 1 }}>
+            {rtxSaving ? 'Recording...' : rtxType === 'CREDIT' ? '↑ Record Credit' : '↓ Record Debit'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ────────────────────────────────────────────────────
+export default function BankPage() {
+  const router = useRouter()
+  const [bankSession, setBankSession] = useState(null)
+  const [bankIsAdmin, setBankIsAdmin] = useState(false)
+  const [bankPageLoad, setBankPageLoad] = useState(true)
+  const [bankSubscribers, setBankSubscribers] = useState([])
+  const [bankSelSubId, setBankSelSubId] = useState(null)
+  const [bankSelSubName, setBankSelSubName] = useState('')
+  const [bankAccts, setBankAccts] = useState([])
+  const [bankSelAcct, setBankSelAcct] = useState(null)
+  const [bankTxns, setBankTxns] = useState([])
+  const [bankTxnLoad, setBankTxnLoad] = useState(false)
+  const [bankAcctsLoad, setBankAcctsLoad] = useState(false)
+  const [bankShowAdd, setBankShowAdd] = useState(false)
+  const [bankShowTxn, setBankShowTxn] = useState(false)
+
+  const getToken = useCallback(async () => (await supabase.auth.getSession()).data.session?.access_token, [])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: bankSess } }) => {
+      if (!bankSess) { router.push('/'); return }
+      setBankSession(bankSess)
+      setBankIsAdmin(bankSess.user.email === ADMIN_EMAIL)
+      setBankPageLoad(false)
+    })
+    const { data: { subscription: bankAuthSub } } = supabase.auth.onAuthStateChange((_, bankS) => {
+      if (!bankS) router.push('/')
+    })
+    return () => bankAuthSub.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!bankSession || !bankIsAdmin) return
+    const fetchBankSubs = async () => {
+      const bankSubToken = await getToken()
+      const bankSubsRes = await fetch('/api/admin/subscribers', { headers: { Authorization: `Bearer ${bankSubToken}` } })
+      const bankSubsData = await bankSubsRes.json()
+      if (Array.isArray(bankSubsData)) setBankSubscribers(bankSubsData.filter(s => !s.isAdmin))
+    }
+    fetchBankSubs()
+  }, [bankSession, bankIsAdmin, getToken])
+
+  const loadBankAccounts = useCallback(async (uid, preserveAcctId = null) => {
+    setBankAcctsLoad(true)
+    const bankAcctToken = await getToken()
+    const bankAcctUrl = uid ? `/api/bank-accounts?user_id=${uid}` : '/api/bank-accounts'
+    const bankAcctRes = await fetch(bankAcctUrl, { headers: { Authorization: `Bearer ${bankAcctToken}` } })
+    const bankAcctData = await bankAcctRes.json()
+    if (Array.isArray(bankAcctData)) {
+      setBankAccts(bankAcctData)
+      if (preserveAcctId) {
+        const foundAcct = bankAcctData.find(a => a.id === preserveAcctId)
+        if (foundAcct) setBankSelAcct(foundAcct)
+        else { setBankSelAcct(null); setBankTxns([]) }
+      } else { setBankSelAcct(null); setBankTxns([]) }
+    }
+    setBankAcctsLoad(false)
+  }, [getToken])
+
+  useEffect(() => {
+    if (!bankSession || bankIsAdmin) return
+    loadBankAccounts(null)
+  }, [bankSession, bankIsAdmin, loadBankAccounts])
+
+  const loadBankTxns = useCallback(async (acctId) => {
+    setBankTxnLoad(true)
+    const bankTxnToken = await getToken()
+    const bankTxnRes = await fetch(`/api/bank-transactions?account_id=${acctId}`, { headers: { Authorization: `Bearer ${bankTxnToken}` } })
+    const bankTxnData = await bankTxnRes.json()
+    if (Array.isArray(bankTxnData)) setBankTxns(bankTxnData)
+    setBankTxnLoad(false)
+  }, [getToken])
+
+  const handleSelectAcct = acct => {
+    if (bankSelAcct?.id === acct.id) { setBankSelAcct(null); setBankTxns([]); return }
+    setBankSelAcct(acct)
+    loadBankTxns(acct.id)
+  }
+
+  const handleAddAcct = async acctFormData => {
+    const bankAddToken = await getToken()
+    const addBody = bankIsAdmin && bankSelSubId ? { ...acctFormData, user_id: bankSelSubId } : acctFormData
+    const bankAddRes = await fetch('/api/bank-accounts', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bankAddToken}` }, body: JSON.stringify(addBody) })
+    const bankAddData = await bankAddRes.json()
+    if (bankAddData.error) throw new Error(bankAddData.error)
+    await loadBankAccounts(bankIsAdmin ? bankSelSubId : null)
+  }
+
+  const handleDeleteAcct = async acctId => {
+    if (!confirm('🗑 Delete this bank account?\n\nAll transactions will also be deleted permanently.')) return
+    if (!confirm('⚠️ CONFIRM DELETE\n\nAre you absolutely sure? This cannot be undone.')) return
+    const bankDelToken = await getToken()
+    await fetch('/api/bank-accounts', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bankDelToken}` }, body: JSON.stringify({ id: acctId }) })
+    if (bankSelAcct?.id === acctId) { setBankSelAcct(null); setBankTxns([]) }
+    await loadBankAccounts(bankIsAdmin ? bankSelSubId : null)
+  }
+
+  const handleRecordTxn = async txnFormData => {
+    const bankTxnPostToken = await getToken()
+    const bankTxnPostRes = await fetch('/api/bank-transactions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bankTxnPostToken}` }, body: JSON.stringify({ account_id: bankSelAcct.id, ...txnFormData }) })
+    const bankTxnPostData = await bankTxnPostRes.json()
+    if (bankTxnPostData.error) throw new Error(bankTxnPostData.error)
+    const savedAcctId = bankSelAcct.id
+    await loadBankTxns(savedAcctId)
+    await loadBankAccounts(bankIsAdmin ? bankSelSubId : null, savedAcctId)
+  }
+
+  const handleDeleteTxn = async txnId => {
+    if (!confirm('🗑 Delete this transaction?\n\nThe account balance will be recalculated automatically.')) return
+    if (!confirm('⚠️ CONFIRM DELETE\n\nAre you sure? This cannot be undone.')) return
+    const bankDelTxnToken = await getToken()
+    await fetch('/api/bank-transactions', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bankDelTxnToken}` }, body: JSON.stringify({ id: txnId }) })
+    const currentAcctId = bankSelAcct.id
+    await loadBankTxns(currentAcctId)
+    await loadBankAccounts(bankIsAdmin ? bankSelSubId : null, currentAcctId)
+  }
+
+  const handleSelectSub = async sub => {
+    if (bankSelSubId === sub.id) { setBankSelSubId(null); setBankSelSubName(''); setBankAccts([]); setBankSelAcct(null); setBankTxns([]); return }
+    setBankSelSubId(sub.id)
+    setBankSelSubName(sub.full_name || sub.email?.split('@')[0] || 'Subscriber')
+    await loadBankAccounts(sub.id)
+  }
+
+  const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
+
+  if (bankPageLoad || !bankSession) return null
+
+  return (
+    <>
+      <div className="tricolor-bar" />
+      <Head><title>Bank Transfer — CHiiRAG Stock Journal</title></Head>
+      <header className="header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="india-flag-logo-sm" style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, background: '#FF9933' }} />
+            <div style={{ flex: 1, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1.5px solid #000080' }} />
+            </div>
+            <div style={{ flex: 1, background: '#138808' }} />
+          </div>
+          <div className="header-brand" style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)' }}>CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK Journal</span></div>
+        </div>
+        <NavPill active="Bank" isAdmin={bankIsAdmin} />
+        <button onClick={signOut} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }}>Sign Out</button>
+      </header>
+
+      <main style={{ maxWidth: '100%', padding: '72px 20px 40px' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <h1 style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 800, fontSize: '22px', color: 'var(--text)', margin: 0 }}>🏦 Bank Transfer</h1>
+          <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '4px', fontFamily: 'DM Mono, monospace' }}>Track bank accounts and transactions</p>
+        </div>
+
+        {/* Admin: Subscriber Selector */}
+        {bankIsAdmin && (
+          <div style={{ marginBottom: '24px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', letterSpacing: '0.1em', marginBottom: '10px' }}>SELECT SUBSCRIBER</div>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {bankSubscribers.length === 0 ? (
+                <div style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>No subscribers found.</div>
+              ) : bankSubscribers.map(bankSub => {
+                const subIsSelected = bankSelSubId === bankSub.id
+                return (
+                  <div key={bankSub.id} onClick={() => handleSelectSub(bankSub)} style={{
+                    border: `2px solid ${subIsSelected ? 'var(--accent)' : 'var(--border)'}`,
+                    background: subIsSelected ? 'var(--accent-dim)' : 'var(--surface)',
+                    borderRadius: '10px', padding: '14px 18px', cursor: 'pointer', minWidth: '130px', transition: 'all 0.15s',
+                  }}>
+                    <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: '13px', color: subIsSelected ? 'var(--accent)' : 'var(--text)' }}>
+                      {bankSub.full_name || bankSub.email?.split('@')[0]}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '3px', fontFamily: 'DM Mono, monospace' }}>
+                      {subIsSelected ? '▼ viewing' : '▶ click to view'}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Accounts + Transactions — subscriber always sees, admin sees after selecting */}
+        {(!bankIsAdmin || bankSelSubId) ? (
+          <>
+            {/* Account Tiles */}
+            <div style={{ marginBottom: '24px' }}>
+              {bankIsAdmin && bankSelSubId && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                  <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 700, fontSize: '15px', color: 'var(--text)' }}>{bankSelSubName}'s Bank Accounts</div>
+                  <span style={{ fontSize: '10px', background: 'var(--accent-dim)', color: 'var(--accent)', padding: '2px 8px', borderRadius: '4px', fontFamily: 'DM Mono, monospace' }}>ADMIN VIEW · EDITABLE</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'stretch' }}>
+                {bankAcctsLoad ? (
+                  <div style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace', padding: '20px' }}>Loading accounts...</div>
+                ) : (
+                  <>
+                    {bankAccts.map(bankAcctTile => {
+                      const tileIsActive = bankSelAcct?.id === bankAcctTile.id
+                      return (
+                        <div key={bankAcctTile.id} style={{ border: `2px solid ${tileIsActive ? 'var(--accent)' : 'var(--border)'}`, background: tileIsActive ? 'var(--accent-dim)' : 'var(--surface)', borderRadius: '10px', minWidth: '185px', cursor: 'pointer', overflow: 'hidden', transition: 'all 0.15s' }}>
+                          <div onClick={() => handleSelectAcct(bankAcctTile)} style={{ padding: '16px 18px 12px' }}>
+                            <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 800, fontSize: '13px', color: tileIsActive ? 'var(--accent)' : 'var(--text)', marginBottom: '3px' }}>{bankAcctTile.bank_name}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', marginBottom: '10px' }}>{bankAcctTile.holder_name}</div>
+                            <div style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '2px' }}>Balance</div>
+                            <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 800, fontSize: '18px', color: bankAcctTile.balance >= 0 ? 'var(--text)' : 'var(--bear)' }}>
+                              Rs.{bankFmt(bankAcctTile.balance)}
+                            </div>
+                          </div>
+                          <div style={{ borderTop: '1px solid var(--border)', display: 'flex' }}>
+                            <button onClick={() => handleDeleteAcct(bankAcctTile.id)} style={{ flex: 1, padding: '6px', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '12px' }} title="Delete account">🗑 Delete</button>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Add Account Tile */}
+                    <div onClick={() => setBankShowAdd(true)} style={{ border: '2px dashed var(--border)', borderRadius: '10px', minWidth: '150px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', color: 'var(--muted)', transition: 'all 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' }}>
+                      <div style={{ fontSize: '28px', marginBottom: '6px' }}>+</div>
+                      <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>Add Account</div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Transactions Panel */}
+            {bankSelAcct && (
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+                  <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 700, fontSize: '15px', color: 'var(--text)', marginBottom: '2px' }}>{bankSelAcct.bank_name}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>
+                    {bankSelAcct.holder_name} · Current Balance: <strong style={{ color: 'var(--text)', fontFamily: 'DM Mono, monospace' }}>Rs.{bankFmt(bankSelAcct.balance)}</strong>
+                  </div>
+                </div>
+
+                {bankTxnLoad ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>Loading transactions...</div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="trade-table" style={{ width: '100%' }}>
+                      <thead>
+                        <tr>
+                          {['Transaction Date', 'Transaction Type', 'Source', 'Amount', 'Balance', ''].map((colHdr, colIdx) => (
+                            <th key={colIdx} style={{ padding: '10px 14px', textAlign: colIdx >= 3 && colIdx < 5 ? 'right' : 'left', fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{colHdr}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* Record Transaction Row */}
+                        <tr style={{ background: 'var(--accent)', cursor: 'pointer' }} onClick={() => setBankShowTxn(true)}>
+                          <td colSpan={6} style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
+                            <span style={{ color: '#000', fontSize: '12px', fontFamily: 'DM Mono, monospace', fontWeight: 700, letterSpacing: '0.08em' }}>+ Record Transaction</span>
+                          </td>
+                        </tr>
+
+                        {bankTxns.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', fontSize: '12px' }}>
+                              No transactions yet. Click "+ Record Transaction" above to add one.
+                            </td>
+                          </tr>
+                        ) : bankTxns.map((bankTxnRow, bankTxnIdx) => {
+                          const bankTxnIsCredit = bankTxnRow.transaction_type === 'CREDIT'
+                          const bankTxnColor = bankTxnIsCredit ? 'var(--bull)' : 'var(--bear)'
+                          const bankTxnLabel = bankTxnIsCredit ? 'પૈસા આવ્યા' : 'પૈસા ગયા'
+                          const bankWdPart = bankTxnRow.withdrawal_mode ? ` · ${bankTxnRow.withdrawal_mode}` : ''
+                          const bankSrcLabel = bankTxnRow.source_detail || (bankTxnRow.source_type === 'CASH_DEPOSIT' ? 'બેંકમાં જમા' : bankTxnRow.source_type)
+                          return (
+                            <tr key={bankTxnRow.id} style={{ background: bankTxnIdx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)', borderLeft: `3px solid ${bankTxnIsCredit ? 'rgba(14,165,233,0.4)' : 'rgba(239,68,68,0.4)'}` }}>
+                              <td style={{ padding: '11px 14px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', fontSize: '12px' }}>{bankTxnRow.transaction_date}</td>
+                              <td style={{ padding: '11px 14px' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: bankTxnColor, fontFamily: 'DM Mono, monospace' }}>{bankTxnLabel}</span>
+                              </td>
+                              <td style={{ padding: '11px 14px', fontSize: '12px', fontFamily: 'DM Mono, monospace', maxWidth: '200px' }}>
+                                <div style={{ color: 'var(--text)' }}>{bankSrcLabel}{bankWdPart}</div>
+                                {bankTxnRow.notes && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '1px' }}>{bankTxnRow.notes}</div>}
+                              </td>
+                              <td style={{ padding: '11px 14px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 700, color: bankTxnColor, fontSize: '13px' }}>
+                                {bankTxnIsCredit ? '+' : '−'}Rs.{bankFmt(bankTxnRow.amount)}
+                              </td>
+                              <td style={{ padding: '11px 14px', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)', fontSize: '13px' }}>
+                                Rs.{bankFmt(bankTxnRow.balance_after)}
+                              </td>
+                              <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                                <button onClick={() => handleDeleteTxn(bankTxnRow.id)} style={{ background: 'none', border: 'none', color: 'var(--bear)', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }} title="Delete">×</button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '80px', color: 'var(--muted)' }}>
+            <div style={{ fontSize: '36px', marginBottom: '14px' }}>🏦</div>
+            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '13px' }}>Select a subscriber above to view and manage their bank accounts</div>
+          </div>
+        )}
+      </main>
+
+      {bankShowAdd && <AddAccountModal onClose={() => setBankShowAdd(false)} onAdd={handleAddAcct} />}
+      {bankShowTxn && bankSelAcct && <RecordTransactionModal bankAcct={bankSelAcct} allBankAccts={bankAccts} onClose={() => setBankShowTxn(false)} onRecord={handleRecordTxn} />}
+    </>
+  )
+}
