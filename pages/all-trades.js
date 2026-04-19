@@ -118,8 +118,8 @@ export default function AllTradesPage() {
   const downloadCSV = () => {
     const list = statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===statusFilter)
     const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Unrealised P&L','Realised P&L','Status','Type']
-    const rows=list.map(({trade,isSubscriber,execs:rowExecs}) => {
-      const exs = rowExecs || []
+    const rows=list.map(({trade,isSub,execMap:rowExecMap}) => {
+      const exs = rowExecMap?.[trade.id] || []
       const sold = exs.reduce((s,e)=>s+Number(e.quantity),0)
       const orig = Number(trade.quantity)||0
       const curr = Math.max(0,orig-sold)
@@ -127,7 +127,7 @@ export default function AllTradesPage() {
       const lp = livePrices[trade.ticker]?.price
       const unr = trade.status==='OPEN' && lp && curr>0?(trade.direction==='LONG'?(lp-entry)*curr:(entry-lp)*curr):''
       const rel = exs.length>0?exs.reduce((s,e)=>s+(Number(e.price)-entry)*Number(e.quantity),0):(Number(trade.realized_gains)||0)
-      return [trade.ticker,trade.account,trade.direction,trade.entry_date,entry,trade.exit_price||'',orig,curr,unr!==''?unr.toFixed(2):'',rel.toFixed(2),trade.status,isSubscriber?'Subscriber':'Admin']
+      return [trade.ticker,trade.account,trade.direction,trade.entry_date,entry,trade.exit_price||'',orig,curr,unr!==''?unr.toFixed(2):'',rel.toFixed(2),trade.status,isSub?'Subscriber':'Admin']
     })
     const csv=[h,...rows].map(r=>r.join(',')).join('\n')
     triggerCSVDownload(csv, 'all-trades.csv')
