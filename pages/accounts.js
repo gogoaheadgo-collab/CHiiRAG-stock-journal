@@ -290,6 +290,7 @@ export default function AccountsPage() {
   const [mirroredTrades, setMirroredTrades] = useState({})
   const [mirroredExecs, setMirroredExecs] = useState({})
   const [activeMirror, setActiveMirror] = useState(null)
+  const [activeMirrorAccount, setActiveMirrorAccount] = useState(null)
   const [mirrorFilter, setMirrorFilter] = useState('ALL')
   const [selectedMonth, setSelectedMonth] = useState(null) // 'YYYY-MM' or null=ALL
   const [sortCol, setSortCol] = useState(null)
@@ -777,7 +778,10 @@ export default function AccountsPage() {
     const mExecs = mirroredExecs[activeMirror] || []
     return mExecs.reduce((m, e) => { if (!m[e.trade_id]) m[e.trade_id] = []; m[e.trade_id].push(e); return m }, {})
   })()
-  const activeMirrorTrades = activeMirror ? (mirroredTrades[activeMirror] || []) : []
+  const activeMirrorAllTrades = activeMirror ? (mirroredTrades[activeMirror] || []) : []
+  const activeMirrorTrades = activeMirrorAccount
+    ? activeMirrorAllTrades.filter(t => t.account === activeMirrorAccount)
+    : activeMirrorAllTrades
 
   return (
     <>
@@ -869,7 +873,7 @@ export default function AccountsPage() {
           {/* Mirrored Account Tiles */}
           {mirroredAccounts.map(m => (
             <div key={m.subscriber_id}
-              onClick={() => { setActiveMirror(prev => prev===m.subscriber_id ? null : m.subscriber_id); setMirrorFilter('ALL') }}
+              onClick={() => { setActiveMirror(prev => prev===m.subscriber_id ? null : m.subscriber_id); setMirrorFilter('ALL'); setActiveMirrorAccount(null) }}
               style={{ border:`2px solid ${activeMirror===m.subscriber_id?'var(--gold)':'var(--border)'}`, background:activeMirror===m.subscriber_id?'rgba(245,158,11,0.08)':'var(--surface)', borderRadius:'10px', minWidth:'120px', cursor:'pointer', padding:'14px 16px 10px' }}>
               <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:activeMirror===m.subscriber_id?'var(--gold)':'var(--muted)' }}>
                 {(m.subscriber_name||m.subscriber_email||'').split(' ')[0]}'s
@@ -885,6 +889,46 @@ export default function AccountsPage() {
         {loading ? (
           <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)' }}>Loading...</div>
         ) : activeMirror ? (
+          <>
+            {/* Sub-account tiles for this mirrored subscriber */}
+            {(() => {
+              const mirrorSubAccts = [...new Set(activeMirrorAllTrades.map(t => t.account).filter(Boolean))]
+              if (mirrorSubAccts.length <= 1) return null
+              return (
+                <div style={{ display:'flex', gap:'10px', flexWrap:'wrap', marginBottom:'16px', alignItems:'center' }}>
+                  <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.1em', marginRight:'4px' }}>SUB-ACCOUNTS:</div>
+                  {/* All accounts tile */}
+                  <button onClick={() => { setActiveMirrorAccount(null); setMirrorFilter('ALL') }} style={{
+                    padding:'6px 16px', borderRadius:'6px', cursor:'pointer', fontSize:'11px',
+                    fontFamily:'DM Mono, monospace', fontWeight:600,
+                    border:`2px solid ${!activeMirrorAccount ? 'var(--gold)' : 'var(--border)'}`,
+                    background: !activeMirrorAccount ? 'rgba(245,158,11,0.1)' : 'var(--surface)',
+                    color: !activeMirrorAccount ? 'var(--gold)' : 'var(--muted)',
+                  }}>
+                    All ({activeMirrorAllTrades.length} trades)
+                  </button>
+                  {mirrorSubAccts.map(acctName => {
+                    const acctTrades = activeMirrorAllTrades.filter(t => t.account === acctName)
+                    const acctOpen   = acctTrades.filter(t => t.status === 'OPEN').length
+                    const isActive   = activeMirrorAccount === acctName
+                    return (
+                      <button key={acctName} onClick={() => { setActiveMirrorAccount(acctName); setMirrorFilter('ALL') }} style={{
+                        padding:'6px 16px', borderRadius:'6px', cursor:'pointer', fontSize:'11px',
+                        fontFamily:'DM Mono, monospace', fontWeight:600,
+                        border:`2px solid ${isActive ? 'var(--gold)' : 'var(--border)'}`,
+                        background: isActive ? 'rgba(245,158,11,0.1)' : 'var(--surface)',
+                        color: isActive ? 'var(--gold)' : 'var(--muted)',
+                      }}>
+                        {acctName}
+                        <span style={{ marginLeft:'6px', fontSize:'9px', opacity:0.8 }}>
+                          {acctOpen > 0 ? `${acctOpen} open` : `${acctTrades.length} trades`}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           <MirroredView
             mirrorInfo={mirroredAccounts.find(m => m.subscriber_id === activeMirror)}
             mTrades={activeMirrorTrades}
@@ -900,6 +944,7 @@ export default function AccountsPage() {
             selectedMonth={selectedMonth}
             setSelectedMonth={setSelectedMonth}
           />
+          </>
         ) : activeShared ? (
           // Subscriber viewing a shared admin account
           <div style={{ display:'flex', gap:'16px', alignItems:'flex-start' }}>
