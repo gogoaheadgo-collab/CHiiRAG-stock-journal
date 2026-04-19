@@ -403,6 +403,8 @@ export default function BankPage() {
   const [bankIsAdmin, setBankIsAdmin] = useState(false)
   const [bankPageLoad, setBankPageLoad] = useState(true)
   const [bankSubscribers, setBankSubscribers] = useState([])
+  const [bankAllSubs, setBankAllSubs] = useState([])
+  const [bankShowAddSub, setBankShowAddSub] = useState(false)
   const [bankSelSubId, setBankSelSubId] = useState(null)
   const [bankSelSubName, setBankSelSubName] = useState('')
   const [bankAccts, setBankAccts] = useState([])
@@ -415,6 +417,14 @@ export default function BankPage() {
   const [bankEditAcct, setBankEditAcct] = useState(null)
   const [bankEditTxn, setBankEditTxn]   = useState(null)
   const [bankApproving, setBankApproving] = useState(null)
+
+  // Close Add Subscriber dropdown on outside click
+  useEffect(() => {
+    if (!bankShowAddSub) return
+    const closeAddSub = (e) => { if (!e.target.closest('.bank-add-sub-zone')) setBankShowAddSub(false) }
+    document.addEventListener('mousedown', closeAddSub)
+    return () => document.removeEventListener('mousedown', closeAddSub)
+  }, [bankShowAddSub])
 
   const getToken = useCallback(async () => (await supabase.auth.getSession()).data.session?.access_token, [])
 
@@ -431,16 +441,21 @@ export default function BankPage() {
     return () => bankAuthSub.unsubscribe()
   }, [])
 
+  const loadBankSubscribers = useCallback(async (token) => {
+    const fetchToken = token || await getToken()
+    const bankSubsRes = await fetch('/api/admin/subscribers', { headers: { Authorization: `Bearer ${fetchToken}` } })
+    const bankSubsData = await bankSubsRes.json()
+    if (Array.isArray(bankSubsData)) {
+      const nonAdminSubs = bankSubsData.filter(subItem => !subItem.isAdmin)
+      setBankAllSubs(nonAdminSubs)
+      setBankSubscribers(nonAdminSubs.filter(subItem => subItem.status === 'approved'))
+    }
+  }, [getToken])
+
   useEffect(() => {
     if (!bankSession || !bankIsAdmin) return
-    const fetchBankSubs = async () => {
-      const bankSubToken = await getToken()
-      const bankSubsRes = await fetch('/api/admin/subscribers', { headers: { Authorization: `Bearer ${bankSubToken}` } })
-      const bankSubsData = await bankSubsRes.json()
-      if (Array.isArray(bankSubsData)) setBankSubscribers(bankSubsData.filter(s => !s.isAdmin && s.status === 'approved'))
-    }
-    fetchBankSubs()
-  }, [bankSession, bankIsAdmin, getToken])
+    loadBankSubscribers()
+  }, [bankSession, bankIsAdmin, loadBankSubscribers])
 
   const loadBankAccounts = useCallback(async (uid, preserveAcctId = null) => {
     setBankAcctsLoad(true)
@@ -526,15 +541,12 @@ export default function BankPage() {
 
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
-  const handleApproveToggle = async (bankSub) => {
+  const handleApproveToggle = async (bankSub, forceStatus) => {
     setBankApproving(bankSub.id)
     const approveToken = await getToken()
-    const newStatus = bankSub.status === 'approved' ? 'rejected' : 'approved'
+    const newStatus = forceStatus || (bankSub.status === 'approved' ? 'rejected' : 'approved')
     await fetch('/api/admin/approve-user', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${approveToken}` }, body: JSON.stringify({ user_id: bankSub.id, status: newStatus }) })
-    // Reload subscriber list — disapproved subscriber will be filtered out
-    const bankSubsRes2 = await fetch('/api/admin/subscribers', { headers: { Authorization: `Bearer ${approveToken}` } })
-    const bankSubsData2 = await bankSubsRes2.json()
-    if (Array.isArray(bankSubsData2)) setBankSubscribers(bankSubsData2.filter(subRow => !subRow.isAdmin && subRow.status === 'approved'))
+    await loadBankSubscribers(approveToken)
     if (newStatus === 'rejected' && bankSelSubId === bankSub.id) { setBankSelSubId(null); setBankSelSubName(''); setBankAccts([]); setBankSelAcct(null); setBankTxns([]) }
     setBankApproving(null)
   }
@@ -615,6 +627,44 @@ export default function BankPage() {
                 </div>
                 )
               })}
+
+              {/* Add Subscriber tile — shows when there are unapproved subs */}
+              {(() => {
+                const unapprovedSubsList = bankAllSubs.filter(subU => subU.status !== 'approved')
+                if (unapprovedSubsList.length === 0) return null
+                return (
+                  <div className="bank-add-sub-zone" style={{ position: 'relative' }}>
+                    <div onClick={() => setBankShowAddSub(prev => !prev)} style={{ border: `2px dashed ${bankShowAddSub ? 'var(--accent)' : 'var(--border)'}`, background: bankShowAddSub ? 'var(--accent-dim)' : 'var(--surface)', borderRadius: '10px', minWidth: '140px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '18px 16px', color: bankShowAddSub ? 'var(--accent)' : 'var(--muted)', transition: 'all 0.15s' }}
+                      onMouseEnter={e => { if (!bankShowAddSub) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' } }}
+                      onMouseLeave={e => { if (!bankShowAddSub) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' } }}>
+                      <div style={{ fontSize: '22px', marginBottom: '4px' }}>👤+</div>
+                      <div style={{ fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>Add Subscriber</div>
+                      <div style={{ fontSize: '9px', fontFamily: 'DM Mono, monospace', marginTop: '2px', color: 'var(--gold)' }}>{unapprovedSubsList.length} waiting</div>
+                    </div>
+                    {bankShowAddSub && (
+                      <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 200, background: 'var(--bg)', border: '2px solid var(--accent)', borderRadius: '10px', minWidth: '220px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+                        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', letterSpacing: '0.08em', fontWeight: 700 }}>
+                          GRANT BANK ACCESS
+                        </div>
+                        {unapprovedSubsList.map(unapprovedSub => (
+                          <div key={unapprovedSub.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+                            <div>
+                              <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: '12px', color: 'var(--text)' }}>{unapprovedSub.full_name || unapprovedSub.email?.split('@')[0]}</div>
+                              <div style={{ fontSize: '9px', color: unapprovedSub.status === 'pending' ? 'var(--gold)' : 'var(--bear)', fontFamily: 'DM Mono, monospace', fontWeight: 700, textTransform: 'uppercase', marginTop: '1px' }}>{unapprovedSub.status}</div>
+                            </div>
+                            <button
+                              onClick={() => { handleApproveToggle(unapprovedSub, 'approved'); setBankShowAddSub(false) }}
+                              disabled={bankApproving === unapprovedSub.id}
+                              style={{ padding: '5px 12px', background: 'rgba(14,165,233,0.1)', border: '1px solid var(--accent)', color: 'var(--accent)', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontFamily: 'DM Mono, monospace', fontWeight: 700, opacity: bankApproving === unapprovedSub.id ? 0.5 : 1 }}>
+                              {bankApproving === unapprovedSub.id ? '...' : '✓ Allow'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )}
@@ -657,8 +707,8 @@ export default function BankPage() {
                       return (
                         <div key={bankAcctTile.id} style={{ border: `2px solid ${tileIsActive ? 'var(--accent)' : 'var(--border)'}`, background: tileIsActive ? 'var(--accent-dim)' : 'var(--surface)', borderRadius: '10px', minWidth: '185px', cursor: 'pointer', overflow: 'hidden', transition: 'all 0.15s' }}>
                           <div onClick={() => handleSelectAcct(bankAcctTile)} style={{ padding: '16px 18px 12px' }}>
-                            <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 800, fontSize: '13px', color: tileIsActive ? 'var(--accent)' : 'var(--text)', marginBottom: '3px' }}>{bankAcctTile.bank_name}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', marginBottom: '10px' }}>{bankAcctTile.holder_name}</div>
+                            <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 800, fontSize: '13px', color: tileIsActive ? 'var(--accent)' : 'var(--text)', marginBottom: '2px' }}>{bankAcctTile.holder_name}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', marginBottom: '10px' }}>{bankAcctTile.bank_name}</div>
                             <div style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '2px' }}>Balance</div>
                             <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 800, fontSize: '18px', color: bankAcctTile.balance >= 0 ? 'var(--text)' : 'var(--bear)' }}>
                               Rs.{bankFmt(bankAcctTile.balance)}
