@@ -287,7 +287,7 @@ export default function BankPage() {
       const bankSubToken = await getToken()
       const bankSubsRes = await fetch('/api/admin/subscribers', { headers: { Authorization: `Bearer ${bankSubToken}` } })
       const bankSubsData = await bankSubsRes.json()
-      if (Array.isArray(bankSubsData)) setBankSubscribers(bankSubsData.filter(s => !s.isAdmin))
+      if (Array.isArray(bankSubsData)) setBankSubscribers(bankSubsData.filter(s => !s.isAdmin && s.status === 'approved'))
     }
     fetchBankSubs()
   }, [bankSession, bankIsAdmin, getToken])
@@ -409,7 +409,7 @@ export default function BankPage() {
             <div style={{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', letterSpacing: '0.1em', marginBottom: '10px' }}>SELECT SUBSCRIBER</div>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {bankSubscribers.length === 0 ? (
-                <div style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace' }}>No subscribers found.</div>
+                <div style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace', padding: '12px 0' }}>No approved subscribers found. Approve subscribers from the Subscribers page first.</div>
               ) : bankSubscribers.map(bankSub => {
                 const subIsSelected = bankSelSubId === bankSub.id
                 return (
@@ -421,7 +421,8 @@ export default function BankPage() {
                     <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: '13px', color: subIsSelected ? 'var(--accent)' : 'var(--text)' }}>
                       {bankSub.full_name || bankSub.email?.split('@')[0]}
                     </div>
-                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '3px', fontFamily: 'DM Mono, monospace' }}>
+                    <div style={{ fontSize: '9px', color: 'var(--bull)', background: 'rgba(14,165,233,0.08)', display: 'inline-block', padding: '1px 6px', borderRadius: '3px', fontFamily: 'DM Mono, monospace', fontWeight: 700, letterSpacing: '0.06em', marginTop: '3px', marginBottom: '3px' }}>✓ APPROVED</div>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px', fontFamily: 'DM Mono, monospace' }}>
                       {subIsSelected ? '▼ viewing' : '▶ click to view'}
                     </div>
                   </div>
@@ -442,6 +443,23 @@ export default function BankPage() {
                   <span style={{ fontSize: '10px', background: 'var(--accent-dim)', color: 'var(--accent)', padding: '2px 8px', borderRadius: '4px', fontFamily: 'DM Mono, monospace' }}>ADMIN VIEW · EDITABLE</span>
                 </div>
               )}
+              {/* Total Balance tile — shows when there are accounts */}
+              {!bankAcctsLoad && bankAccts.length > 0 && (() => {
+                const totalBankBalance = bankAccts.reduce((totalSum, acctItem) => totalSum + Number(acctItem.balance || 0), 0)
+                return (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '20px', background: 'var(--surface)', border: '2px solid var(--accent)', borderRadius: '10px', padding: '14px 22px', marginBottom: '16px' }}>
+                    <div>
+                      <div style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px' }}>
+                        Total Balance · {bankAccts.length} Account{bankAccts.length > 1 ? 's' : ''}
+                      </div>
+                      <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 800, fontSize: '22px', color: totalBankBalance >= 0 ? 'var(--text)' : 'var(--bear)' }}>
+                        Rs.{bankFmt(totalBankBalance)}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '28px', opacity: 0.25 }}>🏦</div>
+                  </div>
+                )
+              })()}
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'stretch' }}>
                 {bankAcctsLoad ? (
                   <div style={{ color: 'var(--muted)', fontSize: '12px', fontFamily: 'DM Mono, monospace', padding: '20px' }}>Loading accounts...</div>
