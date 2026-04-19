@@ -117,7 +117,7 @@ export default function AllTradesPage() {
   }
   const downloadCSV = () => {
     const list = statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===statusFilter)
-    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Unrealised P&L','Realised P&L','MTF Interest','Status','Type']
+    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Investment','Unrealised P&L','Realised P&L','MTF Interest','Status','Type']
     const rows=list.map(({trade,isSub,execMap:rowExecMap}) => {
       const exs = rowExecMap?.[trade.id] || []
       const sold = exs.reduce((s,e)=>s+Number(e.quantity),0)
@@ -140,7 +140,7 @@ export default function AllTradesPage() {
         const remMtf  = trade.status === 'OPEN' ? mtfBase * (curr/orig) * trade.mtf_interest_rate * remDays / 36500 : 0
         mtf = (soldMtf + remMtf).toFixed(2)
       }
-      return [trade.ticker,trade.account,trade.direction,trade.entry_date,entry,trade.exit_price||'',orig,curr,unr!==''?unr.toFixed(2):'',rel.toFixed(2),mtf,trade.status,isSub?'Subscriber':'Admin']
+      return [trade.ticker,trade.account,trade.direction,trade.entry_date,entry,trade.exit_price||'',orig,curr,investment?investment.toFixed(2):'',actualInv?actualInv.toFixed(2):'',unr!==''?unr.toFixed(2):'',rel.toFixed(2),mtf,trade.status,isSub?'Subscriber':'Admin']
     })
     const csv=[h,...rows].map(r=>r.join(',')).join('\n')
     triggerCSVDownload(csv, 'all-trades.csv')
