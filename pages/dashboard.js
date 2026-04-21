@@ -17,8 +17,9 @@ function StatCard({ label, value, sub, color }) {
   )
 }
 
-function PnLCalendar({ trades }) {
+function PnLCalendar({ trades, allExecs }) {
   const [month, setMonth] = useState(new Date())
+  const [selectedCalDay, setSelectedCalDay] = useState(null)
   const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
   const startDow = startOfMonth(month).getDay()
   const dailyPnL = {}
@@ -26,8 +27,13 @@ function PnLCalendar({ trades }) {
     const key = t.exit_date.slice(0,10)
     dailyPnL[key] = (dailyPnL[key]||0) + (t._realised||0)
   })
-  const toINR = n => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
   const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
+
+  // Trades closed on the selected day
+  const dayTrades = selectedCalDay
+    ? trades.filter(t => t.status==='CLOSED' && t.exit_date?.slice(0,10) === selectedCalDay)
+    : []
+
   return (
     <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
@@ -58,13 +64,17 @@ function PnLCalendar({ trades }) {
           const key = format(day,'yyyy-MM-dd')
           const pnl = dailyPnL[key]
           const isToday = isSameDay(day, new Date())
+          const isSelDay = selectedCalDay === key
           return (
-            <div key={key} style={{
-              borderRadius:'4px', padding:'6px 4px', textAlign:'center', minHeight:'44px',
-              background: pnl!=null ? (pnl>=0?'rgba(14,165,233,0.08)':'rgba(239,68,68,0.08)') : 'transparent',
-              border: isToday ? '1px solid var(--accent)' : pnl!=null ? (pnl>=0?'1px solid rgba(0,230,118,0.3)':'1px solid rgba(255,71,87,0.3)') : '1px solid transparent',
-            }}>
-              <div style={{ fontSize:'10px', color:isToday?'var(--accent)':'var(--muted)', fontWeight:isToday?700:400 }}>{format(day,'d')}</div>
+            <div key={key}
+              onClick={() => pnl != null && setSelectedCalDay(prev => prev === key ? null : key)}
+              style={{
+                borderRadius:'4px', padding:'6px 4px', textAlign:'center', minHeight:'44px',
+                background: isSelDay ? (pnl>=0?'rgba(14,165,233,0.2)':'rgba(239,68,68,0.2)') : pnl!=null ? (pnl>=0?'rgba(14,165,233,0.08)':'rgba(239,68,68,0.08)') : 'transparent',
+                border: isSelDay ? `2px solid ${pnl>=0?'var(--bull)':'var(--bear)'}` : isToday ? '1px solid var(--accent)' : pnl!=null ? (pnl>=0?'1px solid rgba(0,230,118,0.3)':'1px solid rgba(255,71,87,0.3)') : '1px solid transparent',
+                cursor: pnl!=null ? 'pointer' : 'default',
+              }}>
+              <div style={{ fontSize:'10px', color:isSelDay?(pnl>=0?'var(--bull)':'var(--bear)'):isToday?'var(--accent)':'var(--muted)', fontWeight:isToday||isSelDay?700:400 }}>{format(day,'d')}</div>
               {pnl!=null && (
                 <div style={{ fontSize:'8px', fontWeight:700, marginTop:'2px', color:pnl>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>
                   {pnl>=0?'+':'−'}Rs.{toINRd(Math.abs(pnl))}
@@ -83,7 +93,71 @@ function PnLCalendar({ trades }) {
           <div style={{ width:'10px', height:'10px', borderRadius:'2px', background:'rgba(239,68,68,0.3)', border:'1px solid rgba(255,71,87,0.5)' }} />
           <span style={{ fontSize:'9px', color:'var(--muted)' }}>Loss day</span>
         </div>
+        {selectedCalDay && (
+          <button onClick={() => setSelectedCalDay(null)} style={{ fontSize:'9px', color:'var(--muted)', background:'none', border:'1px solid var(--border)', borderRadius:'3px', padding:'1px 8px', cursor:'pointer', fontFamily:'DM Mono, monospace' }}>✕ clear</button>
+        )}
       </div>
+
+      {/* Day Detail Panel */}
+      {selectedCalDay && dayTrades.length > 0 && (
+        <div style={{ marginTop:'16px', borderTop:'1px solid var(--border)', paddingTop:'14px' }}>
+          <div style={{ fontSize:'11px', fontWeight:700, fontFamily:'DM Mono, monospace', color:'var(--text)', marginBottom:'10px' }}>
+            {new Date(selectedCalDay+'T00:00:00').toLocaleDateString('en-IN',{ weekday:'long', day:'numeric', month:'long', year:'numeric' })}
+            <span style={{ marginLeft:'8px', fontSize:'10px', color:'var(--muted)', fontWeight:400 }}>{dayTrades.length} trade{dayTrades.length>1?'s':''} closed</span>
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+            {dayTrades.map(dayTrade => {
+              const dayTradeExecs = (allExecs || []).filter(e => e.trade_id === dayTrade.id)
+              const origQty = Number(dayTrade.quantity) || 0
+              const exitPrice = dayTradeExecs.length > 0
+                ? dayTradeExecs.reduce((s,e) => s + Number(e.price)*Number(e.quantity), 0) / dayTradeExecs.reduce((s,e) => s + Number(e.quantity), 0)
+                : (Number(dayTrade.exit_price) || 0)
+              const exitQty = dayTradeExecs.length > 0
+                ? dayTradeExecs.reduce((s,e) => s + Number(e.quantity), 0)
+                : origQty
+              // MTF interest for this trade
+              const investment = Number(dayTrade.invested_capital) || (Number(dayTrade.entry_price) * origQty)
+              const actualInv  = Number(dayTrade.actual_investment) || 0
+              const mtfBase    = investment - actualInv
+              let dayMtf = 0
+              if (mtfBase > 0 && dayTrade.mtf_interest_rate && dayTrade.entry_date) {
+                dayMtf = dayTradeExecs.reduce((s,e) => {
+                  const days = Math.max(1, Math.floor((new Date(e.date) - new Date(dayTrade.entry_date)) / 86400000))
+                  return s + mtfBase * (Number(e.quantity)/origQty) * dayTrade.mtf_interest_rate * days / 36500
+                }, 0)
+              }
+              const dayPnl = dayTrade._realised || 0
+              return (
+                <div key={dayTrade.id} style={{ background:'var(--bg)', border:`1px solid ${dayPnl>=0?'rgba(14,165,233,0.2)':'rgba(239,68,68,0.2)'}`, borderRadius:'6px', padding:'10px 14px', borderLeft:`3px solid ${dayPnl>=0?'var(--bull)':'var(--bear)'}` }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'6px' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
+                      <span style={{ fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'13px', color:'var(--text)' }}>{dayTrade.ticker}</span>
+                      {dayTrade.account && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', background:'var(--surface)', padding:'1px 7px', borderRadius:'3px' }}>{dayTrade.account}</span>}
+                      <span style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>
+                        Exit {Number(exitQty).toLocaleString('en-IN')} × Rs.{toINRd(exitPrice)}
+                      </span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                      {dayMtf > 0 && (
+                        <div style={{ textAlign:'right' }}>
+                          <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.08em' }}>MTF INT</div>
+                          <div style={{ fontSize:'11px', fontWeight:700, fontFamily:'DM Mono, monospace', color:'var(--gold)' }}>Rs.{toINRd(dayMtf)}</div>
+                        </div>
+                      )}
+                      <div style={{ textAlign:'right' }}>
+                        <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.08em' }}>P&L</div>
+                        <div style={{ fontSize:'14px', fontWeight:800, fontFamily:'DM Mono, monospace', color:dayPnl>=0?'var(--bull)':'var(--bear)' }}>
+                          {dayPnl>=0?'+':'−'}Rs.{toINRd(Math.abs(dayPnl))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -516,7 +590,7 @@ export default function Dashboard() {
 
             {/* CALENDAR + RECENT EXITS */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:'16px' }}>
-              <PnLCalendar trades={tradesWithRealised} />
+              <PnLCalendar trades={tradesWithRealised} allExecs={allExecs} />
               <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px' }}>
                 <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'14px' }}>Recent Exits</div>
                 {closedTrades.length===0 ? (
