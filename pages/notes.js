@@ -72,6 +72,7 @@ export default function NotesPage() {
   const [stockCards, setStockCards] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
+  const [autoSaving, setAutoSaving] = useState(false)
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -111,6 +112,26 @@ export default function NotesPage() {
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [session, selectedDate, loadAll]) // eslint-disable-line
+
+  // ── Autosave every 10 seconds (silent — no spinner, small indicator only) ──
+  useEffect(() => {
+    if (!session) return
+    const autoSaveInterval = setInterval(async () => {
+      const autoContent = editorRef.current?.innerHTML || ''
+      if (!autoContent || autoContent === '<br>' || autoContent.trim() === '') return
+      const autoToken = await getToken()
+      setAutoSaving(true)
+      try {
+        await fetch('/api/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${autoToken}` },
+          body: JSON.stringify({ note_date: selectedDate, content: autoContent, tickers, image_urls: imageUrls, is_shared: isShared }),
+        })
+      } catch {}
+      setAutoSaving(false)
+    }, 10000)
+    return () => clearInterval(autoSaveInterval)
+  }, [session, selectedDate, tickers, imageUrls, isShared]) // eslint-disable-line
 
   const loadNote = useCallback(async (date) => {
     const token = await getToken()
@@ -391,6 +412,7 @@ export default function NotesPage() {
                     {saving ? 'Saving...' : '💾 Save'}
                   </button>
                   {saveMsg && <span style={{ fontSize:'11px', color:'var(--bull)', fontFamily:'DM Mono, monospace' }}>{saveMsg}</span>}
+                  {autoSaving && !saving && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>⟳ auto-saving...</span>}
                 </div>
               </div>
 
