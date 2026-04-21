@@ -385,7 +385,7 @@ export default function AllTradesPage() {
                         <td className="right">
                           {r.exitPrice ? `Rs.${toINRd(r.exitPrice)}` : <span className="neutral">—</span>}
                         </td>
-                        <td className="right">Rs.{toINR(r.originalQty)}</td>
+                        <td className="right">{toINR(r.originalQty)}</td>
                         <td className="right">
                           <span style={{ fontWeight:700, color: r.currentQty===0?'var(--bear)':r.currentQty<r.originalQty?'var(--gold)':'var(--text)' }}>
                             {toINR(r.currentQty)}
