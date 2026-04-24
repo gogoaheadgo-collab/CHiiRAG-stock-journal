@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { setCors } from '../../lib/cors'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -16,11 +17,13 @@ async function verifyAdmin(req) {
 }
 
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
   try {
     const admin = await verifyAdmin(req)
     if (!admin) return res.status(403).json({ error: 'Admin only' })
 
-    // GET - list all viewers
     if (req.method === 'GET') {
       const { data, error } = await supabase
         .from('allowed_viewers')
@@ -30,11 +33,9 @@ export default async function handler(req, res) {
       return res.status(200).json(data)
     }
 
-    // POST - add new viewer
     if (req.method === 'POST') {
       const { email, name, assigned_portfolios } = req.body
       if (!email?.trim()) return res.status(400).json({ error: 'Email required' })
-
       const { data, error } = await supabase
         .from('allowed_viewers')
         .insert([{
@@ -44,16 +45,13 @@ export default async function handler(req, res) {
         }])
         .select()
         .single()
-
       if (error) return res.status(500).json({ error: error.message })
       return res.status(200).json(data)
     }
 
-    // PUT - update viewer portfolios
     if (req.method === 'PUT') {
       const { id, email, name, assigned_portfolios } = req.body
       if (!id) return res.status(400).json({ error: 'ID required' })
-
       const { data, error } = await supabase
         .from('allowed_viewers')
         .update({
@@ -64,21 +62,17 @@ export default async function handler(req, res) {
         .eq('id', id)
         .select()
         .single()
-
       if (error) return res.status(500).json({ error: error.message })
       return res.status(200).json(data)
     }
 
-    // DELETE - remove viewer
     if (req.method === 'DELETE') {
       const { id } = req.body
       if (!id) return res.status(400).json({ error: 'ID required' })
-
       const { error } = await supabase
         .from('allowed_viewers')
         .delete()
         .eq('id', id)
-
       if (error) return res.status(500).json({ error: error.message })
       return res.status(200).json({ success: true })
     }
