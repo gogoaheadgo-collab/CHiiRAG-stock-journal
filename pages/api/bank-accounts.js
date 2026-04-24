@@ -1,10 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
+import { setCors } from '../../lib/cors'
 
 const authClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 const svcClient  = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
   const bearerToken = req.headers.authorization?.replace('Bearer ', '')
   if (!bearerToken) return res.status(401).json({ error: 'Unauthorized' })
   const { data: { user: acctUser } } = await authClient.auth.getUser(bearerToken)
