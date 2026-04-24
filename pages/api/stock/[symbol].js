@@ -1,12 +1,13 @@
+import { setCors } from '../../../lib/cors'
+
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
   const { symbol } = req.query
   if (!symbol) return res.status(400).json({ error: 'Symbol required' })
 
-  // If already has exchange suffix use as-is, otherwise try NSE first then BSE
-  const tickers = symbol.includes('.')
-    ? [symbol]
-    : [`${symbol}.NS`, `${symbol}.BO`]
-
+  const tickers = symbol.includes('.') ? [symbol] : [`${symbol}.NS`, `${symbol}.BO`]
   const sources = [fetchYahooQ1, fetchYahooQ2]
 
   for (const ticker of tickers) {
