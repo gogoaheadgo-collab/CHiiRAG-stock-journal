@@ -1,25 +1,27 @@
 import { createClient } from '@supabase/supabase-js'
 import nodemailer from 'nodemailer'
+import { setCors } from '../../../lib/cors'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 const auth  = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).end()
+
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'Unauthorized' })
   const { data: { user } } = await auth.auth.getUser(token)
   if (!user || user.email !== ADMIN_EMAIL) return res.status(403).json({ error: 'Admin only' })
 
-  const { user_id, status } = req.body // status: 'approved' | 'rejected'
+  const { user_id, status } = req.body
   if (!user_id || !status) return res.status(400).json({ error: 'user_id and status required' })
 
-  // profiles table PK is `id`, not `user_id`
   const { error } = await admin.from('profiles').update({ status }).eq('id', user_id)
   if (error) return res.status(500).json({ error: error.message })
 
-  // Send email to user
   try {
     const { data: profile } = await admin.from('profiles').select('email, full_name').eq('id', user_id).single()
     if (profile?.email && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
