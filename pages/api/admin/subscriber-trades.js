@@ -1,13 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
+import { setCors } from '../../../lib/cors'
 
-const adminSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'No token' })
   const { data: { user }, error } = await supabase.auth.getUser(token)
@@ -17,14 +18,12 @@ export default async function handler(req, res) {
   const { user_id } = req.query
   if (!user_id) return res.status(400).json({ error: 'user_id required' })
 
-  // Fetch trades for this user
   const { data: trades, error: tErr } = await adminSupabase
     .from('trades').select('*').eq('user_id', user_id).order('entry_date', { ascending: false })
 
   const { data: executions, error: eErr } = await adminSupabase
     .from('executions').select('*').eq('user_id', user_id)
 
-  // Return debug info too so we can see what's happening
   return res.status(200).json({
     trades: trades || [],
     executions: executions || [],
