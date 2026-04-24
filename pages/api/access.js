@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { setCors } from '../../lib/cors'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -8,6 +9,9 @@ const supabase = createClient(
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
   try {
     const token = req.headers.authorization?.replace('Bearer ', '')
     if (!token) return res.status(401).json({ error: 'No token' })
@@ -17,12 +21,10 @@ export default async function handler(req, res) {
 
     const email = user.email?.toLowerCase()
 
-    // Admin gets full access
     if (email === ADMIN_EMAIL.toLowerCase()) {
       return res.status(200).json({ role: 'admin', portfolios: null })
     }
 
-    // Check if viewer is approved
     const { data: viewer } = await supabase
       .from('allowed_viewers')
       .select('*')
