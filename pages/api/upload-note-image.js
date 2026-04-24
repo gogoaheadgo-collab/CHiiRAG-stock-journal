@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import formidable from 'formidable'
 import fs from 'fs'
+import { setCors } from '../../lib/cors'
 
 export const config = { api: { bodyParser: false } }
 
@@ -8,6 +9,8 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.
 const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).end()
 
   const token = req.headers.authorization?.replace('Bearer ', '')
