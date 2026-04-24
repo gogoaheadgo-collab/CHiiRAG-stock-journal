@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { setCors } from '../../lib/cors'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -6,6 +7,9 @@ const supabase = createClient(
 )
 
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'Unauthorized' })
 
