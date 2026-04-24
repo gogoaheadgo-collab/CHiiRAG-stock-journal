@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { setCors } from '../../lib/cors'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -9,6 +10,9 @@ const DEFAULT_STRATEGIES = ['VCP CONTRACTION', 'IPO', 'TIPS', 'OTHER']
 const ADMIN = 'gogoaheadgo@gmail.com'
 
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
   const token = req.headers.authorization?.replace('Bearer ', '')
   const { data: { user } } = await supabase.auth.getUser(token)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
@@ -19,7 +23,6 @@ export default async function handler(req, res) {
     return res.json(list)
   }
 
-  // Only admin can add/delete
   if (user.email !== ADMIN) return res.status(403).json({ error: 'Admin only' })
 
   if (req.method === 'POST') {
