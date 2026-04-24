@@ -1,21 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
+import { setCors } from '../../lib/cors'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 const auth = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'Unauthorized' })
   const { data: { user } } = await auth.auth.getUser(token)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
   const isAdmin = user.email === ADMIN_EMAIL
 
-  // GET — fetch own notes OR shared notes from admin
   if (req.method === 'GET') {
     const { date, search, shared } = req.query
 
-    // shared=1 → fetch admin's shared notes (for subscribers)
     if (shared === '1') {
       const { data, error } = await admin
         .from('notes').select('*').eq('is_shared', true)
@@ -32,7 +34,6 @@ export default async function handler(req, res) {
     return res.status(200).json(data || [])
   }
 
-  // POST — create or update note
   if (req.method === 'POST') {
     const { note_date, content, tickers, image_urls } = req.body
     if (!note_date) return res.status(400).json({ error: 'note_date required' })
@@ -62,7 +63,6 @@ export default async function handler(req, res) {
     return res.status(200).json(result)
   }
 
-  // PUT — toggle share (admin only)
   if (req.method === 'PUT') {
     if (!isAdmin) return res.status(403).json({ error: 'Admin only' })
     const { note_date, is_shared } = req.body
@@ -83,7 +83,6 @@ export default async function handler(req, res) {
     return res.status(200).json(data)
   }
 
-  // DELETE
   if (req.method === 'DELETE') {
     const { id } = req.body
     await admin.from('notes').delete().eq('id', id).eq('user_id', user.id)
