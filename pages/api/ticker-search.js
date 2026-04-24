@@ -1,4 +1,5 @@
-// In-memory cache of NSE instruments — loaded once per server instance
+import { setCors } from '../../lib/cors'
+
 let instrumentCache = null
 let cacheTime = 0
 const CACHE_TTL = 6 * 60 * 60 * 1000 // 6 hours
@@ -8,12 +9,11 @@ async function loadInstruments() {
   if (instrumentCache && (now - cacheTime) < CACHE_TTL) return instrumentCache
 
   try {
-    // NSE equity master — symbol, name, series, ISIN
     const r = await fetch('https://archives.nseindia.com/content/equities/EQUITY_L.csv', {
       headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/csv' }
     })
     const text = await r.text()
-    const lines = text.trim().split('\n').slice(1) // skip header
+    const lines = text.trim().split('\n').slice(1)
 
     instrumentCache = lines.map(line => {
       const cols = line.split(',')
@@ -30,6 +30,9 @@ async function loadInstruments() {
 }
 
 export default async function handler(req, res) {
+  setCors(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
   const { q } = req.query
   if (!q || q.length < 1) return res.status(200).json([])
 
@@ -37,11 +40,9 @@ export default async function handler(req, res) {
   const instruments = await loadInstruments()
 
   if (instruments.length === 0) {
-    // Fallback to Yahoo if NSE master fails
     return yahooFallback(query, res)
   }
 
-  // Search: ticker starts with query first, then name contains query
   const startsWithTicker = instruments.filter(i => i.symbol.startsWith(query))
   const nameContains = instruments.filter(i =>
     !i.symbol.startsWith(query) && i.name.toUpperCase().includes(query)
