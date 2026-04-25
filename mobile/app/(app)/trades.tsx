@@ -1,136 +1,121 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, RefreshControl, ActivityIndicator,
+  StyleSheet, RefreshControl, ActivityIndicator, TextInput,
 } from 'react-native'
 import { getTrades } from '../../lib/api'
-import { colors, font, spacing, radius } from '../../lib/theme'
+import { colors, font, spacing, radius, shadow } from '../../lib/theme'
 
-type Trade = {
-  id: string
-  ticker: string
-  account: string
-  status: 'OPEN' | 'CLOSED'
-  entry_price: number
-  current_price?: number
-  invested_capital: number
-  strategy?: string
-  entry_date: string
-  unrealised_pnl?: number
-  unrealised_pnl_pct?: number
-}
+const fmtd = (n: number) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmt  = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+
+type Filter = 'ALL' | 'OPEN' | 'CLOSED'
 
 export default function TradesScreen() {
-  const [trades,     setTrades]     = useState<Trade[]>([])
+  const [trades,     setTrades]     = useState<any[]>([])
   const [loading,    setLoading]    = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [filter,     setFilter]     = useState<'ALL' | 'OPEN' | 'CLOSED'>('ALL')
+  const [filter,     setFilter]     = useState<Filter>('ALL')
+  const [search,     setSearch]     = useState('')
 
   const load = useCallback(async () => {
     try {
       const data = await getTrades()
-      setTrades(data || [])
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
+      setTrades(Array.isArray(data) ? data : [])
+    } finally { setLoading(false); setRefreshing(false) }
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  const filtered = filter === 'ALL' ? trades : trades.filter(t => t.status === filter)
-  const openCount   = trades.filter(t => t.status === 'OPEN').length
-  const closedCount = trades.filter(t => t.status === 'CLOSED').length
+  const filtered = trades
+    .filter(t => filter === 'ALL' || t.status === filter)
+    .filter(t => search === '' || t.ticker.toUpperCase().includes(search.toUpperCase()) || t.account?.toUpperCase().includes(search.toUpperCase()))
 
-  function renderTrade({ item: t }: { item: Trade }) {
+  function renderTrade({ item: t }: { item: any }) {
     const isOpen = t.status === 'OPEN'
-    const pnl    = t.unrealised_pnl || 0
-    const pnlPct = t.unrealised_pnl_pct || 0
-    const pnlColor = pnl >= 0 ? colors.green : colors.red
-    const fmt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
     return (
       <View style={styles.card}>
+        {/* Top row */}
         <View style={styles.cardTop}>
           <View>
             <Text style={styles.ticker}>{t.ticker}</Text>
             <Text style={styles.account}>{t.account}</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: isOpen ? colors.green + '22' : colors.textMuted + '22' }]}>
-            <Text style={[styles.badgeText, { color: isOpen ? colors.green : colors.textMuted }]}>
-              {t.status}
-            </Text>
+          <View style={styles.badges}>
+            <View style={[styles.badge, isOpen ? styles.badgeOpen : styles.badgeClosed]}>
+              <Text style={[styles.badgeText, { color: isOpen ? colors.accent2 : colors.muted }]}>
+                {t.status}
+              </Text>
+            </View>
+            <View style={[styles.badge, t.direction === 'LONG' ? styles.badgeLong : styles.badgeShort]}>
+              <Text style={[styles.badgeText, { color: t.direction === 'LONG' ? colors.green : colors.red }]}>
+                {t.direction}
+              </Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.cardRow}>
+        {/* Stats row */}
+        <View style={styles.statsRow}>
           <View style={styles.stat}>
-            <Text style={styles.statLabel}>BUY</Text>
-            <Text style={styles.statVal}>₹{fmt(t.entry_price)}</Text>
+            <Text style={styles.statLabel}>ENTRY Rs.</Text>
+            <Text style={styles.statVal}>{fmtd(t.entry_price)}</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statLabel}>QTY</Text>
+            <Text style={styles.statVal}>{fmt(t.quantity)}</Text>
           </View>
           <View style={styles.stat}>
             <Text style={styles.statLabel}>INVESTED</Text>
-            <Text style={styles.statVal}>₹{fmt(t.invested_capital)}</Text>
+            <Text style={styles.statVal}>Rs.{fmt(t.invested_capital || 0)}</Text>
           </View>
-          {isOpen && (
+          {!isOpen && t.exit_price && (
             <View style={styles.stat}>
-              <Text style={styles.statLabel}>P&L</Text>
-              <Text style={[styles.statVal, { color: pnlColor }]}>
-                {pnl >= 0 ? '+' : ''}₹{fmt(pnl)}
-              </Text>
-              <Text style={[styles.statPct, { color: pnlColor }]}>
-                {pnl >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
-              </Text>
+              <Text style={styles.statLabel}>EXIT Rs.</Text>
+              <Text style={styles.statVal}>{fmtd(t.exit_price)}</Text>
             </View>
           )}
         </View>
 
-        {t.strategy && (
-          <Text style={styles.strategy}>{t.strategy}</Text>
-        )}
+        {/* Footer */}
+        <View style={styles.cardFooter}>
+          <Text style={styles.dateText}>
+            {t.entry_date?.slice(0, 10)}{t.exit_date ? ` → ${t.exit_date.slice(0, 10)}` : ''}
+          </Text>
+          {t.strategy && (
+            <View style={styles.strategyChip}>
+              <Text style={styles.strategyText}>{t.strategy}</Text>
+            </View>
+          )}
+        </View>
       </View>
     )
   }
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.accent} size="large" />
-      </View>
-    )
-  }
+  if (loading) return <View style={styles.center}><ActivityIndicator color={colors.accent} size="large" /></View>
 
   return (
     <View style={styles.container}>
-
-      {/* Summary bar */}
-      <View style={styles.summary}>
-        <TouchableOpacity
-          style={[styles.filterBtn, filter === 'ALL'    && styles.filterActive]}
-          onPress={() => setFilter('ALL')}
-        >
-          <Text style={[styles.filterText, filter === 'ALL' && styles.filterTextActive]}>
-            ALL · {trades.length}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterBtn, filter === 'OPEN'   && styles.filterActive]}
-          onPress={() => setFilter('OPEN')}
-        >
-          <Text style={[styles.filterText, filter === 'OPEN' && styles.filterTextActive]}>
-            OPEN · {openCount}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterBtn, filter === 'CLOSED' && styles.filterActive]}
-          onPress={() => setFilter('CLOSED')}
-        >
-          <Text style={[styles.filterText, filter === 'CLOSED' && styles.filterTextActive]}>
-            CLOSED · {closedCount}
-          </Text>
-        </TouchableOpacity>
+      {/* Filter + Search bar */}
+      <View style={styles.toolbar}>
+        <View style={styles.filters}>
+          {(['ALL', 'OPEN', 'CLOSED'] as Filter[]).map(f => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.tab, filter === f && styles.tabActive]}
+              onPress={() => setFilter(f)}
+            >
+              <Text style={[styles.tabText, filter === f && styles.tabTextActive]}>{f}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          style={styles.searchInput}
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search ticker..."
+          placeholderTextColor={colors.muted}
+        />
       </View>
 
       <FlatList
@@ -139,14 +124,10 @@ export default function TradesScreen() {
         renderItem={renderTrade}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); load() }}
-            tintColor={colors.accent}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} tintColor={colors.accent} />
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
+          <View style={styles.center}>
             <Text style={styles.emptyText}>No trades found</Text>
           </View>
         }
@@ -156,42 +137,63 @@ export default function TradesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: colors.bg },
-  center:      { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
-  summary: {
-    flexDirection: 'row',
+  container: { flex: 1, backgroundColor: colors.bg },
+  center:    { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
+
+  toolbar: {
     padding: spacing.md,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+    backgroundColor: colors.bg,
     gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
-  filterBtn: {
-    flex: 1, paddingVertical: spacing.sm,
-    alignItems: 'center', borderRadius: radius.sm,
+  filters: { flexDirection: 'row', gap: spacing.sm },
+  tab: {
+    paddingHorizontal: spacing.md, paddingVertical: 5,
+    borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border,
+  },
+  tabActive:     { backgroundColor: colors.accent, borderColor: colors.accent },
+  tabText:       { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted, letterSpacing: 0.5 },
+  tabTextActive: { color: colors.white, fontWeight: '700' },
+
+  searchInput: {
+    backgroundColor: colors.surface,
     borderWidth: 1, borderColor: colors.border,
-  },
-  filterActive:     { borderColor: colors.accent, backgroundColor: colors.accent + '18' },
-  filterText:       { fontFamily: font.mono, fontSize: font.size.xs, color: colors.textMuted, letterSpacing: 1 },
-  filterTextActive: { color: colors.accent },
-  card: {
-    backgroundColor: colors.bgCard,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    fontFamily: 'DMmono', fontSize: font.size.md,
+    color: colors.text,
+  },
+
+  // Card
+  card: {
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
+    ...shadow.sm,
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md },
-  ticker:  { fontFamily: font.mono, fontSize: font.size.xl, fontWeight: font.weight.black, color: colors.textPrimary },
-  account: { fontFamily: font.mono, fontSize: font.size.xs, color: colors.textMuted, marginTop: 2 },
-  badge:   { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.sm },
-  badgeText: { fontFamily: font.mono, fontSize: font.size.xs, fontWeight: font.weight.bold, letterSpacing: 1 },
-  cardRow: { flexDirection: 'row', gap: spacing.sm },
-  stat:    { flex: 1, backgroundColor: colors.bgInput, borderRadius: radius.sm, padding: spacing.sm },
-  statLabel: { fontFamily: font.mono, fontSize: font.size.xs, color: colors.textMuted, letterSpacing: 1, marginBottom: 2 },
-  statVal:   { fontFamily: font.mono, fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.textPrimary },
-  statPct:   { fontFamily: font.mono, fontSize: font.size.xs },
-  strategy:  { fontFamily: font.mono, fontSize: font.size.xs, color: colors.accent, marginTop: spacing.sm },
-  empty:     { alignItems: 'center', paddingTop: 60 },
-  emptyText: { fontFamily: font.mono, fontSize: font.size.md, color: colors.textMuted },
+  ticker:  { fontFamily: 'LibreBaskervilleBold', fontSize: font.size.xl, color: colors.text },
+  account: { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted, marginTop: 2 },
+  badges:  { flexDirection: 'row', gap: spacing.xs },
+
+  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm, borderWidth: 1 },
+  badgeOpen:   { backgroundColor: colors.accentDim, borderColor: '#bae6fd' },
+  badgeClosed: { backgroundColor: colors.surface2,  borderColor: colors.border },
+  badgeLong:   { backgroundColor: '#dcfce7', borderColor: '#bbf7d0' },
+  badgeShort:  { backgroundColor: '#fee2e2', borderColor: '#fecaca' },
+  badgeText:   { fontFamily: 'DMmono', fontSize: font.size.xs, fontWeight: '700', letterSpacing: 0.3 },
+
+  statsRow: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.sm },
+  stat:     { flex: 1, backgroundColor: colors.surface2, borderRadius: radius.sm, padding: spacing.sm },
+  statLabel:{ fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted, letterSpacing: 0.5, marginBottom: 2 },
+  statVal:  { fontFamily: 'DMmono', fontSize: font.size.sm, color: colors.text, fontWeight: '700' },
+
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dateText:   { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted },
+  strategyChip: { backgroundColor: colors.accentDim, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm },
+  strategyText: { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.accent, fontWeight: '700' },
+
+  emptyText: { fontFamily: 'LibreBaskerville', fontSize: font.size.xxl, color: colors.border2 },
 })
