@@ -5,7 +5,6 @@ import { colors } from '../lib/theme'
 
 export default function Index() {
   const { session, loading } = useAuth()
-
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
@@ -13,6 +12,5 @@ export default function Index() {
       </View>
     )
   }
-
-  return session ? <Redirect href="/(app)/trades" /> : <Redirect href="/(auth)/login" />
+  return session ? <Redirect href="/(app)/dashboard" /> : <Redirect href="/(auth)/login" />
 }
