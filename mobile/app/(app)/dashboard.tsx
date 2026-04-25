@@ -5,7 +5,7 @@ import {
 } from 'react-native'
 import { getTrades, getExecutions, getStockPrice } from '../../lib/api'
 import { colors, font, spacing, radius, shadow } from '../../lib/theme'
-import { differenceInDays } from 'date-fns'
+
 
 const fmt  = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
 const fmtd = (n: number) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -152,7 +152,8 @@ export default function DashboardScreen() {
     const base = margin > 0 ? totalVal - margin : totalVal
     if (base <= 0) return s
     const end = t.status === 'CLOSED' && t.exit_date ? new Date(t.exit_date) : new Date()
-    return s + (base * t.mtf_interest_rate * Math.max(1, differenceInDays(end, new Date(t.entry_date)))) / 36500
+    const diffDays = Math.max(1, Math.floor((end.getTime() - new Date(t.entry_date).getTime()) / 86400000))
+    return s + (base * t.mtf_interest_rate * diffDays) / 36500
   }, 0)
 
   // Trades with realised for recent exits
