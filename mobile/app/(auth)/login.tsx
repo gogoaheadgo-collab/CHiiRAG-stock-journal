@@ -1,106 +1,87 @@
 import { useState } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert,
+  View, Text, TouchableOpacity,
+  StyleSheet, ActivityIndicator, Alert,
 } from 'react-native'
 import { router } from 'expo-router'
-import { signInWithEmail } from '../../lib/supabase'
+import { signInWithGoogle } from '../../lib/supabase'
 import { colors, font, spacing, radius } from '../../lib/theme'
 
 export default function LoginScreen() {
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  async function handleLogin() {
-    if (!email.trim() || !password) {
-      Alert.alert('Error', 'Enter email and password')
-      return
-    }
+  async function handleGoogle() {
     setLoading(true)
     try {
-      await signInWithEmail(email.trim().toLowerCase(), password)
-      router.replace('/(app)/trades')
+      const result = await signInWithGoogle()
+      if (result?.type === 'success') {
+        router.replace('/(app)/trades')
+      }
     } catch (e: any) {
-      Alert.alert('Login Failed', e.message || 'Check your credentials')
+      Alert.alert('Sign-In Failed', e.message || 'Please try again')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <View style={styles.container}>
       <View style={styles.inner}>
 
-        {/* Logo / Header */}
+        {/* Logo */}
         <View style={styles.header}>
           <Text style={styles.logo}>CHiiRAG</Text>
           <Text style={styles.subtitle}>STOCK JOURNAL</Text>
           <View style={styles.divider} />
+          <Text style={styles.tagline}>Track · Analyse · Grow</Text>
         </View>
 
-        {/* Form */}
-        <View style={styles.form}>
-          <Text style={styles.label}>EMAIL</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoCorrect={false}
-          />
+        {/* Google Sign-In Button */}
+        <TouchableOpacity
+          style={[styles.googleBtn, loading && styles.btnDisabled]}
+          onPress={handleGoogle}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color={colors.textPrimary} size="small" />
+          ) : (
+            <View style={styles.googleBtnInner}>
+              <Text style={styles.googleIcon}>G</Text>
+              <Text style={styles.googleBtnText}>CONTINUE WITH GOOGLE</Text>
+            </View>
+          )}
+        </TouchableOpacity>
 
-          <Text style={[styles.label, { marginTop: spacing.lg }]}>PASSWORD</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••••"
-            placeholderTextColor={colors.textMuted}
-            secureTextEntry
-          />
-
-          <TouchableOpacity
-            style={[styles.btn, loading && styles.btnDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color={colors.white} />
-              : <Text style={styles.btnText}>LOGIN →</Text>
-            }
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.hint}>
+          Use the same Google account{'\n'}as the web app
+        </Text>
 
         <Text style={styles.footer}>SMK Stock Journal · v1.0</Text>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  inner: {
-    flex: 1, justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
+  container: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    justifyContent: 'center',
   },
-  header: { alignItems: 'center', marginBottom: spacing.xxl },
+  inner: {
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+  },
+
+  // Header
+  header:   { alignItems: 'center', marginBottom: spacing.xxl * 1.5 },
   logo: {
-    fontFamily: font.mono,
     fontSize: font.size.h1,
     fontWeight: font.weight.black,
     color: colors.textPrimary,
-    letterSpacing: 4,
+    letterSpacing: 6,
   },
   subtitle: {
-    fontFamily: font.mono,
     fontSize: font.size.xs,
     color: colors.textMuted,
     letterSpacing: 6,
@@ -112,50 +93,54 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     borderRadius: 1,
   },
-  form: {
-    backgroundColor: colors.bgCard,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.xl,
-  },
-  label: {
-    fontFamily: font.mono,
+  tagline: {
     fontSize: font.size.xs,
     color: colors.textMuted,
-    letterSpacing: 2,
-    marginBottom: spacing.sm,
+    letterSpacing: 3,
+    marginTop: spacing.md,
   },
-  input: {
-    backgroundColor: colors.bgInput,
+
+  // Google button
+  googleBtn: {
+    width: '100%',
+    backgroundColor: colors.bgCard,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.accent + '66',
     borderRadius: radius.md,
-    padding: spacing.md,
-    color: colors.textPrimary,
-    fontFamily: font.mono,
-    fontSize: font.size.md,
-  },
-  btn: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    padding: spacing.lg,
     alignItems: 'center',
-    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
   },
-  btnDisabled: { opacity: 0.6 },
-  btnText: {
-    fontFamily: font.mono,
+  googleBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  googleIcon: {
+    fontSize: 20,
+    fontWeight: font.weight.black,
+    color: colors.accent,
+  },
+  googleBtnText: {
     fontSize: font.size.md,
     fontWeight: font.weight.bold,
-    color: colors.white,
+    color: colors.textPrimary,
     letterSpacing: 2,
   },
-  footer: {
-    textAlign: 'center',
-    fontFamily: font.mono,
+  btnDisabled: { opacity: 0.6 },
+
+  hint: {
     fontSize: font.size.xs,
     color: colors.textMuted,
-    marginTop: spacing.xxl,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: spacing.xxl,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: -120,
+    fontSize: font.size.xs,
+    color: colors.textMuted,
+    letterSpacing: 1,
   },
 })
