@@ -1,15 +1,7 @@
 import { Tabs, Redirect } from 'expo-router'
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native'
 import { useAuth } from '../../context/AuthContext'
-import { colors, font } from '../../lib/theme'
-
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  return (
-    <Text style={{ fontSize: focused ? 18 : 16, opacity: focused ? 1 : 0.5 }}>
-      {label}
-    </Text>
-  )
-}
+import { colors, font, spacing } from '../../lib/theme'
 
 export default function AppLayout() {
   const { session, role, loading } = useAuth()
@@ -28,32 +20,88 @@ export default function AppLayout() {
   return (
     <Tabs
       screenOptions={{
+        // ── Tab Bar ──────────────────────────────────────────────────────────
         tabBarStyle: {
-          backgroundColor: colors.bg,
-          borderTopColor:  colors.border,
-          borderTopWidth:  1,
-          paddingBottom:   6,
-          height:          56,
+          backgroundColor:  colors.bg,
+          borderTopColor:   colors.border,
+          borderTopWidth:   1,
+          height:           Platform.OS === 'ios' ? 84 : 64,
+          paddingBottom:    Platform.OS === 'ios' ? 24 : 8,
+          paddingTop:       8,
         },
         tabBarActiveTintColor:   colors.accent,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: {
-          fontFamily: 'DMmono',
-          fontSize:   font.size.xs,
-          letterSpacing: 0.5,
+          fontSize:      font.size.xs,
+          fontWeight:    '600',
+          letterSpacing: 0.3,
+          marginTop:     2,
         },
-        headerStyle:      { backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border },
-        headerTintColor:  colors.text,
-        headerTitleStyle: { fontFamily: 'LibreBaskervilleBold', fontSize: 15 },
+
+        // ── Header ───────────────────────────────────────────────────────────
+        headerStyle: {
+          backgroundColor: colors.bg,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        } as any,
+        headerTintColor:    colors.text,
+        headerTitleStyle: {
+          fontSize:   font.size.lg,
+          fontWeight: font.weight.bold,
+          color:      colors.text,
+        },
         headerShadowVisible: false,
+        headerTitleAlign:    'center',
       }}
     >
-      <Tabs.Screen name="dashboard" options={{ title: 'DASHBOARD', tabBarIcon: ({ focused }) => <TabIcon label="📊" focused={focused} /> }} />
-      <Tabs.Screen name="trades"    options={{ title: 'TRADES',    tabBarIcon: ({ focused }) => <TabIcon label="📈" focused={focused} /> }} />
-      <Tabs.Screen name="notes"     options={{ title: 'NOTES',     tabBarIcon: ({ focused }) => <TabIcon label="📝" focused={focused} /> }} />
-      <Tabs.Screen name="alerts"    options={{ title: 'ALERTS',    tabBarIcon: ({ focused }) => <TabIcon label="🔔" focused={focused} /> }} />
-      <Tabs.Screen name="bank"      options={{ title: 'BANK',      tabBarIcon: ({ focused }) => <TabIcon label="🏦" focused={focused} /> }} />
-      <Tabs.Screen name="profile"   options={{ title: 'PROFILE',   tabBarIcon: ({ focused }) => <TabIcon label="👤" focused={focused} /> }} />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title:       'Dashboard',
+          tabBarLabel: 'Dashboard',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📊</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="trades"
+        options={{
+          title:       'Trades',
+          tabBarLabel: 'Trades',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📈</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="notes"
+        options={{
+          title:       'Notes',
+          tabBarLabel: 'Notes',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📝</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="alerts"
+        options={{
+          title:       'Alerts',
+          tabBarLabel: 'Alerts',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🔔</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="bank"
+        options={{
+          title:       'Bank',
+          tabBarLabel: 'Bank',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏦</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title:       'Profile',
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👤</Text>,
+        }}
+      />
     </Tabs>
   )
 }
