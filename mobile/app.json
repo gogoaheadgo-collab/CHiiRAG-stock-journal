@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0f0f0f"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.smk.stockjournal"
@@ -34,7 +36,10 @@
               "pathPrefix": "/callback"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -45,6 +50,15 @@
     "scheme": "smkjournal",
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "021fb303-c7fc-4cf1-a517-de4fd2e438d2"
+      }
+    },
+    "owner": "gogoaheadgo"
   }
 }
