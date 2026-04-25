@@ -22,7 +22,7 @@
         "backgroundColor": "#0f0f0f"
       },
       "package": "com.smk.stockjournal",
-      "versionCode": 3,
+      "versionCode": 5,
       "intentFilters": [
         {
           "action": "VIEW",
