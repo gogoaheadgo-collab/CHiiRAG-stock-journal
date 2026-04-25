@@ -1,59 +1,45 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
-  View, Text, FlatList, TouchableOpacity,
-  StyleSheet, RefreshControl, ActivityIndicator,
+  View, Text, FlatList, StyleSheet,
+  RefreshControl, ActivityIndicator, TouchableOpacity,
 } from 'react-native'
 import { getNotes } from '../../lib/api'
-import { colors, font, spacing, radius } from '../../lib/theme'
-
-type Note = {
-  id: string
-  note_date: string
-  content: string
-  tickers: string[]
-  is_shared: boolean
-  image_urls?: string[]
-}
+import { colors, font, spacing, radius, shadow } from '../../lib/theme'
 
 export default function NotesScreen() {
-  const [notes,      setNotes]      = useState<Note[]>([])
+  const [notes,      setNotes]      = useState<any[]>([])
   const [loading,    setLoading]    = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [tab,        setTab]        = useState<'mine' | 'shared'>('mine')
 
   const load = useCallback(async () => {
     try {
-      const data = await getNotes()
-      setNotes(data || [])
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [])
+      const params = tab === 'shared' ? { shared: '1' } : {}
+      const data = await getNotes(params)
+      setNotes(Array.isArray(data) ? data : [])
+    } finally { setLoading(false); setRefreshing(false) }
+  }, [tab])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { setLoading(true); load() }, [load])
 
-  function renderNote({ item: n }: { item: Note }) {
-    const preview = n.content?.slice(0, 120) || ''
+  function renderNote({ item: n }: { item: any }) {
+    const preview = n.content?.slice(0, 140) || ''
     return (
       <View style={styles.card}>
         <View style={styles.cardTop}>
           <Text style={styles.date}>{n.note_date}</Text>
           {n.is_shared && (
-            <View style={styles.sharedBadge}>
-              <Text style={styles.sharedText}>SHARED</Text>
-            </View>
+            <View style={styles.sharedBadge}><Text style={styles.sharedText}>SHARED</Text></View>
           )}
         </View>
         {preview ? (
           <Text style={styles.preview} numberOfLines={3}>{preview}</Text>
         ) : (
-          <Text style={styles.empty}>No content</Text>
+          <Text style={styles.noContent}>No content</Text>
         )}
         {n.tickers?.length > 0 && (
           <View style={styles.tickers}>
-            {n.tickers.slice(0, 5).map(t => (
+            {n.tickers.slice(0, 6).map((t: string) => (
               <View key={t} style={styles.tickerChip}>
                 <Text style={styles.tickerText}>{t}</Text>
               </View>
@@ -67,27 +53,28 @@ export default function NotesScreen() {
     )
   }
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.accent} size="large" />
-      </View>
-    )
-  }
+  if (loading) return <View style={styles.center}><ActivityIndicator color={colors.accent} size="large" /></View>
 
   return (
     <View style={styles.container}>
+      {/* Tabs */}
+      <View style={styles.tabBar}>
+        {(['mine', 'shared'] as const).map(t => (
+          <TouchableOpacity key={t} style={[styles.tab, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
+            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
+              {t === 'mine' ? 'MY NOTES' : 'SHARED'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
         data={notes}
         keyExtractor={n => n.id}
         renderItem={renderNote}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); load() }}
-            tintColor={colors.accent}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} tintColor={colors.accent} />
         }
         ListEmptyComponent={
           <View style={styles.center}>
@@ -102,23 +89,30 @@ export default function NotesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   center:    { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
+
+  tabBar: {
+    flexDirection: 'row', gap: spacing.sm,
+    padding: spacing.md,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  tab: { paddingHorizontal: spacing.md, paddingVertical: 5, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
+  tabActive:     { backgroundColor: colors.accent, borderColor: colors.accent },
+  tabText:       { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted, letterSpacing: 0.5 },
+  tabTextActive: { color: colors.white, fontWeight: '700' },
+
   card: {
-    backgroundColor: colors.bgCard,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.sm,
   },
   cardTop:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
-  date:       { fontFamily: font.mono, fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.accent },
-  sharedBadge:{ backgroundColor: colors.green + '22', paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm },
-  sharedText: { fontFamily: font.mono, fontSize: font.size.xs, color: colors.green, letterSpacing: 1 },
-  preview:    { fontFamily: font.mono, fontSize: font.size.md, color: colors.textSecondary, lineHeight: 20 },
-  empty:      { fontFamily: font.mono, fontSize: font.size.md, color: colors.textMuted },
+  date:       { fontFamily: 'DMmono', fontSize: font.size.sm, fontWeight: '700', color: colors.accent },
+  sharedBadge:{ backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm, borderWidth: 1, borderColor: '#bbf7d0' },
+  sharedText: { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.green, fontWeight: '700' },
+  preview:    { fontFamily: 'LibreBaskerville', fontSize: font.size.md, color: colors.text, lineHeight: 20 },
+  noContent:  { fontFamily: 'DMmono', fontSize: font.size.sm, color: colors.muted },
   tickers:    { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
-  tickerChip: { backgroundColor: colors.accent + '18', paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.accent + '44' },
-  tickerText: { fontFamily: font.mono, fontSize: font.size.xs, color: colors.accent },
-  imgCount:   { fontFamily: font.mono, fontSize: font.size.xs, color: colors.textMuted, marginTop: spacing.sm },
-  emptyText:  { fontFamily: font.mono, fontSize: font.size.md, color: colors.textMuted },
+  tickerChip: { backgroundColor: colors.accentDim, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm, borderWidth: 1, borderColor: '#bae6fd' },
+  tickerText: { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.accent2 },
+  imgCount:   { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted, marginTop: spacing.sm },
+  emptyText:  { fontFamily: 'LibreBaskerville', fontSize: font.size.xxl, color: colors.border2 },
 })
