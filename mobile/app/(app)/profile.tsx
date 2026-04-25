@@ -2,24 +2,22 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'rea
 import { router } from 'expo-router'
 import { useAuth } from '../../context/AuthContext'
 import { signOut } from '../../lib/supabase'
-import { colors, font, spacing, radius } from '../../lib/theme'
+import { colors, font, spacing, radius, shadow } from '../../lib/theme'
 
 export default function ProfileScreen() {
   const { session, role } = useAuth()
-  const user = session?.user
+  const user  = session?.user
   const email = user?.email || ''
   const name  = user?.user_metadata?.full_name || email.split('@')[0]
   const isAdmin = email === 'gogoaheadgo@gmail.com'
+  const initial = name.charAt(0).toUpperCase()
 
   async function handleSignOut() {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+    Alert.alert('Sign Out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out', style: 'destructive',
-        onPress: async () => {
-          await signOut()
-          router.replace('/(auth)/login')
-        }
+        onPress: async () => { await signOut(); router.replace('/(auth)/login') }
       }
     ])
   }
@@ -28,7 +26,7 @@ export default function ProfileScreen() {
     return (
       <View style={styles.row}>
         <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowValue}>{value}</Text>
+        <Text style={styles.rowValue} numberOfLines={1}>{value}</Text>
       </View>
     )
   }
@@ -36,32 +34,30 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}>
 
-      {/* Avatar block */}
+      {/* Avatar */}
       <View style={styles.avatarBlock}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{name.charAt(0).toUpperCase()}</Text>
+          <Text style={styles.avatarText}>{initial}</Text>
         </View>
         <Text style={styles.name}>{name}</Text>
         <Text style={styles.email}>{email}</Text>
         {isAdmin && (
-          <View style={styles.adminBadge}>
-            <Text style={styles.adminText}>ADMIN</Text>
-          </View>
+          <View style={styles.adminBadge}><Text style={styles.adminText}>ADMIN</Text></View>
         )}
       </View>
 
       {/* Info card */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>ACCOUNT</Text>
+        <Text style={styles.cardTitle}>ACCOUNT</Text>
         <Row label="EMAIL"  value={email} />
-        <Row label="ROLE"   value={isAdmin ? 'Admin' : 'Subscriber'} />
+        <Row label="ROLE"   value={isAdmin ? 'Administrator' : 'Subscriber'} />
         <Row label="STATUS" value={role?.toUpperCase() || '—'} />
         <Row label="APP"    value="SMK Stock Journal v1.0" />
       </View>
 
       {/* Sign out */}
       <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-        <Text style={styles.signOutText}>SIGN OUT</Text>
+        <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
 
     </ScrollView>
@@ -69,32 +65,46 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: colors.bg },
-  avatarBlock:  { alignItems: 'center', paddingVertical: spacing.xxl },
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  avatarBlock: { alignItems: 'center', paddingVertical: spacing.xxl },
   avatar: {
     width: 72, height: 72, borderRadius: 36,
-    backgroundColor: colors.accent + '33',
+    backgroundColor: colors.accentDim,
     borderWidth: 2, borderColor: colors.accent,
     justifyContent: 'center', alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.md, ...shadow.sm,
   },
-  avatarText:  { fontFamily: font.mono, fontSize: font.size.xxl, fontWeight: font.weight.black, color: colors.accent },
-  name:        { fontFamily: font.mono, fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.textPrimary },
-  email:       { fontFamily: font.mono, fontSize: font.size.sm, color: colors.textMuted, marginTop: 4 },
-  adminBadge:  { marginTop: spacing.sm, backgroundColor: colors.accent + '22', paddingHorizontal: 12, paddingVertical: 3, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.accent + '44' },
-  adminText:   { fontFamily: font.mono, fontSize: font.size.xs, color: colors.accent, letterSpacing: 2 },
+  avatarText: { fontFamily: 'LibreBaskervilleBold', fontSize: font.size.h1, fontWeight: '700', color: colors.accent },
+  name:       { fontFamily: 'LibreBaskervilleBold', fontSize: font.size.xl, fontWeight: '700', color: colors.text },
+  email:      { fontFamily: 'DMmono', fontSize: font.size.sm, color: colors.muted, marginTop: 4 },
+  adminBadge: {
+    marginTop: spacing.sm, backgroundColor: colors.accentDim,
+    paddingHorizontal: 12, paddingVertical: 3,
+    borderRadius: radius.sm, borderWidth: 1, borderColor: '#bae6fd',
+  },
+  adminText:  { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.accent2, fontWeight: '700', letterSpacing: 1 },
+
   card: {
-    backgroundColor: colors.bgCard, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.lg, marginBottom: spacing.lg,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg, ...shadow.sm,
   },
-  sectionTitle: { fontFamily: font.mono, fontSize: font.size.xs, color: colors.textMuted, letterSpacing: 3, marginBottom: spacing.md },
-  row:         { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  rowLabel:    { fontFamily: font.mono, fontSize: font.size.xs, color: colors.textMuted, letterSpacing: 1 },
-  rowValue:    { fontFamily: font.mono, fontSize: font.size.xs, color: colors.textPrimary, maxWidth: '60%', textAlign: 'right' },
+  cardTitle: {
+    fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted,
+    letterSpacing: 2, marginBottom: spacing.md,
+  },
+  row: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  rowLabel: { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted, letterSpacing: 0.5 },
+  rowValue: { fontFamily: 'LibreBaskerville', fontSize: font.size.md, color: colors.text, maxWidth: '60%', textAlign: 'right' },
+
   signOutBtn: {
-    backgroundColor: colors.red + '18', borderWidth: 1, borderColor: colors.red + '44',
-    borderRadius: radius.md, padding: spacing.md, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, padding: spacing.md,
+    alignItems: 'center', backgroundColor: colors.surface,
   },
-  signOutText: { fontFamily: font.mono, fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.red, letterSpacing: 2 },
+  signOutText: { fontFamily: 'LibreBaskerville', fontSize: font.size.lg, color: colors.text },
 })
