@@ -1,58 +1,69 @@
+// ── Exact match of globals.css CSS variables ──────────────────────────────────
 export const colors = {
   // Backgrounds
-  bg:         '#0f0f0f',
-  bgCard:     '#1a1a2e',
-  bgInput:    '#111111',
-  bgHover:    '#1e1e3a',
+  bg:       '#ffffff',
+  surface:  '#f8f9fc',
+  surface2: '#eef1f7',
 
   // Borders
-  border:     '#1e1e3a',
-  borderFocus: '#0ea5e9',
+  border:  '#dde2ee',
+  border2: '#c5cde0',
 
   // Text
-  textPrimary:   '#e2e8f0',
-  textSecondary: '#94a3b8',
-  textMuted:     '#64748b',
+  text:    '#1a1f36',
+  muted:   '#6b7a9e',
 
-  // Brand
-  accent:  '#0ea5e9',   // sky blue
-  accentDim: '#0284c7',
+  // Accent — sky blue
+  accent:    '#0ea5e9',
+  accent2:   '#0284c7',
+  accentDim: '#e0f2fe',
 
-  // Status
-  green:  '#22c55e',
-  red:    '#ef4444',
-  yellow: '#eab308',
-  orange: '#f97316',
+  // P&L
+  bull:    '#0ea5e9',   // profit = sky blue (same as accent)
+  bullDim: '#e0f2fe',
+  bear:    '#ef4444',   // loss = red
+  bearDim: '#fee2e2',
 
   // Special
+  gold:        '#f59e0b',
+  green:       '#16a34a',
+  red:         '#dc2626',
+  saffron:     '#FF9933',
+  indiaGreen:  '#138808',
+  navy:        '#000080',
+
   white: '#ffffff',
   black: '#000000',
 }
 
+// ── Fonts (loaded via Google Fonts in _layout) ────────────────────────────────
 export const font = {
-  mono: 'SpaceMono',   // loaded in _layout
+  serif: 'LibreBaskerville',        // headings + values (Bookman substitute)
+  mono:  'DMmono',                  // labels + numbers
   size: {
     xs:  10,
     sm:  11,
-    md:  13,
-    lg:  15,
-    xl:  18,
-    xxl: 22,
-    h1:  28,
+    md:  12,
+    lg:  13,
+    xl:  16,
+    xxl: 20,
+    h1:  22,
+    h2:  18,
   },
   weight: {
-    normal:  '400' as const,
-    medium:  '500' as const,
-    bold:    '700' as const,
-    black:   '800' as const,
+    normal: '400' as const,
+    medium: '500' as const,
+    semibold: '600' as const,
+    bold:   '700' as const,
+    black:  '800' as const,
   },
 }
 
 export const radius = {
-  sm: 6,
-  md: 10,
-  lg: 14,
-  xl: 20,
+  sm: 4,
+  md: 6,
+  lg: 8,
+  xl: 12,
 }
 
 export const spacing = {
@@ -60,6 +71,23 @@ export const spacing = {
   sm:  8,
   md:  12,
   lg:  16,
-  xl:  24,
-  xxl: 32,
+  xl:  20,
+  xxl: 28,
+}
+
+export const shadow = {
+  sm: {
+    shadowColor: '#1a1f36',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  md: {
+    shadowColor: '#1a1f36',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
 }
