@@ -1,16 +1,15 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, ScrollView, StyleSheet,
-  RefreshControl, ActivityIndicator, TouchableOpacity,
+  RefreshControl, ActivityIndicator,
 } from 'react-native'
 import { getTrades, getExecutions, getStockPrice } from '../../lib/api'
 import { colors, font, spacing, radius, shadow } from '../../lib/theme'
 
-
 const fmt  = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
 const fmtd = (n: number) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-// ── Stat Card (matches web .stat-card exactly) ────────────────────────────────
+// ── Full-width stat card ──────────────────────────────────────────────────────
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
     <View style={styles.statCard}>
@@ -22,23 +21,6 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
   )
 }
 
-// ── Recent Exit Row ───────────────────────────────────────────────────────────
-function ExitRow({ ticker, account, date, pnl }: any) {
-  const isProfit = pnl >= 0
-  return (
-    <View style={[styles.exitRow, { borderLeftColor: isProfit ? colors.bull : colors.bear }]}>
-      <View>
-        <Text style={styles.exitTicker}>{ticker}</Text>
-        <Text style={styles.exitSub}>{account} · {date?.slice(0, 10)}</Text>
-      </View>
-      <Text style={[styles.exitPnl, { color: isProfit ? colors.bull : colors.bear }]}>
-        {isProfit ? '+' : '−'}Rs.{fmtd(Math.abs(pnl))}
-      </Text>
-    </View>
-  )
-}
-
-// ── Open Position Row ─────────────────────────────────────────────────────────
 function OpenRow({ trade, livePrice, executions }: any) {
   const execs = executions || []
   const soldQty = execs.reduce((s: number, e: any) => s + Number(e.quantity), 0)
@@ -54,29 +36,55 @@ function OpenRow({ trade, livePrice, executions }: any) {
 
   return (
     <View style={styles.openRow}>
-      <View style={styles.openLeft}>
+      <View style={styles.openTop}>
         <Text style={styles.openTicker}>{trade.ticker}</Text>
-        <Text style={styles.openAccount}>{trade.account}</Text>
-      </View>
-      <View style={styles.openMid}>
-        <Text style={styles.openEntry}>Rs.{fmtd(trade.entry_price)}</Text>
-        {cmp && <Text style={styles.openCmp}>Rs.{fmtd(cmp)}</Text>}
-        {change != null && (
-          <Text style={[styles.openChange, { color: change >= 0 ? colors.bull : colors.bear }]}>
-            {change >= 0 ? '+' : ''}{change.toFixed(2)}%
+        <View style={[styles.dirBadge, trade.direction === 'LONG' ? styles.longBadge : styles.shortBadge]}>
+          <Text style={[styles.dirText, { color: trade.direction === 'LONG' ? colors.green : colors.red }]}>
+            {trade.direction}
           </Text>
-        )}
+        </View>
       </View>
-      <View style={styles.openRight}>
-        {unr !== null ? (
-          <Text style={[styles.openUnr, { color: isProfit ? colors.bull : colors.bear }]}>
-            {isProfit ? '+' : '−'}Rs.{fmt(Math.abs(unr))}
-          </Text>
-        ) : (
-          <Text style={[styles.openUnr, { color: colors.muted }]}>—</Text>
-        )}
-        <Text style={styles.openQty}>{fmt(qty)} qty</Text>
+      <Text style={styles.openAccount}>{trade.account}</Text>
+      <View style={styles.openStats}>
+        <View style={styles.openStat}>
+          <Text style={styles.openStatLabel}>ENTRY</Text>
+          <Text style={styles.openStatVal}>₹{fmtd(trade.entry_price)}</Text>
+        </View>
+        <View style={styles.openStat}>
+          <Text style={styles.openStatLabel}>CMP</Text>
+          <Text style={styles.openStatVal}>{cmp ? `₹${fmtd(cmp)}` : '—'}</Text>
+          {change != null && (
+            <Text style={[styles.openChange, { color: change >= 0 ? colors.bull : colors.bear }]}>
+              {change >= 0 ? '+' : ''}{change.toFixed(2)}%
+            </Text>
+          )}
+        </View>
+        <View style={styles.openStat}>
+          <Text style={styles.openStatLabel}>UNREALISED</Text>
+          {unr !== null ? (
+            <Text style={[styles.openStatVal, { color: isProfit ? colors.bull : colors.bear, fontWeight: '700' }]}>
+              {isProfit ? '+' : '−'}₹{fmt(Math.abs(unr))}
+            </Text>
+          ) : (
+            <Text style={[styles.openStatVal, { color: colors.muted }]}>—</Text>
+          )}
+        </View>
       </View>
+    </View>
+  )
+}
+
+function ExitRow({ ticker, account, date, pnl }: any) {
+  const isProfit = pnl >= 0
+  return (
+    <View style={[styles.exitRow, { borderLeftColor: isProfit ? colors.bull : colors.bear }]}>
+      <View>
+        <Text style={styles.exitTicker}>{ticker}</Text>
+        <Text style={styles.exitSub}>{account} · {date?.slice(0, 10)}</Text>
+      </View>
+      <Text style={[styles.exitPnl, { color: isProfit ? colors.bull : colors.bear }]}>
+        {isProfit ? '+' : '−'}₹{fmtd(Math.abs(pnl))}
+      </Text>
     </View>
   )
 }
@@ -95,7 +103,6 @@ export default function DashboardScreen() {
       if (!Array.isArray(data)) return
       setTrades(data)
 
-      // Load executions for all trades
       const results = await Promise.all(
         data.map((t: any) => getExecutions(t.id).catch(() => []))
       )
@@ -103,9 +110,8 @@ export default function DashboardScreen() {
       data.forEach((t: any, i: number) => { map[t.id] = Array.isArray(results[i]) ? results[i] : [] })
       setExecMap(map)
 
-      // Live prices for open trades
-      const tickers = [...new Set(data.filter((t: any) => t.status === 'OPEN').map((t: any) => t.ticker))]
-      tickers.forEach(async (ticker: any) => {
+      const tickers = [...new Set(data.filter((t: any) => t.status === 'OPEN').map((t: any) => t.ticker))] as string[]
+      tickers.forEach(async (ticker) => {
         try {
           const d = await getStockPrice(ticker)
           if (d?.price) setLivePrices(prev => ({ ...prev, [ticker]: d }))
@@ -119,11 +125,10 @@ export default function DashboardScreen() {
 
   useEffect(() => { load() }, [load])
 
-  const allExecs    = Object.values(execMap).flat()
-  const openTrades  = trades.filter(t => t.status === 'OPEN')
+  const allExecs     = Object.values(execMap).flat()
+  const openTrades   = trades.filter(t => t.status === 'OPEN')
   const closedTrades = trades.filter(t => t.status === 'CLOSED')
 
-  // P&L calculations
   const totalRealised = trades.reduce((sum, t) => {
     const execs = allExecs.filter(e => e.trade_id === t.id)
     return sum + execs.reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
@@ -141,10 +146,8 @@ export default function DashboardScreen() {
     return r > 0
   })
   const winRate = closedTrades.length > 0 ? (wins.length / closedTrades.length * 100).toFixed(1) : '0.0'
-
   const totalInvested = openTrades.reduce((s, t) => s + (Number(t.actual_investment) || Number(t.invested_capital) || 0), 0)
 
-  // MTF Interest
   const totalMtf = trades.reduce((s, t) => {
     if (!t.mtf_interest_rate || !t.entry_date) return s
     const totalVal = Number(t.invested_capital) || (Number(t.entry_price) * Number(t.quantity))
@@ -156,7 +159,6 @@ export default function DashboardScreen() {
     return s + (base * t.mtf_interest_rate * diffDays) / 36500
   }, 0)
 
-  // Trades with realised for recent exits
   const tradesWithPnl = trades.map(t => ({
     ...t,
     _realised: allExecs.filter(e => e.trade_id === t.id).reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
@@ -174,48 +176,43 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true) }} tintColor={colors.accent} />}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); load(true) }}
+          tintColor={colors.accent}
+        />
+      }
     >
-      {/* India flag tricolor bar */}
+      {/* Tricolor bar */}
       <View style={styles.tricolor} />
 
-      {/* Stat Cards — 2x3 grid */}
-      <View style={styles.statGrid}>
-        <StatCard
-          label="Unrealised P&L"
-          value={`${totalUnrealised >= 0 ? '+' : '−'}Rs.${fmtd(Math.abs(totalUnrealised))}`}
-          color={totalUnrealised >= 0 ? colors.bull : colors.bear}
-          sub={`${openTrades.length} open positions`}
-        />
-        <StatCard
-          label="Realised P&L"
-          value={`${totalRealised >= 0 ? '+' : '−'}Rs.${fmtd(Math.abs(totalRealised))}`}
-          color={totalRealised >= 0 ? colors.bull : colors.bear}
-          sub={`${closedTrades.length} closed trades`}
-        />
-        <StatCard
-          label="Win Rate"
-          value={`${winRate}%`}
-          color={colors.accent}
-          sub={`${wins.length}W · ${closedTrades.length - wins.length}L`}
-        />
-        <StatCard
-          label="Open Positions"
-          value={`${openTrades.length}`}
-          sub={`Rs.${fmt(totalInvested)} deployed`}
-        />
-        <StatCard
-          label="MTF Interest"
-          value={`Rs.${fmtd(totalMtf)}`}
-          color={colors.gold}
-          sub="Accrued"
-        />
-        <StatCard
-          label="Total Trades"
-          value={`${trades.length}`}
-          sub={`${openTrades.length} open · ${closedTrades.length} closed`}
-        />
+      {/* P&L Hero Cards — 2 big ones side by side */}
+      <View style={styles.heroRow}>
+        <View style={[styles.heroCard, { borderColor: totalUnrealised >= 0 ? '#bae6fd' : '#fecaca' }]}>
+          <Text style={styles.heroLabel}>UNREALISED P&L</Text>
+          <Text style={[styles.heroValue, { color: totalUnrealised >= 0 ? colors.bull : colors.bear }]}>
+            {totalUnrealised >= 0 ? '+' : '−'}₹{fmtd(Math.abs(totalUnrealised))}
+          </Text>
+          <Text style={styles.heroSub}>{openTrades.length} open positions</Text>
+        </View>
+        <View style={[styles.heroCard, { borderColor: totalRealised >= 0 ? '#bae6fd' : '#fecaca' }]}>
+          <Text style={styles.heroLabel}>REALISED P&L</Text>
+          <Text style={[styles.heroValue, { color: totalRealised >= 0 ? colors.bull : colors.bear }]}>
+            {totalRealised >= 0 ? '+' : '−'}₹{fmtd(Math.abs(totalRealised))}
+          </Text>
+          <Text style={styles.heroSub}>{closedTrades.length} closed trades</Text>
+        </View>
+      </View>
+
+      {/* Stats grid — 2x2 */}
+      <View style={styles.statsGrid}>
+        <StatCard label="WIN RATE"       value={`${winRate}%`}          color={colors.accent}  sub={`${wins.length}W · ${closedTrades.length - wins.length}L`} />
+        <StatCard label="OPEN POSITIONS" value={`${openTrades.length}`}                        sub={`₹${fmt(totalInvested)} deployed`} />
+        <StatCard label="MTF INTEREST"   value={`₹${fmtd(totalMtf)}`}   color={colors.gold}    sub="Accrued" />
+        <StatCard label="TOTAL TRADES"   value={`${trades.length}`}                            sub={`${openTrades.length} open · ${closedTrades.length} closed`} />
       </View>
 
       {/* Open Positions */}
@@ -234,7 +231,7 @@ export default function DashboardScreen() {
       {/* Recent Exits */}
       {recentExits.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Exits</Text>
+          <Text style={[styles.sectionTitle, { marginBottom: spacing.md }]}>Recent Exits</Text>
           {recentExits.map(t => (
             <ExitRow key={t.id} ticker={t.ticker} account={t.account} date={t.exit_date} pnl={t._realised} />
           ))}
@@ -243,7 +240,9 @@ export default function DashboardScreen() {
 
       {trades.length === 0 && (
         <View style={styles.empty}>
+          <Text style={styles.emptyIcon}>📈</Text>
           <Text style={styles.emptyText}>No trades yet</Text>
+          <Text style={styles.emptySub}>Add trades on the web app to see them here</Text>
         </View>
       )}
     </ScrollView>
@@ -253,46 +252,39 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   center:    { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
-  tricolor:  { height: 3, backgroundColor: colors.saffron, marginBottom: spacing.lg, borderRadius: 2 },
+  content:   { padding: spacing.lg, paddingBottom: 120 },
 
-  // Stat grid
-  statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
+  tricolor: { height: 4, backgroundColor: colors.saffron, marginBottom: spacing.lg, borderRadius: 2 },
+
+  // Hero P&L cards
+  heroRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  heroCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    ...shadow.sm,
+  },
+  heroLabel: { fontSize: font.size.xs, color: colors.muted, letterSpacing: 1, marginBottom: spacing.sm },
+  heroValue: { fontSize: font.size.xxl, fontWeight: '800', marginBottom: spacing.xs },
+  heroSub:   { fontSize: font.size.xs, color: colors.muted },
+
+  // Stat grid — 2 columns
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
   statCard: {
     width: '47.5%',
     backgroundColor: colors.surface,
     borderWidth: 1, borderColor: colors.border,
     borderRadius: radius.lg,
     padding: spacing.md,
-    position: 'relative',
     overflow: 'hidden',
     ...shadow.sm,
   },
-  statTricolor: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-    backgroundColor: colors.saffron,
-  },
-  statLabel: {
-    fontFamily: 'DMmono',
-    fontSize: font.size.xs,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    color: colors.muted,
-    marginBottom: 6,
-    marginTop: 4,
-  },
-  statValue: {
-    fontFamily: 'LibreBaskervilleBold',
-    fontSize: font.size.h2,
-    fontWeight: '700',
-    color: colors.text,
-    lineHeight: 22,
-  },
-  statSub: {
-    fontFamily: 'DMmono',
-    fontSize: font.size.xs,
-    color: colors.muted,
-    marginTop: 4,
-  },
+  statTricolor: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: colors.saffron },
+  statLabel:    { fontSize: font.size.xs, color: colors.muted, letterSpacing: 0.8, marginBottom: 6, marginTop: 4 },
+  statValue:    { fontSize: font.size.xl, fontWeight: '800', color: colors.text, lineHeight: 22 },
+  statSub:      { fontSize: font.size.xs, color: colors.muted, marginTop: 4 },
 
   // Section
   section: {
@@ -304,48 +296,42 @@ const styles = StyleSheet.create({
     ...shadow.sm,
   },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-  sectionTitle: {
-    fontFamily: 'LibreBaskervilleBold',
-    fontSize: font.size.lg,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  countBadge: {
-    backgroundColor: colors.accentDim,
-    paddingHorizontal: 8, paddingVertical: 2,
-    borderRadius: radius.sm,
-  },
-  countText: { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.accent, fontWeight: '700' },
+  sectionTitle:  { fontSize: font.size.xl, fontWeight: '700', color: colors.text },
+  countBadge:    { backgroundColor: colors.accentDim, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm },
+  countText:     { fontSize: font.size.xs, color: colors.accent, fontWeight: '700' },
 
-  // Open row
+  // Open position row
   openRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  openLeft:    { flex: 1 },
-  openTicker:  { fontFamily: 'LibreBaskervilleBold', fontSize: font.size.lg, color: colors.text },
-  openAccount: { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted, marginTop: 2 },
-  openMid:     { flex: 1, alignItems: 'center' },
-  openEntry:   { fontFamily: 'DMmono', fontSize: font.size.sm, color: colors.muted },
-  openCmp:     { fontFamily: 'DMmono', fontSize: font.size.md, fontWeight: '700', color: colors.text },
-  openChange:  { fontFamily: 'DMmono', fontSize: font.size.xs },
-  openRight:   { flex: 1, alignItems: 'flex-end' },
-  openUnr:     { fontFamily: 'DMmono', fontSize: font.size.md, fontWeight: '700' },
-  openQty:     { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted, marginTop: 2 },
+  openTop:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  openTicker: { fontSize: font.size.xl, fontWeight: '800', color: colors.text },
+  openAccount:{ fontSize: font.size.xs, color: colors.muted, marginBottom: spacing.sm },
+  dirBadge:   { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm, borderWidth: 1 },
+  longBadge:  { backgroundColor: '#dcfce7', borderColor: '#bbf7d0' },
+  shortBadge: { backgroundColor: '#fee2e2', borderColor: '#fecaca' },
+  dirText:    { fontSize: font.size.xs, fontWeight: '700' },
+  openStats:  { flexDirection: 'row', gap: spacing.sm },
+  openStat:   { flex: 1, backgroundColor: colors.surface2, borderRadius: radius.sm, padding: spacing.sm },
+  openStatLabel: { fontSize: font.size.xs, color: colors.muted, marginBottom: 2 },
+  openStatVal:   { fontSize: font.size.sm, color: colors.text, fontWeight: '600' },
+  openChange:    { fontSize: font.size.xs, marginTop: 1 },
 
   // Exit row
   exitRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: spacing.sm, paddingLeft: spacing.sm,
+    paddingVertical: spacing.md, paddingLeft: spacing.md,
     borderLeftWidth: 3,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  exitTicker: { fontFamily: 'LibreBaskervilleBold', fontSize: font.size.lg, color: colors.text },
-  exitSub:    { fontFamily: 'DMmono', fontSize: font.size.xs, color: colors.muted, marginTop: 2 },
-  exitPnl:    { fontFamily: 'DMmono', fontSize: font.size.md, fontWeight: '700' },
+  exitTicker: { fontSize: font.size.lg, fontWeight: '700', color: colors.text },
+  exitSub:    { fontSize: font.size.xs, color: colors.muted, marginTop: 2 },
+  exitPnl:    { fontSize: font.size.lg, fontWeight: '700' },
 
   // Empty
-  empty:     { alignItems: 'center', paddingTop: 60 },
-  emptyText: { fontFamily: 'LibreBaskerville', fontSize: font.size.xxl, color: colors.border2 },
+  empty:     { alignItems: 'center', paddingTop: 80 },
+  emptyIcon: { fontSize: 48, marginBottom: spacing.lg },
+  emptyText: { fontSize: font.size.xxl, fontWeight: '700', color: colors.border2, marginBottom: spacing.sm },
+  emptySub:  { fontSize: font.size.md, color: colors.muted, textAlign: 'center' },
 })
