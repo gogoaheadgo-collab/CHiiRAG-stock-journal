@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "CHiiRAG Stock Journal",
-    "slug": "smk-stock-journal",
+    "slug": "smk-stock-journal-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
