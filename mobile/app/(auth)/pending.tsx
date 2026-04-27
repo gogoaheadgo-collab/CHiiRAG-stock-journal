@@ -21,64 +21,65 @@ export default function PendingScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.inner}>
-        <Text style={styles.icon}>⏳</Text>
-        <Text style={styles.title}>AWAITING APPROVAL</Text>
-        <Text style={styles.subtitle}>
+    <View style={s.container}>
+      <View style={s.inner}>
+        <Text style={s.icon}>⏳</Text>
+        <Text style={s.title}>AWAITING APPROVAL</Text>
+        <Text style={s.subtitle}>
           Your access request has been submitted.{'\n'}
           The admin will approve your account shortly.
         </Text>
 
-        <View style={styles.card}>
-          <Text style={styles.cardText}>
+        <View style={s.card}>
+          <Text style={s.cardText}>
             Once approved, tap the button below to check your status and gain access.
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.checkBtn} onPress={handleCheck} disabled={checking}>
+        <TouchableOpacity style={s.checkBtn} onPress={handleCheck} disabled={checking}>
           {checking
             ? <ActivityIndicator color={colors.white} size="small" />
-            : <Text style={styles.checkBtnText}>CHECK STATUS →</Text>
+            : <Text style={s.checkBtnText}>CHECK STATUS</Text>
           }
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>SIGN OUT</Text>
+        <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
+          <Text style={s.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
     </View>
   )
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg, justifyContent: 'center' },
   inner:     { paddingHorizontal: spacing.xl, alignItems: 'center' },
   icon:      { fontSize: 48, marginBottom: spacing.lg },
   title: {
-    fontFamily: font.mono, fontSize: font.size.lg,
-    fontWeight: font.weight.black, color: colors.textPrimary,
-    letterSpacing: 3, marginBottom: spacing.md, textAlign: 'center',
+    fontSize: font.size.lg, fontWeight: font.weight.bold,
+    color: colors.text, letterSpacing: 2,
+    marginBottom: spacing.md, textAlign: 'center',
   },
   subtitle: {
-    fontFamily: font.mono, fontSize: font.size.sm,
-    color: colors.textMuted, textAlign: 'center',
-    lineHeight: 20, marginBottom: spacing.xl,
+    fontSize: font.size.md, color: colors.muted,
+    textAlign: 'center', lineHeight: 22,
+    marginBottom: spacing.xl,
   },
   card: {
-    backgroundColor: colors.bgCard, borderRadius: radius.md,
+    backgroundColor: colors.surface, borderRadius: radius.md,
     borderWidth: 1, borderColor: colors.border,
     padding: spacing.lg, marginBottom: spacing.xl, width: '100%',
   },
-  cardText: { fontFamily: font.mono, fontSize: font.size.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  cardText: { fontSize: font.size.md, color: colors.muted, textAlign: 'center', lineHeight: 22 },
   checkBtn: {
     backgroundColor: colors.accent, borderRadius: radius.md,
-    padding: spacing.md, alignItems: 'center', width: '100%', marginBottom: spacing.md,
+    padding: spacing.md, alignItems: 'center',
+    width: '100%', marginBottom: spacing.md,
   },
-  checkBtnText: { fontFamily: font.mono, fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.white, letterSpacing: 2 },
+  checkBtnText: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.white, letterSpacing: 1 },
   signOutBtn: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
     padding: spacing.md, alignItems: 'center', width: '100%',
   },
-  signOutText: { fontFamily: font.mono, fontSize: font.size.sm, color: colors.textMuted, letterSpacing: 1 },
+  signOutText: { fontSize: font.size.md, color: colors.muted },
 })

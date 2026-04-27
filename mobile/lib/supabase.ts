@@ -26,12 +26,8 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
 
 // ── Google Sign-In ────────────────────────────────────────────────────────────
 export async function signInWithGoogle() {
-  // Build redirect URI — this is what Supabase sends the user back to
-  const redirectUrl = AuthSession.makeRedirectUri({
-    scheme: 'smkjournal',
-  })
+  const redirectUrl = AuthSession.makeRedirectUri({ scheme: 'smkjournal' })
 
-  // Get OAuth URL from Supabase
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -43,13 +39,10 @@ export async function signInWithGoogle() {
   if (error) throw error
   if (!data.url) throw new Error('No OAuth URL returned from Supabase')
 
-  // Open browser for Google sign-in
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl)
 
   if (result.type === 'success') {
     const url = result.url
-
-    // Parse tokens from URL hash or query string
     let access_token  = null
     let refresh_token = null
 

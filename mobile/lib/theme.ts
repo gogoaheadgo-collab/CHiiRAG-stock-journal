@@ -1,22 +1,25 @@
 export const colors = {
-  bg:        '#ffffff',
-  surface:   '#f8f9fc',
-  surface2:  '#eef1f7',
-  border:    '#dde2ee',
-  border2:   '#c5cde0',
-  text:      '#1a1f36',
-  muted:     '#6b7a9e',
-  accent:    '#0ea5e9',
-  accent2:   '#0284c7',
-  accentDim: '#e0f2fe',
-  bull:      '#0ea5e9',
-  bear:      '#ef4444',
-  gold:      '#f59e0b',
-  green:     '#16a34a',
-  red:       '#dc2626',
-  saffron:   '#FF9933',
-  white:     '#ffffff',
-  black:     '#000000',
+  bg:         '#ffffff',
+  surface:    '#f8f9fc',
+  surface2:   '#eef1f7',
+  border:     '#dde2ee',
+  border2:    '#c5cde0',
+  text:       '#1a1f36',
+  muted:      '#6b7a9e',
+  accent:     '#0ea5e9',
+  accent2:    '#0284c7',
+  accentDim:  '#e0f2fe',
+  bull:       '#0ea5e9',
+  bullDim:    '#e0f2fe',
+  bear:       '#ef4444',
+  bearDim:    '#fee2e2',
+  gold:       '#f59e0b',
+  green:      '#16a34a',
+  red:        '#dc2626',
+  saffron:    '#FF9933',
+  indiaGreen: '#138808',
+  white:      '#ffffff',
+  black:      '#000000',
 }
 
 export const font = {
@@ -39,5 +42,6 @@ export const font = {
   },
 }
 
-export const radius  = { sm: 6, md: 10, lg: 14, xl: 20 }
-export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 22, xxl: 32 }
+export const radius = { sm: 6, md: 10, lg: 14, xl: 20 }
+
+export const spacing = { xs: 4, sm: 8, md: 14, lg: 18, xl: 24, xxl: 32 }
