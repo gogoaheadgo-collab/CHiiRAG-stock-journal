@@ -26,7 +26,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
 
 // ── Google Sign-In ────────────────────────────────────────────────────────────
 export async function signInWithGoogle() {
-  const redirectUrl = AuthSession.makeRedirectUri({ scheme: 'smkjournal' })
+  const redirectUrl = AuthSession.makeRedirectUri({ native: 'smkjournal://callback' })
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',

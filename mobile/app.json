@@ -3,6 +3,13 @@
     "name": "CHiiRAG Stock Journal",
     "slug": "smk-stock-journal-mobile",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7f7ec6cb-a03d-4b52-8db2-1d454fd9d08c",
+      "enabled": true
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -28,10 +35,11 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "autoVerify": true,
+          "autoVerify": false,
           "data": [
             {
-              "scheme": "smkjournal"
+              "scheme": "smkjournal",
+              "host": "callback"
             }
           ],
           "category": [
@@ -45,7 +53,8 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-updates"
     ],
     "scheme": "smkjournal",
     "experiments": {

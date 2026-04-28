@@ -11,6 +11,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "env": {
         "EXPO_NO_DOCTOR": "1"
       },
