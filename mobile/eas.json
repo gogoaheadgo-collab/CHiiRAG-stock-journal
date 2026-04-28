@@ -15,7 +15,7 @@
       "env": {
         "EXPO_NO_DOCTOR": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://sikjxgcepduezqjwqzzx.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpa2p4Z2NlcGR1ZXpxandxenp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MzE4NzEsImV4cCI6MjA4ODEwNzg3MX0.KjCN3VIL5lwhHS3URyROqwtMHidhiebOuLO_dgEWnxA",
         "EXPO_PUBLIC_API_URL": "https://smk-stock-journal.vercel.app"
       },
       "android": {
