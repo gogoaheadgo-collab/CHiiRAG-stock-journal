@@ -13,7 +13,10 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_NO_DOCTOR": "1"
+        "EXPO_NO_DOCTOR": "1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://sikjxgcepduezqjwqzzx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY",
+        "EXPO_PUBLIC_API_URL": "https://smk-stock-journal.vercel.app"
       },
       "android": {
         "buildType": "apk",
