@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Tabs, Redirect, router, usePathname } from 'expo-router'
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Platform, Modal, Alert,
+  StyleSheet, ActivityIndicator, Modal, Alert,
 } from 'react-native'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../../context/AuthContext'
 import { colors, font, spacing } from '../../lib/theme'
 import { supabase } from '../../lib/supabase'
@@ -22,13 +23,14 @@ const ALL_TABS = [
 
 function Header({ isAdmin }: { isAdmin: boolean }) {
   const pathname        = usePathname()
+  const insets          = useSafeAreaInsets()
   const [menuOpen, setMenuOpen] = useState(false)
   const TABS = ALL_TABS.filter(t => !t.adminOnly || isAdmin)
 
   return (
     <>
       {/* App bar */}
-      <View style={s.appBar}>
+      <View style={[s.appBar, { paddingTop: insets.top + 8 }]}>
         <View style={s.appBarLeft}>
           <View style={s.flag}>
             <View style={[s.flagStripe, { backgroundColor: '#FF9933' }]} />
@@ -134,7 +136,7 @@ export default function AppLayout() {
   const isAdmin = role === 'admin'
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['bottom']}>
       <Header isAdmin={isAdmin} />
       <Tabs
         screenOptions={{
@@ -153,7 +155,7 @@ export default function AppLayout() {
         <Tabs.Screen name="subscribers" options={{ href: isAdmin ? undefined : null }} />
         <Tabs.Screen name="profile"     />
       </Tabs>
-    </View>
+    </SafeAreaView>
   )
 }
 
@@ -164,7 +166,6 @@ const s = StyleSheet.create({
     justifyContent:    'space-between',
     alignItems:        'center',
     paddingHorizontal: spacing.lg,
-    paddingTop:        Platform.OS === 'ios' ? 50 : 12,
     paddingBottom:     spacing.sm,
     backgroundColor:   colors.bg,
   },
@@ -198,7 +199,7 @@ const s = StyleSheet.create({
   drawer: {
     width:           '72%',
     backgroundColor: colors.bg,
-    paddingTop:      Platform.OS === 'ios' ? 60 : 52,
+    paddingTop:      60,
     paddingBottom:   spacing.xl,
     elevation:       12,
     shadowColor:     '#000',

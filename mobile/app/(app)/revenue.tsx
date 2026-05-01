@@ -78,11 +78,22 @@ export default function RevenueScreen() {
 
   const calcRevenue = (trades: any[]) => {
     const mtf = mtfTrades(trades).filter(t => t.status === 'CLOSED')
-    const gross = mtf.reduce((s, t) => {
-      const sign = t.direction === 'LONG' ? 1 : -1
-      return s + sign * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-    }, 0)
-    const net = gross * 0.5  // 50% revenue share (example)
+    let gross = 0, net = 0
+    mtf.forEach(t => {
+      const sign    = t.direction === 'LONG' ? 1 : -1
+      const tradePnl = sign * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
+      gross += tradePnl
+      const investment  = Number(t.invested_capital) || (Number(t.entry_price) * Number(t.quantity))
+      const actualInv   = Number(t.actual_investment) || 0
+      const adminRatio  = investment > 0 && actualInv > 0 ? (investment - actualInv) / investment : 1
+      const mtfBase     = actualInv > 0 ? investment - actualInv : 0
+      let mtfInt = 0
+      if (mtfBase > 0 && t.mtf_interest_rate && t.entry_date && t.exit_date) {
+        const days = Math.max(1, Math.floor((new Date(t.exit_date).getTime() - new Date(t.entry_date).getTime()) / 86400000))
+        mtfInt = mtfBase * Number(t.mtf_interest_rate) * days / 36500
+      }
+      net += tradePnl * adminRatio - mtfInt
+    })
     return { gross, net, count: mtf.length }
   }
 

@@ -24,7 +24,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await checkApproval()
       const status = res?.status
-      if (status === 'approved' || status === 'requeued') setRole('approved')
+      if (status === 'admin')                              setRole('admin')
+      else if (status === 'approved' || status === 'requeued') setRole('approved')
       else if (status === 'pending')                      setRole('pending')
       else                                                setRole('denied')
     } catch {

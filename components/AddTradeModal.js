@@ -32,6 +32,12 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
   const [newStrategy, setNewStrategy] = useState('')
   const [strategyLoading, setStrategyLoading] = useState(false)
 
+  const [mtfRates, setMtfRates] = useState([])
+  const [showManageMtfRates, setShowManageMtfRates] = useState(false)
+  const [newMtfLabel, setNewMtfLabel] = useState('')
+  const [newMtfRate, setNewMtfRate] = useState('')
+  const [mtfRateLoading, setMtfRateLoading] = useState(false)
+
   // Auto-calc total buying value
   const totalBuyingValue = form.entry_price && form.quantity
     ? parseFloat(form.entry_price) * parseFloat(form.quantity)
@@ -51,7 +57,7 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
     ? (mtfBorrowed * parseFloat(form.mtf_interest_rate)) / 36500
     : null
 
-  useEffect(() => { fetchAccounts(); fetchStrategies() }, [])
+  useEffect(() => { fetchAccounts(); fetchStrategies(); fetchMtfRates() }, [])
 
   const getToken = () => session?.access_token
 
@@ -127,6 +133,37 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
       body: JSON.stringify({ name }),
     })
     await fetchStrategies()
+  }
+
+  const fetchMtfRates = async () => {
+    const token = getToken()
+    if (!token) return
+    try {
+      const res = await fetch('/api/mtf-rates', { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      if (Array.isArray(data)) setMtfRates(data)
+    } catch { setMtfRates([]) }
+  }
+
+  const handleAddMtfRate = async () => {
+    if (!newMtfLabel.trim() || !newMtfRate) return
+    setMtfRateLoading(true)
+    const res = await fetch('/api/mtf-rates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ label: newMtfLabel.trim(), rate: parseFloat(newMtfRate) }),
+    })
+    if (res.ok) { await fetchMtfRates(); setNewMtfLabel(''); setNewMtfRate('') }
+    setMtfRateLoading(false)
+  }
+
+  const handleDeleteMtfRate = async (id) => {
+    await fetch('/api/mtf-rates', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ id }),
+    })
+    await fetchMtfRates()
   }
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -295,7 +332,37 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
           )}
 
           {/* ── YOUR INVESTMENT (MTF) ── */}
-          <div style={sectionStyle}>Your Investment <span style={{ color:'var(--border)', fontWeight:400 }}>(optional — for MTF trades)</span></div>
+          <div style={sectionStyle}>
+            <span>Your Investment <span style={{ color:'var(--border)', fontWeight:400 }}>(optional — for MTF trades)</span></span>
+            {isAdmin && (
+              <button type="button" onClick={() => setShowManageMtfRates(v=>!v)} style={{ float:'right', background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace', letterSpacing:'0.08em' }}>
+                {showManageMtfRates ? '▲ Done' : '⚙ Manage Rates'}
+              </button>
+            )}
+          </div>
+
+          {/* Admin: manage MTF rates panel */}
+          {isAdmin && showManageMtfRates && (
+            <div style={{ marginBottom:'12px', padding:'12px', background:'var(--bg)', borderRadius:'6px', border:'1px solid var(--border)' }}>
+              <div style={{ fontSize:'10px', color:'var(--muted)', marginBottom:'8px' }}>Add or remove MTF rates from the dropdown</div>
+              <div style={{ display:'flex', gap:'8px', marginBottom:'10px' }}>
+                <input value={newMtfLabel} onChange={e => setNewMtfLabel(e.target.value)} placeholder="Label (e.g. Dhan 12.49%)" style={{ ...fieldStyle, flex:2 }} />
+                <input type="number" value={newMtfRate} onChange={e => setNewMtfRate(e.target.value)} placeholder="Rate %" style={{ ...fieldStyle, flex:1 }} step="0.01" min="0" max="100" />
+                <button type="button" onClick={handleAddMtfRate} disabled={mtfRateLoading} className="btn btn-primary" style={{ padding:'7px 14px', fontSize:'11px' }}>{mtfRateLoading ? '...' : 'Add'}</button>
+              </div>
+              {mtfRates.length > 0 && (
+                <div style={{ display:'flex', flexWrap:'wrap', gap:'6px' }}>
+                  {mtfRates.map(r => (
+                    <span key={r.id} style={{ display:'flex', alignItems:'center', gap:'4px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'4px', padding:'3px 8px', fontSize:'10px', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>
+                      {r.label}
+                      <button type="button" onClick={() => handleDeleteMtfRate(r.id)} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'12px', padding:0, lineHeight:1 }}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px' }}>
             <div>
               <label style={labelStyle}>Required Margin Paid by You Rs</label>
@@ -303,7 +370,21 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
             </div>
             <div>
               <label style={labelStyle}>MTF Rate % p.a.</label>
-              <input type="number" value={form.mtf_interest_rate} onChange={e => set('mtf_interest_rate', e.target.value)} placeholder="e.g. 18" style={fieldStyle} step="0.01" min="0" max="100" />
+              {mtfRates.length > 0 ? (
+                <div style={{ display:'flex', gap:'6px' }}>
+                  <select
+                    value=""
+                    onChange={e => { if (e.target.value) set('mtf_interest_rate', e.target.value) }}
+                    style={{ ...fieldStyle, flex:1 }}
+                  >
+                    <option value="">— Select rate —</option>
+                    {mtfRates.map(r => <option key={r.id} value={r.rate}>{r.label}</option>)}
+                  </select>
+                  <input type="number" value={form.mtf_interest_rate} onChange={e => set('mtf_interest_rate', e.target.value)} placeholder="or type %" style={{ ...fieldStyle, width:'80px', flexShrink:0 }} step="0.01" min="0" max="100" />
+                </div>
+              ) : (
+                <input type="number" value={form.mtf_interest_rate} onChange={e => set('mtf_interest_rate', e.target.value)} placeholder="e.g. 18" style={fieldStyle} step="0.01" min="0" max="100" />
+              )}
             </div>
           </div>
 

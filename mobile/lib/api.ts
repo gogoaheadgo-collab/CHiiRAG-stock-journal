@@ -79,7 +79,13 @@ export const getSharedAccountTrades = () => apiFetch('shared-account-trades')
 // ── Settlements ──────────────────────────────────────────────────────────────
 export const getSettlements = (subscriber_id: string) => apiFetch(`settlements?subscriber_id=${subscriber_id}`)
 
+// ── MTF Rates ────────────────────────────────────────────────────────────────
+export const getMtfRates    = ()          => apiFetch('mtf-rates')
+export const createMtfRate  = (body: any) => apiFetch('mtf-rates', { method: 'POST', body: JSON.stringify(body) })
+export const deleteMtfRate  = (id: string) => apiFetch('mtf-rates', { method: 'DELETE', body: JSON.stringify({ id }) })
+
 // ── Admin ────────────────────────────────────────────────────────────────────
+export const getAdminMirror      = ()            => apiFetch('admin/mirror')
 export const getSubscribers      = ()            => apiFetch('admin/subscribers')
 export const getPendingUsers     = ()            => apiFetch('admin/pending-users')
 export const approveUser         = (user_id: string, status: string) =>

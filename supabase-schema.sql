@@ -67,3 +67,18 @@ CREATE POLICY "trades_delete" ON trades FOR DELETE USING (auth.uid() = user_id);
 CREATE INDEX IF NOT EXISTS trades_user_idx ON trades(user_id);
 CREATE INDEX IF NOT EXISTS trades_date_idx ON trades(created_at DESC);
 CREATE INDEX IF NOT EXISTS trades_status_idx ON trades(status);
+
+
+-- ── MTF RATES table (admin-managed, shared with all subscribers) ────────────
+CREATE TABLE IF NOT EXISTS mtf_rates (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  label      TEXT NOT NULL,
+  rate       NUMERIC NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE mtf_rates ENABLE ROW LEVEL SECURITY;
+
+-- All authenticated users can read rates
+CREATE POLICY "mtf_rates_select" ON mtf_rates FOR SELECT USING (auth.uid() IS NOT NULL);
+-- Only service role can insert/delete (via API with service key)

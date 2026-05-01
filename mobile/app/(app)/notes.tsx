@@ -3,6 +3,18 @@ import { View, Text, FlatList, StyleSheet, RefreshControl, ActivityIndicator, To
 import { getNotes } from '../../lib/api'
 import { colors, font, spacing, radius } from '../../lib/theme'
 
+function stripHtml(raw: string): string {
+  return (raw || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 export default function NotesScreen() {
   const [notes,      setNotes]      = useState<any[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -47,7 +59,7 @@ export default function NotesScreen() {
               )}
             </View>
             {n.content ? (
-              <Text style={s.preview} numberOfLines={4}>{n.content}</Text>
+              <Text style={s.preview} numberOfLines={4}>{stripHtml(n.content)}</Text>
             ) : (
               <Text style={s.empty}>No content</Text>
             )}

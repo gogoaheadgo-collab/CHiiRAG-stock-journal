@@ -214,7 +214,14 @@ export default function AllTradesPage() {
     ...ownTrades.map(t => ({ trade:t, execMap:ownExecs, isSub:false, subName:null })),
     ...subGroups.flatMap(g => g.trades.map(t => ({ trade:t, execMap:g.execMap, isSub:true, subName:g.sub.full_name || g.sub.email?.split('@')[0] })))
   ]
-  const filtered = allRows.filter(r => statusFilter==='ALL' || r.trade.status===statusFilter)
+  const filteredRaw = allRows.filter(r => statusFilter==='ALL' || r.trade.status===statusFilter)
+  const filtered = sortCol
+    ? [...filteredRaw].sort((a, b) => {
+        let av = a.trade[sortCol] ?? '', bv = b.trade[sortCol] ?? ''
+        if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase() }
+        return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1)
+      })
+    : filteredRaw
 
   const pnlColor = n => n >= 0 ? 'var(--bull)' : 'var(--bear)'
   const pnlSign  = n => n >= 0 ? '+' : '−'
@@ -338,18 +345,25 @@ export default function AllTradesPage() {
               <table className="trade-table" style={{ width:'100%' }}>
                 <thead>
                   <tr>
-                    <th>Account</th>
-                    <th>Ticker</th>
-                    <th>Direction</th>
-                    <th>Entry Date</th>
-                    <th className="right">Entry Rs.</th>
-                    <th className="right">CMP</th>
-                    <th className="right">Exit Rs.</th>
-                    <th className="right">Qty</th>
-                    <th className="right">Curr Qty</th>
-                    <th className="right">MTF Interest</th>
-                    <th className="right">Unrealised P&L</th>
-                    <th className="right">Realised P&L</th>
+                    {[
+                      { label:'Account',      col:'account',    right:false },
+                      { label:'Ticker',       col:'ticker',     right:false },
+                      { label:'Direction',    col:'direction',  right:false },
+                      { label:'Entry Date',   col:'entry_date', right:false },
+                      { label:'Entry Rs.',    col:'entry_price',right:true  },
+                      { label:'CMP',          col:null,         right:true  },
+                      { label:'Exit Rs.',     col:'exit_price', right:true  },
+                      { label:'Qty',          col:'quantity',   right:true  },
+                      { label:'Curr Qty',     col:null,         right:true  },
+                      { label:'MTF Interest', col:null,         right:true  },
+                      { label:'Unrealised P&L', col:null,       right:true  },
+                      { label:'Realised P&L', col:null,         right:true  },
+                    ].map(({ label, col, right }) => (
+                      <th key={label} className={right ? 'right' : ''} onClick={col ? () => doSort(col) : undefined}
+                        style={{ cursor:col?'pointer':'default', userSelect:'none', whiteSpace:'nowrap' }}>
+                        {label}{col ? sortIcon(col) : ''}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>

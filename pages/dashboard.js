@@ -383,6 +383,17 @@ export default function Dashboard() {
   const winRate = closedTrades.length>0 ? (wins.length/closedTrades.length*100).toFixed(1) : '0.0'
   const totalInvested = openTrades.reduce((s,t)=>s+(Number(t.actual_investment)||Number(t.invested_capital)||0),0)
 
+  // ── Sort state ──
+  const [bdSortCol, setBdSortCol] = React.useState(null)
+  const [bdSortDir, setBdSortDir] = React.useState('asc')
+  const doBdSort = (col) => { if(bdSortCol===col) setBdSortDir(d=>d==='asc'?'desc':'asc'); else { setBdSortCol(col); setBdSortDir('asc') } }
+  const bdSortIcon = (col) => bdSortCol===col ? (bdSortDir==='asc'?' ↑':' ↓') : ' ↕'
+
+  const [opSortCol, setOpSortCol] = React.useState(null)
+  const [opSortDir, setOpSortDir] = React.useState('asc')
+  const doOpSort = (col) => { if(opSortCol===col) setOpSortDir(d=>d==='asc'?'desc':'asc'); else { setOpSortCol(col); setOpSortDir('asc') } }
+  const opSortIcon = (col) => opSortCol===col ? (opSortDir==='asc'?' ↑':' ↓') : ' ↕'
+
   // Build per-account breakdown — each own account separately + each mirrored subscriber
   const ownAccountNames = [...new Set(trades.map(t => t.account).filter(Boolean))]
   const subscriberBreakdown = isAdmin ? [
@@ -456,29 +467,46 @@ export default function Dashboard() {
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
                     <thead>
                       <tr style={{ borderBottom:'1px solid var(--border)' }}>
-                        {['Account','Open','Closed','Unrealised P&L','Realised P&L','MTF Interest'].map(h => (
-                          <th key={h} style={{ padding:'6px 12px', textAlign:h==='Account'?'left':'right', fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600 }}>{h}</th>
+                        {[
+                          { label:'Account', col:'name' },
+                          { label:'Open',    col:'_open' },
+                          { label:'Closed',  col:'_closed' },
+                          { label:'Unrealised P&L', col:'_unr' },
+                          { label:'Realised P&L',   col:'_rel' },
+                          { label:'MTF Interest',   col:'_mtf' },
+                        ].map(({ label, col }) => (
+                          <th key={col} onClick={() => doBdSort(col)} style={{ padding:'6px 12px', textAlign:col==='name'?'left':'right', fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600, cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>
+                            {label}{bdSortIcon(col)}
+                          </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {subscriberBreakdown.map(({ name, trades:t, execs:e, isOwn }) => {
-                        const unr = calcUnrealised(t,e), rel = calcRealised(t,e), mtf = calcMTF(t)
-                        return (
+                      {(() => {
+                        const rows = subscriberBreakdown.map(({ name, trades:t, execs:e, isOwn }) => {
+                          const unr = calcUnrealised(t,e), rel = calcRealised(t,e), mtf = calcMTF(t)
+                          return { name, trades:t, execs:e, isOwn, _open:t.filter(x=>x.status==='OPEN').length, _closed:t.filter(x=>x.status==='CLOSED').length, _unr:unr, _rel:rel, _mtf:mtf }
+                        })
+                        if (bdSortCol) rows.sort((a,b) => {
+                          let av = a[bdSortCol]??'', bv = b[bdSortCol]??''
+                          if (typeof av==='string') { av=av.toLowerCase(); bv=bv.toLowerCase() }
+                          return bdSortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
+                        })
+                        return rows
+                      })().map(({ name, isOwn, _open, _closed, _unr, _rel, _mtf }) => (
                           <tr key={name} style={{ borderBottom:'1px solid var(--border)' }}>
                             <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>
                               <span style={{ fontWeight:700 }}>{name}</span>
                               {isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'var(--accent-dim)', color:'var(--accent)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MINE</span>}
                               {!isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MIRRORED</span>}
                             </td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>{t.filter(x=>x.status==='OPEN').length}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{t.filter(x=>x.status==='CLOSED').length}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:unr>=0?'var(--bull)':'var(--bear)' }}>{unr>=0?'+':'−'}Rs.{toINR(Math.abs(unr))}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:rel>=0?'var(--bull)':'var(--bear)' }}>{rel>=0?'+':'−'}Rs.{toINR(Math.abs(rel))}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(mtf)}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>{_open}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{_closed}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:_unr>=0?'var(--bull)':'var(--bear)' }}>{_unr>=0?'+':'−'}Rs.{toINR(Math.abs(_unr))}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:_rel>=0?'var(--bull)':'var(--bear)' }}>{_rel>=0?'+':'−'}Rs.{toINR(Math.abs(_rel))}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(_mtf)}</td>
                           </tr>
-                        )
-                      })}
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -540,13 +568,28 @@ export default function Dashboard() {
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
                     <thead>
                       <tr style={{ borderBottom:'1px solid var(--border)' }}>
-                        {['Ticker', isAdmin?'Owner':'Account', 'Dir', 'Entry Rs.', 'Qty', 'CMP', 'Change %', 'Unrealised P&L'].map(h => (
-                          <th key={h} style={{ padding:'6px 12px', textAlign:['Ticker',isAdmin?'Owner':'Account','Dir'].includes(h)?'left':'right', fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600, whiteSpace:'nowrap' }}>{h}</th>
+                        {[
+                          { label:'Ticker',  col:'ticker' },
+                          { label:isAdmin?'Owner':'Account', col:'account' },
+                          { label:'Dir',  col:'direction' },
+                          { label:'Entry Rs.', col:'entry_price' },
+                          { label:'Qty',       col:'quantity' },
+                          { label:'CMP',       col:null },
+                          { label:'Change %',  col:null },
+                          { label:'Unrealised P&L', col:null },
+                        ].map(({ label, col }) => (
+                          <th key={label} onClick={col ? () => doOpSort(col) : undefined} style={{ padding:'6px 12px', textAlign:['Ticker',isAdmin?'Owner':'Account','Dir'].includes(label)?'left':'right', fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600, whiteSpace:'nowrap', cursor:col?'pointer':'default', userSelect:'none' }}>
+                            {label}{col ? opSortIcon(col) : ''}
+                          </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {openTrades.map(trade => {
+                      {(opSortCol ? [...openTrades].sort((a,b) => {
+                        let av=a[opSortCol]??'', bv=b[opSortCol]??''
+                        if(typeof av==='string'){av=av.toLowerCase();bv=bv.toLowerCase()}
+                        return opSortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
+                      }) : openTrades).map(trade => {
                         const execs = allExecs.filter(e=>e.trade_id===trade.id)
                         const soldQty = execs.reduce((s,e)=>s+Number(e.quantity),0)
                         const currentQty = Math.max(0, Number(trade.quantity)-soldQty)

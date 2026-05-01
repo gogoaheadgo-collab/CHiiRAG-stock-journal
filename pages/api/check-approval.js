@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   const { data: { user } } = await auth.auth.getUser(token)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
 
-  if (user.email === ADMIN_EMAIL) return res.status(200).json({ status: 'approved' })
+  if (user.email === ADMIN_EMAIL) return res.status(200).json({ status: 'admin' })
 
   const { data: profile } = await admin
     .from('profiles').select('status').eq('id', user.id).maybeSingle()
