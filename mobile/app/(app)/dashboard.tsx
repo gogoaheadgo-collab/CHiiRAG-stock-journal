@@ -4,7 +4,7 @@ import {
   TouchableOpacity,
 } from 'react-native'
 import {
-  getTrades, getStockPrice, getAdminMirror,
+  getTrades, getExecutions, getStockPrice, getAdminMirror,
   getSubscriberTrades, getSharedAccountTrades,
 } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
@@ -41,16 +41,31 @@ function calcMTF(tradeList: any[]) {
   }, 0)
 }
 
+function calcRealisedForTrade(trade: any, execs: any[]): number {
+  return (execs || []).reduce((sum, e) =>
+    sum + (Number(e.price) - Number(trade.entry_price)) * Number(e.quantity), 0)
+}
+
 // ── P&L Calendar ────────────────────────────────────────────────────────────
-function PnLCalendar({ trades }: { trades: any[] }) {
+function PnLCalendar({ trades, execsMap }: { trades: any[]; execsMap: Record<string, any[]> }) {
   const [month, setMonth] = useState(() => new Date())
 
   const dailyPnL: Record<string, number> = {}
-  trades.filter(t => t.status === 'CLOSED' && t.exit_date).forEach(t => {
-    const key = t.exit_date.slice(0, 10)
-    const pnl = (t.direction === 'LONG' ? 1 : -1) *
-      (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-    dailyPnL[key] = (dailyPnL[key] || 0) + pnl
+  trades.forEach(t => {
+    const execs = execsMap[t.id] || []
+    if (execs.length > 0) {
+      execs.forEach(e => {
+        const key = (e.date || '').slice(0, 10)
+        if (!key) return
+        const pnl = (Number(e.price) - Number(t.entry_price)) * Number(e.quantity)
+        dailyPnL[key] = (dailyPnL[key] || 0) + pnl
+      })
+    } else if (t.status === 'CLOSED' && t.exit_date && t.exit_price) {
+      const key = t.exit_date.slice(0, 10)
+      const pnl = (t.direction === 'LONG' ? 1 : -1) *
+        (Number(t.exit_price) - Number(t.entry_price)) * Number(t.quantity)
+      dailyPnL[key] = (dailyPnL[key] || 0) + pnl
+    }
   })
 
   const year = month.getFullYear()
@@ -126,13 +141,15 @@ export default function DashboardScreen() {
   const { session, role } = useAuth()
   const isAdmin = role === 'admin'
 
-  const [ownTrades,        setOwnTrades]       = useState<any[]>([])
-  const [mirroredAccounts, setMirroredAccounts]= useState<any[]>([])
-  const [mirroredTradesMap,setMirroredTradesMap]= useState<Record<string, any[]>>({})
-  const [sharedTrades,     setSharedTrades]    = useState<any[]>([])
-  const [livePrices,       setLivePrices]      = useState<Record<string, number>>({})
-  const [loading,          setLoading]         = useState(true)
-  const [refreshing,       setRefreshing]      = useState(false)
+  const [ownTrades,         setOwnTrades]        = useState<any[]>([])
+  const [ownExecsMap,       setOwnExecsMap]       = useState<Record<string, any[]>>({})
+  const [mirroredAccounts,  setMirroredAccounts]  = useState<any[]>([])
+  const [mirroredMap,       setMirroredMap]       = useState<Record<string, { trades: any[]; execs: Record<string, any[]> }>>({})
+  const [sharedTrades,      setSharedTrades]      = useState<any[]>([])
+  const [sharedExecsMap,    setSharedExecsMap]    = useState<Record<string, any[]>>({})
+  const [livePrices,        setLivePrices]        = useState<Record<string, number>>({})
+  const [loading,           setLoading]           = useState(true)
+  const [refreshing,        setRefreshing]        = useState(false)
   const pricesLoaded = useRef(false)
 
   const fetchPrices = useCallback((tradeList: any[]) => {
@@ -147,32 +164,60 @@ export default function DashboardScreen() {
 
   const load = useCallback(async () => {
     try {
-      const trades = await getTrades()
-      const own = Array.isArray(trades) ? trades : []
+      const tradesRaw = await getTrades()
+      const own: any[] = Array.isArray(tradesRaw) ? tradesRaw : []
       setOwnTrades(own)
+
+      const ownExMap: Record<string, any[]> = {}
+      await Promise.all(own.map(async t => {
+        try {
+          const exs = await getExecutions(t.id)
+          ownExMap[t.id] = Array.isArray(exs) ? exs : []
+        } catch { ownExMap[t.id] = [] }
+      }))
+      setOwnExecsMap(ownExMap)
 
       if (isAdmin) {
         const mirror = await getAdminMirror().catch(() => [])
-        const accounts = Array.isArray(mirror) ? mirror : []
+        const accounts: any[] = Array.isArray(mirror) ? mirror : []
         setMirroredAccounts(accounts)
-        const map: Record<string, any[]> = {}
+
+        const mMap: Record<string, { trades: any[]; execs: Record<string, any[]> }> = {}
         await Promise.all(accounts.map(async (m: any) => {
           try {
             const d = await getSubscriberTrades(m.subscriber_id)
-            map[m.subscriber_id] = Array.isArray(d?.trades) ? d.trades : (Array.isArray(d) ? d : [])
-          } catch { map[m.subscriber_id] = [] }
+            const trades: any[] = Array.isArray(d?.trades) ? d.trades : []
+            const execsList: any[] = Array.isArray(d?.executions) ? d.executions : []
+            const exMap: Record<string, any[]> = {}
+            trades.forEach(t => { exMap[t.id] = [] })
+            execsList.forEach((e: any) => {
+              if (exMap[e.trade_id]) exMap[e.trade_id].push(e)
+              else exMap[e.trade_id] = [e]
+            })
+            mMap[m.subscriber_id] = { trades, execs: exMap }
+          } catch { mMap[m.subscriber_id] = { trades: [], execs: {} } }
         }))
-        setMirroredTradesMap(map)
-        const allForPrices = [...own, ...Object.values(map).flat()]
+        setMirroredMap(mMap)
+
+        const allForPrices = [...own, ...Object.values(mMap).flatMap(v => v.trades)]
         if (!pricesLoaded.current) { fetchPrices(allForPrices); pricesLoaded.current = true }
       } else {
-        const shared = await getSharedAccountTrades().catch(() => ({ trades: [] }))
-        const sharedList = Array.isArray(shared?.trades) ? shared.trades : []
+        const shared = await getSharedAccountTrades().catch(() => ({ trades: [], executions: [] }))
+        const sharedList: any[] = Array.isArray(shared?.trades) ? shared.trades : []
+        const sharedExsList: any[] = Array.isArray(shared?.executions) ? shared.executions : []
+        const sExMap: Record<string, any[]> = {}
+        sharedList.forEach(t => { sExMap[t.id] = [] })
+        sharedExsList.forEach((e: any) => {
+          if (sExMap[e.trade_id]) sExMap[e.trade_id].push(e)
+          else sExMap[e.trade_id] = [e]
+        })
         setSharedTrades(sharedList)
+        setSharedExecsMap(sExMap)
+
         const allForPrices = [...own, ...sharedList]
         if (!pricesLoaded.current) { fetchPrices(allForPrices); pricesLoaded.current = true }
       }
-    } catch { /* show empty state */ }
+    } catch { /* empty */ }
     finally { setLoading(false); setRefreshing(false) }
   }, [isAdmin, fetchPrices])
 
@@ -184,41 +229,51 @@ export default function DashboardScreen() {
     load()
   }
 
-  // ── Computed values ──────────────────────────────────────────────────────
+  // ── Combine all trades + execs ───────────────────────────────────────────
   const ownUserId = session?.user?.id
-  const allMirroredTrades = isAdmin
-    ? Object.entries(mirroredTradesMap)
-        .filter(([subId]) => subId !== ownUserId)
-        .flatMap(([, ts]) => ts)
-    : []
 
-  const allTrades  = [...ownTrades, ...allMirroredTrades, ...(!isAdmin ? sharedTrades : [])]
-  const openTrades = allTrades.filter(t => t.status === 'OPEN')
-  const closed     = allTrades.filter(t => t.status === 'CLOSED')
+  const allMirroredExecsMap: Record<string, any[]> = {}
+  const allMirroredTrades: any[] = []
+  if (isAdmin) {
+    Object.entries(mirroredMap)
+      .filter(([subId]) => subId !== ownUserId)
+      .forEach(([, v]) => {
+        allMirroredTrades.push(...v.trades)
+        Object.assign(allMirroredExecsMap, v.execs)
+      })
+  }
 
-  // Unrealised P&L (uses live prices where available)
+  const allTrades = [...ownTrades, ...allMirroredTrades, ...(!isAdmin ? sharedTrades : [])]
+  const allExecsMap: Record<string, any[]> = {
+    ...ownExecsMap,
+    ...allMirroredExecsMap,
+    ...(!isAdmin ? sharedExecsMap : {}),
+  }
+
+  const openTrades  = allTrades.filter(t => t.status === 'OPEN')
+  const closedTrades = allTrades.filter(t => t.status === 'CLOSED')
+
+  // Unrealised P&L: currentQty = trade.qty - sum(exec.qty)
   const unrealisedPnL = openTrades.reduce((sum, t) => {
     const cmp = livePrices[t.ticker]
     if (!cmp) return sum
-    const qty = Number(t.quantity)
+    const execs = allExecsMap[t.id] || []
+    const soldQty = execs.reduce((s, e) => s + Number(e.quantity), 0)
+    const currentQty = Number(t.quantity) - soldQty
+    if (currentQty <= 0) return sum
     return sum + (t.direction === 'SHORT'
-      ? (Number(t.entry_price) - cmp) * qty
-      : (cmp - Number(t.entry_price)) * qty)
+      ? (Number(t.entry_price) - cmp) * currentQty
+      : (cmp - Number(t.entry_price)) * currentQty)
   }, 0)
   const hasPrices = openTrades.some(t => livePrices[t.ticker])
 
-  // Realised P&L (simplified — exit_price formula)
-  const realisedPnL = closed.reduce((sum, t) => {
-    const sign = t.direction === 'LONG' ? 1 : -1
-    return sum + sign * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-  }, 0)
+  // Realised P&L: sum of exec-based across all trades
+  const realisedPnL = allTrades.reduce((sum, t) =>
+    sum + calcRealisedForTrade(t, allExecsMap[t.id] || []), 0)
 
-  // Win Rate
-  const winners = closed.filter(t => {
-    const sign = t.direction === 'LONG' ? 1 : -1
-    return sign * (Number(t.exit_price || 0) - Number(t.entry_price)) > 0
-  })
-  const winRate = closed.length > 0 ? (winners.length / closed.length) * 100 : 0
+  // Win rate: closed trades where exec-based P&L > 0
+  const winners = closedTrades.filter(t => calcRealisedForTrade(t, allExecsMap[t.id] || []) > 0)
+  const winRate  = closedTrades.length > 0 ? (winners.length / closedTrades.length) * 100 : 0
 
   // Capital deployed
   const capitalDeployed = openTrades.reduce((s, t) =>
@@ -227,23 +282,25 @@ export default function DashboardScreen() {
   // MTF interest
   const mtfInterest = calcMTF(allTrades)
 
-  // Account breakdown (admin only)
+  // Account breakdown (admin only) — per own account name + each mirrored subscriber
   const ownAccountNames = [...new Set(ownTrades.map(t => t.account).filter(Boolean))]
   const breakdown = isAdmin ? [
     ...ownAccountNames.map(name => ({
       name,
       trades: ownTrades.filter(t => t.account === name),
-      isOwn: true,
+      execs:  ownExecsMap,
+      isOwn:  true,
     })),
     ...mirroredAccounts.map((m: any) => ({
-      name: ((m.subscriber_name || m.subscriber_email || '').split(' ')[0] || 'Sub') + "'s",
-      trades: mirroredTradesMap[m.subscriber_id] || [],
-      isOwn: false,
+      name:   ((m.subscriber_name || m.subscriber_email || '').split(' ')[0] || 'Sub') + "'s",
+      trades: mirroredMap[m.subscriber_id]?.trades || [],
+      execs:  mirroredMap[m.subscriber_id]?.execs  || {},
+      isOwn:  false,
     })),
   ] : []
 
   // Recent exits (last 8)
-  const recentExits = [...closed]
+  const recentExits = [...closedTrades]
     .sort((a, b) => {
       const da = a.exit_date || a.updated_at || ''
       const db = b.exit_date || b.updated_at || ''
@@ -293,14 +350,14 @@ export default function DashboardScreen() {
         <StatTile
           label="REALISED P&L"
           value={(realisedPnL >= 0 ? '+' : '−') + fmtM(Math.abs(realisedPnL))}
-          sub={`${closed.length} closed trades`}
-          color={closed.length === 0 ? colors.muted : realisedPnL >= 0 ? colors.green : colors.red}
+          sub={`${closedTrades.length} closed trades`}
+          color={closedTrades.length === 0 ? colors.muted : realisedPnL >= 0 ? colors.green : colors.red}
         />
         <StatTile
           label="WIN RATE"
-          value={closed.length > 0 ? `${winRate.toFixed(1)}%` : '—'}
-          sub={`${winners.length}W · ${closed.length - winners.length}L`}
-          color={closed.length === 0 ? colors.muted : winRate >= 50 ? colors.green : colors.red}
+          value={closedTrades.length > 0 ? `${winRate.toFixed(1)}%` : '—'}
+          sub={`${winners.length}W · ${closedTrades.length - winners.length}L`}
+          color={closedTrades.length === 0 ? colors.muted : winRate >= 50 ? colors.green : colors.red}
         />
         <StatTile
           label="CAPITAL DEPLOYED"
@@ -317,7 +374,7 @@ export default function DashboardScreen() {
 
       {/* ── P&L Calendar ── */}
       <Text style={s.sectionTitle}>P&L CALENDAR</Text>
-      <PnLCalendar trades={allTrades} />
+      <PnLCalendar trades={allTrades} execsMap={allExecsMap} />
 
       {/* ── Account Breakdown (admin) ── */}
       {isAdmin && breakdown.length > 1 && (
@@ -327,10 +384,8 @@ export default function DashboardScreen() {
             {breakdown.map(b => {
               const bOpen   = b.trades.filter((t: any) => t.status === 'OPEN')
               const bClosed = b.trades.filter((t: any) => t.status === 'CLOSED')
-              const bRel    = bClosed.reduce((sum: number, t: any) => {
-                const sign = t.direction === 'LONG' ? 1 : -1
-                return sum + sign * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-              }, 0)
+              const bRel    = b.trades.reduce((sum: number, t: any) =>
+                sum + calcRealisedForTrade(t, b.execs[t.id] || []), 0)
               const bMtf = calcMTF(b.trades)
               return (
                 <View key={b.name} style={s.bCard}>
@@ -375,8 +430,7 @@ export default function DashboardScreen() {
           <Text style={s.sectionTitle}>RECENT EXITS</Text>
           <View style={s.exitList}>
             {recentExits.map(t => {
-              const pnl = (t.direction === 'LONG' ? 1 : -1) *
-                (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
+              const pnl = calcRealisedForTrade(t, allExecsMap[t.id] || [])
               return (
                 <View key={t.id} style={[s.exitRow, { borderLeftColor: pnl >= 0 ? colors.green : colors.red }]}>
                   <View>
