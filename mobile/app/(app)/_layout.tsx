@@ -8,18 +8,22 @@ import { useAuth } from '../../context/AuthContext'
 import { colors, font, spacing } from '../../lib/theme'
 import { supabase } from '../../lib/supabase'
 
-const TABS = [
-  { name: 'dashboard', label: 'Dashboard',  icon: '📊' },
-  { name: 'trades',    label: 'All Trades',  icon: '📈' },
-  { name: 'notes',     label: 'Notes',       icon: '📝' },
-  { name: 'alerts',    label: 'Alerts',      icon: '🔔' },
-  { name: 'bank',      label: 'Bank',        icon: '🏦' },
-  { name: 'profile',   label: 'Profile',     icon: '👤' },
+const ALL_TABS = [
+  { name: 'dashboard',   label: 'Dashboard',   icon: '📊', adminOnly: false },
+  { name: 'accounts',    label: 'Accounts',    icon: '💼', adminOnly: false },
+  { name: 'trades',      label: 'All Trades',  icon: '📈', adminOnly: false },
+  { name: 'notes',       label: 'Notes',       icon: '📝', adminOnly: false },
+  { name: 'alerts',      label: 'Alerts',      icon: '🔔', adminOnly: false },
+  { name: 'bank',        label: 'Bank',        icon: '🏦', adminOnly: false },
+  { name: 'revenue',     label: 'Revenue',     icon: '💰', adminOnly: true  },
+  { name: 'subscribers', label: 'Subscribers', icon: '👥', adminOnly: true  },
+  { name: 'profile',     label: 'Profile',     icon: '👤', adminOnly: false },
 ]
 
-function Header() {
+function Header({ isAdmin }: { isAdmin: boolean }) {
   const pathname        = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
+  const TABS = ALL_TABS.filter(t => !t.adminOnly || isAdmin)
 
   return (
     <>
@@ -127,9 +131,11 @@ export default function AppLayout() {
   if (!session) return <Redirect href="/(auth)/login" />
   if (role === 'pending') return <Redirect href="/(auth)/pending" />
 
+  const isAdmin = role === 'admin'
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <Header />
+      <Header isAdmin={isAdmin} />
       <Tabs
         screenOptions={{
           headerShown:  false,
@@ -137,12 +143,15 @@ export default function AppLayout() {
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
-        <Tabs.Screen name="dashboard" />
-        <Tabs.Screen name="trades"    />
-        <Tabs.Screen name="notes"     />
-        <Tabs.Screen name="alerts"    />
-        <Tabs.Screen name="bank"      />
-        <Tabs.Screen name="profile"   />
+        <Tabs.Screen name="dashboard"   />
+        <Tabs.Screen name="accounts"    />
+        <Tabs.Screen name="trades"      />
+        <Tabs.Screen name="notes"       />
+        <Tabs.Screen name="alerts"      />
+        <Tabs.Screen name="bank"        />
+        <Tabs.Screen name="revenue"     options={{ href: isAdmin ? undefined : null }} />
+        <Tabs.Screen name="subscribers" options={{ href: isAdmin ? undefined : null }} />
+        <Tabs.Screen name="profile"     />
       </Tabs>
     </View>
   )
