@@ -3,9 +3,7 @@
     "name": "CHiiRAG Stock Journal",
     "slug": "smk-stock-journal-mobile",
     "version": "1.0.0",
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/7f7ec6cb-a03d-4b52-8db2-1d454fd9d08c",
       "enabled": true
