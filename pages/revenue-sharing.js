@@ -478,18 +478,34 @@ export default function RevenueSharingPage() {
           </div>
 
           {/* Trade table */}
-          <div style={{ overflowX:'auto', border:'1px solid var(--border)', borderRadius:'8px' }}>
-            <table className="trade-table" style={{ width:'100%' }}>
+          <div style={{ border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
+            <table className="data-table">
+              <colgroup>
+                <col style={{ width:'10%' }} />
+                <col style={{ width:'8%' }} />
+                <col style={{ width:'8%' }} />
+                <col style={{ width:'8%' }} />
+                <col style={{ width:'6%' }} />
+                <col style={{ width:'10%' }} />
+                <col style={{ width:'6%' }} />
+                <col style={{ width:'8%' }} />
+                <col style={{ width:'10%' }} />
+                <col style={{ width:'11%' }} />
+                <col style={{ width:'15%' }} />
+              </colgroup>
               <thead>
                 <tr>
-                  {[['ticker','Ticker'],['entry_date','Entry Date']].map(([col,label]) => (
-                    <th key={col} onClick={() => doSort(col)} style={{ cursor:'pointer', userSelect:'none' }}>{label}{sortIcon(col)}</th>
-                  ))}
-                  <th className="right">Entry Rs.</th><th className="right">Exit Rs.</th>
-                  <th className="right">Qty</th><th className="right">Investment</th>
-                  <th className="right">Actual Inv</th><th className="right">Admin %</th>
-                  <th className="right">MTF Interest</th><th className="right">Gross P&L</th>
-                  <th className="right">Gross P&L (Admin)</th><th className="right">Net P&L (Admin)</th>
+                  <th onClick={() => doSort('ticker')} style={{ cursor:'pointer', userSelect:'none' }}>Ticker{sortIcon('ticker')}</th>
+                  <th onClick={() => doSort('entry_date')} style={{ cursor:'pointer', userSelect:'none' }}>Entry Date{sortIcon('entry_date')}</th>
+                  <th className="r">Entry Rs.</th>
+                  <th className="r">Exit Rs.</th>
+                  <th className="r">Qty</th>
+                  <th className="r">Inv / Actual</th>
+                  <th className="r">Admin %</th>
+                  <th className="r">MTF Int</th>
+                  <th className="r">Gross P&L</th>
+                  <th className="r">Gross (Admin)</th>
+                  <th className="r">Net (Admin)</th>
                 </tr>
               </thead>
               <tbody>
@@ -498,22 +514,28 @@ export default function RevenueSharingPage() {
                   return (
                     <tr key={trade.id}>
                       <td>
-                        <span className="ticker-badge">{trade.ticker}</span>
-                        <div style={{ marginTop:'2px' }}>
-                          <span style={{ fontSize:'9px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'1px 5px', borderRadius:'3px' }}>{trade.status}</span>
+                        <div className="tk-cell">
+                          <span className="tk-name">{trade.ticker}</span>
+                          <div className="tk-badges">
+                            {trade.status==='OPEN' ? <span className="st-open">OPEN</span> : <span className="st-closed">CLOSED</span>}
+                          </div>
                         </div>
                       </td>
-                      <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                      <td className="right">Rs.{toINRd(r.entryPrice)}</td>
-                      <td className="right">{r.exitPrice?`Rs.${toINRd(r.exitPrice)}`:<span className="neutral">—</span>}</td>
-                      <td className="right">{Number(r.originalQty).toLocaleString('en-IN')}</td>
-                      <td className="right">Rs.{toINRd(r.investment)}</td>
-                      <td className="right">Rs.{toINRd(r.actualInv)}</td>
-                      <td className="right" style={{ color:'var(--gold)', fontWeight:600 }}>{(r.adminRatio*100).toFixed(1)}%</td>
-                      <td className="right">{r.mtfInt>0?<span style={{color:'var(--gold)'}}>Rs.{toINRd(r.mtfInt)}</span>:<span className="neutral">—</span>}</td>
-                      <td className="right"><span style={{fontWeight:600,color:r.grossPnL>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(r.grossPnL))}</span></td>
-                      <td className="right"><span style={{fontWeight:600,color:r.grossPnLAdmin>=0?'var(--bull)':'var(--bear)'}}>{r.grossPnLAdmin>=0?'+':'−'}Rs.{toINRd(Math.abs(r.grossPnLAdmin))}</span></td>
-                      <td className="right"><span style={{fontWeight:700,fontSize:'13px',color:r.netPnLAdmin>=0?'var(--bull)':'var(--bear)',background:r.netPnLAdmin>=0?'rgba(0,230,118,0.06)':'rgba(239,68,68,0.06)',padding:'2px 8px',borderRadius:'4px'}}>{r.netPnLAdmin>=0?'+':'−'}Rs.{toINRd(Math.abs(r.netPnLAdmin))}</span></td>
+                      <td style={{ fontSize:'11px', color:'var(--muted)' }}>{trade.entry_date?.slice(0,10)}</td>
+                      <td className="num">Rs.{toINRd(r.entryPrice)}</td>
+                      <td className="num">{r.exitPrice?`Rs.${toINRd(r.exitPrice)}`:<span style={{color:'var(--muted)'}}>—</span>}</td>
+                      <td className="num">{Number(r.originalQty).toLocaleString('en-IN')}</td>
+                      <td className="num">
+                        <div className="sc">
+                          <span className="sc1">Rs.{toINRd(r.investment)}</span>
+                          <span className="sc2">Rs.{toINRd(r.actualInv)}</span>
+                        </div>
+                      </td>
+                      <td className="num"><span className="mtf-val">{(r.adminRatio*100).toFixed(1)}%</span></td>
+                      <td className="num">{r.mtfInt>0?<span className="mtf-val">Rs.{toINRd(r.mtfInt)}</span>:<span style={{color:'var(--muted)'}}>—</span>}</td>
+                      <td className="num"><span className={r.grossPnL>=0?'pnl-pos':'pnl-neg'}>{r.grossPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(r.grossPnL))}</span></td>
+                      <td className="num"><span className={r.grossPnLAdmin>=0?'pnl-pos':'pnl-neg'}>{r.grossPnLAdmin>=0?'+':'−'}Rs.{toINRd(Math.abs(r.grossPnLAdmin))}</span></td>
+                      <td className="num"><span style={{fontWeight:700,fontSize:'12px',color:r.netPnLAdmin>=0?'var(--bull)':'var(--bear)',background:r.netPnLAdmin>=0?'rgba(0,230,118,0.06)':'rgba(239,68,68,0.06)',padding:'2px 6px',borderRadius:'4px'}}>{r.netPnLAdmin>=0?'+':'−'}Rs.{toINRd(Math.abs(r.netPnLAdmin))}</span></td>
                     </tr>
                   )
                 })}

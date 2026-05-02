@@ -139,8 +139,10 @@ body {
 }
 .stat-value {
   font-family: 'Libre Baskerville', Georgia, serif;
-  font-size: 22px; line-height: 1; font-weight: 700;
+  font-size: 22px; line-height: 1.2; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
+.stat-card { min-width: 0; }
 .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'DM Mono', monospace; }
 
 /* ── Table ── */
@@ -431,6 +433,47 @@ body {
 .trades-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; font-size: 12px; }
 .trades-table tbody tr:hover td { background: rgba(14,165,233,0.04); }
 .neutral { color: var(--muted); }
+
+/* ── Responsive data tables — NO horizontal scroll ── */
+.data-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.data-table th, .data-table td {
+  padding: 9px 7px; font-size: 12px; border-bottom: 1px solid var(--border);
+  overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
+}
+.data-table th {
+  background: var(--surface); position: sticky; top: 0; z-index: 1;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); font-weight: 700; white-space: nowrap;
+  font-family: 'DM Mono', monospace; cursor: default;
+}
+.data-table th.sortable { cursor: pointer; user-select: none; }
+.data-table th.sortable:hover { color: var(--text); }
+.data-table td { color: var(--text); }
+.data-table th.r, .data-table td.r { text-align: right; }
+.data-table tbody tr:hover td { background: rgba(14,165,233,0.04); }
+/* Ticker cell: stacked ticker + direction badge */
+.tk-cell { display: flex; flex-direction: column; gap: 2px; }
+.tk-name { font-weight: 700; font-size: 12px; color: var(--text); font-family: 'DM Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tk-badges { display: flex; gap: 3px; flex-wrap: wrap; }
+.dir-long  { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-family: 'DM Mono', monospace; background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+.dir-short { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-family: 'DM Mono', monospace; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+.st-open   { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-family: 'DM Mono', monospace; background: var(--accent-dim); color: var(--accent); border: 1px solid #bae6fd; }
+.st-closed { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-family: 'DM Mono', monospace; background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+/* Number cell */
+.data-table td.num { text-align: right; font-family: 'DM Mono', monospace; font-size: 11px; white-space: nowrap; }
+/* Stacked cell */
+.sc { display: flex; flex-direction: column; gap: 1px; }
+.sc .sc1 { font-size: 12px; color: var(--text); font-family: 'DM Mono', monospace; }
+.sc .sc2 { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; }
+/* PnL colors */
+.pnl-pos { color: var(--bull) !important; font-weight: 600; }
+.pnl-neg { color: var(--bear) !important; font-weight: 600; }
+.mtf-val { color: var(--gold) !important; }
+@media (max-width: 1200px) {
+  .data-table th, .data-table td { padding: 7px 5px; font-size: 11px; }
+  .data-table td.num { font-size: 10px; }
+  .tk-name { font-size: 11px; }
+}
 
 /* ── Sidebar layout ── */
 :root {

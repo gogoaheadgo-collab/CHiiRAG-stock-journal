@@ -105,16 +105,36 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
         {mTrades.length === 0 ? (
           <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No trades found.</div>
         ) : (
-          <div style={{ overflowX:'auto', border:'1px solid var(--border)', borderRadius:'8px' }}>
-            <table className="trade-table" style={{ width:'100%' }}>
+          <div style={{ border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
+            <table className="data-table">
+              <colgroup>
+                <col style={{ width:'12%' }} />
+                <col style={{ width:'7%' }} />
+                <col style={{ width:'8%' }} />
+                <col style={{ width:'8%' }} />
+                <col style={{ width:'9%' }} />
+                <col style={{ width:'7%' }} />
+                <col style={{ width:'7%' }} />
+                <col style={{ width:'10%' }} />
+                <col style={{ width:'8%' }} />
+                <col style={{ width:'9%' }} />
+                <col style={{ width:'9%' }} />
+                <col style={{ width:'6%' }} />
+              </colgroup>
               <thead>
                 <tr>
-                  {[['ticker','Ticker'],['direction','Dir'],['account','Account'],['entry_date','Entry Date'],['entry_price','Entry Rs.'],['cmp','CMP'],['exit_price','Exit Rs.'],['quantity','Qty'],['curr_qty','Curr Qty'],['invested_capital','Investment'],['actual_investment','Actual Inv'],['mtf_int','MTF Int'],['unrealised','Unrealised P&L'],['realised','Realised P&L'],['status','Status']].map(([col,label],i) => (
-                    <th key={i} className={i>=4&&i<14?'right':''} onClick={() => mDoSort(col)}
-                      style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>
-                      {label}{mSortIcon(col)}
-                    </th>
-                  ))}
+                  <th onClick={() => mDoSort('ticker')} style={{ cursor:'pointer', userSelect:'none' }}>Ticker{mSortIcon('ticker')}</th>
+                  <th onClick={() => mDoSort('account')} style={{ cursor:'pointer', userSelect:'none' }}>Account{mSortIcon('account')}</th>
+                  <th onClick={() => mDoSort('entry_date')} style={{ cursor:'pointer', userSelect:'none' }}>Entry Date{mSortIcon('entry_date')}</th>
+                  <th className="r" onClick={() => mDoSort('entry_price')} style={{ cursor:'pointer', userSelect:'none' }}>Entry Rs.{mSortIcon('entry_price')}</th>
+                  <th className="r" onClick={() => mDoSort('cmp')} style={{ cursor:'pointer', userSelect:'none' }}>CMP{mSortIcon('cmp')}</th>
+                  <th className="r" onClick={() => mDoSort('exit_price')} style={{ cursor:'pointer', userSelect:'none' }}>Exit Rs.{mSortIcon('exit_price')}</th>
+                  <th className="r" onClick={() => mDoSort('quantity')} style={{ cursor:'pointer', userSelect:'none' }}>Qty / Curr{mSortIcon('quantity')}</th>
+                  <th className="r" onClick={() => mDoSort('invested_capital')} style={{ cursor:'pointer', userSelect:'none' }}>Inv / Actual{mSortIcon('invested_capital')}</th>
+                  <th className="r" onClick={() => mDoSort('mtf_int')} style={{ cursor:'pointer', userSelect:'none' }}>MTF Int{mSortIcon('mtf_int')}</th>
+                  <th className="r" onClick={() => mDoSort('unrealised')} style={{ cursor:'pointer', userSelect:'none' }}>Unreal. P&L{mSortIcon('unrealised')}</th>
+                  <th className="r" onClick={() => mDoSort('realised')} style={{ cursor:'pointer', userSelect:'none' }}>Real. P&L{mSortIcon('realised')}</th>
+                  <th onClick={() => mDoSort('status')} style={{ cursor:'pointer', userSelect:'none' }}>Status{mSortIcon('status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -138,21 +158,32 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
                   const exitPrice = currentQty===0 && execs.length>0 ? execs.reduce((s,e)=>s+Number(e.price)*Number(e.quantity),0)/totalSoldQty : trade.exit_price||null
                   return (
                     <tr key={trade.id}>
-                      <td><span className="ticker-badge">{trade.ticker}</span></td>
-                      <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
-                      <td className="muted" style={{ fontSize:'11px' }}>{trade.account||'—'}</td>
-                      <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                      <td className="right">Rs.{toINRd(entryPrice)}</td>
-                      <td className="right">{cmp ? <div><div style={{ fontWeight:600 }}>Rs.{toINRd(cmp)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}</td>
-                      <td className="right">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
-                      <td className="right">{toINR(originalQty)}</td>
-                      <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                      <td className="right">{investment ? `Rs.${toINRd(investment)}` : <span className="neutral">—</span>}</td>
-                      <td className="right">{actualInv ? `Rs.${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
-                      <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs.{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                      <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                      <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                      <td className="right"><span style={{ fontSize:'10px', fontWeight:700, color:trade.status==='OPEN'?'var(--bull)':'var(--muted)', background:trade.status==='OPEN'?'rgba(0,230,118,0.1)':'var(--surface)', padding:'2px 8px', borderRadius:'4px' }}>{trade.status}</span></td>
+                      <td>
+                        <div className="tk-cell">
+                          <span className="tk-name">{trade.ticker}</span>
+                          <div className="tk-badges">
+                            <span className={trade.direction==='LONG'?'dir-long':'dir-short'}>{trade.direction}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ fontSize:'11px', color:'var(--muted)' }}>{trade.account||'—'}</td>
+                      <td style={{ fontSize:'11px', color:'var(--muted)' }}>{trade.entry_date?.slice(0,10)}</td>
+                      <td className="num">Rs.{toINRd(entryPrice)}</td>
+                      <td className="num">{cmp ? <div className="sc"><span className="sc1">Rs.{toINRd(cmp)}</span><span className="sc2" style={{ color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</span></div> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td className="num">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td className="num">
+                        <div className="sc">
+                          <span className="sc1">{toINR(originalQty)}</span>
+                          <span className="sc2" style={{ color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--muted)' }}>{toINR(currentQty)}</span>
+                        </div>
+                      </td>
+                      <td className="num">
+                        {investment ? <div className="sc"><span className="sc1">Rs.{toINRd(investment)}</span><span className="sc2">{actualInv ? `Rs.${toINRd(actualInv)}` : '—'}</span></div> : <span style={{ color:'var(--muted)' }}>—</span>}
+                      </td>
+                      <td className="num">{mtfInt ? <span className="mtf-val">Rs.{toINRd(mtfInt)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td className="num">{unrealisedPnL !== null ? <span className={unrealisedPnL>=0?'pnl-pos':'pnl-neg'}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td className="num">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span className={realisedPnL>=0?'pnl-pos':'pnl-neg'}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      <td>{trade.status==='OPEN' ? <span className="st-open">OPEN</span> : <span className="st-closed">CLOSED</span>}</td>
                     </tr>
                   )
                 })}
@@ -960,37 +991,39 @@ export default function AccountsPage() {
   {!selectedMonth && <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding:'8px 20px', fontSize:'12px' }}>+ New Trade</button>}
 </div>
             ) : (
-              <div style={{ overflowX:'auto' }}>
-                <table className="trade-table" style={{ width:'100%', tableLayout:'fixed', fontSize:'11px' }}>
+              <div style={{ border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
+                <table className="data-table">
                   <colgroup>
-                    <col style={{ width:'80px' }} />{/* Ticker */}
-                    <col style={{ width:'60px' }} />{/* Direction */}
-                    <col style={{ width:'82px' }} />{/* Entry Date */}
-                    <col style={{ width:'82px' }} />{/* Entry Rs. */}
-                    <col style={{ width:'90px' }} />{/* CMP */}
-                    <col style={{ width:'82px' }} />{/* Exit Rs. */}
-                    <col style={{ width:'60px' }} />{/* Qty */}
-                    <col style={{ width:'70px' }} />{/* Curr Qty */}
-                    <col style={{ width:'90px' }} />{/* Investment */}
-                    <col style={{ width:'85px' }} />{/* Actual Inv */}
-                    <col style={{ width:'85px' }} />{/* MTF */}
-                    <col style={{ width:'100px' }} />{/* Unrealised */}
-                    <col style={{ width:'100px' }} />{/* Realised */}
-                    <col style={{ width:'60px' }} />{/* Actions */}
+                    <col style={{ width:'13%' }} />
+                    <col style={{ width:'9%' }} />
+                    <col style={{ width:'8%' }} />
+                    <col style={{ width:'10%' }} />
+                    <col style={{ width:'8%' }} />
+                    <col style={{ width:'8%' }} />
+                    <col style={{ width:'12%' }} />
+                    <col style={{ width:'8%' }} />
+                    <col style={{ width:'10%' }} />
+                    <col style={{ width:'10%' }} />
+                    <col style={{ width:'4%' }} />
                   </colgroup>
                   <thead>
                     <tr>
-                      {[['ticker','Ticker'],['direction','Dir'],['entry_date','Entry Date'],['entry_price','Entry Rs.'],['cmp','CMP'],['exit_price','Exit Rs.'],['quantity','Qty'],['curr_qty','Curr Qty'],['invested_capital','Investment'],['actual_investment','Actual Inv'],['mtf_int','MTF Int'],['unrealised','Unrealised P&L'],['realised','Realised P&L'],['','Action']].map(([col,label],i) => (
-                        <th key={i} className={i>=3&&i<13?'right':''} onClick={() => col && doSort(col)}
-                          style={{ cursor:col?'pointer':'default', userSelect:'none', whiteSpace:'nowrap' }}>
-                          {label}{col ? sortIcon(col) : ''}
-                        </th>
-                      ))}
+                      <th onClick={() => doSort('ticker')} style={{ cursor:'pointer', userSelect:'none' }}>Ticker{sortIcon('ticker')}</th>
+                      <th onClick={() => doSort('entry_date')} style={{ cursor:'pointer', userSelect:'none' }}>Entry Date{sortIcon('entry_date')}</th>
+                      <th className="r" onClick={() => doSort('entry_price')} style={{ cursor:'pointer', userSelect:'none' }}>Entry Rs.{sortIcon('entry_price')}</th>
+                      <th className="r" onClick={() => doSort('cmp')} style={{ cursor:'pointer', userSelect:'none' }}>CMP{sortIcon('cmp')}</th>
+                      <th className="r" onClick={() => doSort('exit_price')} style={{ cursor:'pointer', userSelect:'none' }}>Exit Rs.{sortIcon('exit_price')}</th>
+                      <th className="r" onClick={() => doSort('quantity')} style={{ cursor:'pointer', userSelect:'none' }}>Qty / Curr{sortIcon('quantity')}</th>
+                      <th className="r" onClick={() => doSort('invested_capital')} style={{ cursor:'pointer', userSelect:'none' }}>Inv / Actual{sortIcon('invested_capital')}</th>
+                      <th className="r" onClick={() => doSort('mtf_int')} style={{ cursor:'pointer', userSelect:'none' }}>MTF Int{sortIcon('mtf_int')}</th>
+                      <th className="r" onClick={() => doSort('unrealised')} style={{ cursor:'pointer', userSelect:'none' }}>Unreal. P&L{sortIcon('unrealised')}</th>
+                      <th className="r" onClick={() => doSort('realised')} style={{ cursor:'pointer', userSelect:'none' }}>Real. P&L{sortIcon('realised')}</th>
+                      <th style={{ cursor:'default' }}>Act</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr style={{ background:'var(--accent)', cursor:'pointer' }} onClick={() => setShowAdd(true)}>
-                      <td colSpan={14} style={{ padding:'10px', textAlign:'center', borderBottom:'1px solid rgba(255,255,255,0.15)' }}>
+                      <td colSpan={11} style={{ padding:'10px', textAlign:'center', borderBottom:'1px solid rgba(255,255,255,0.15)' }}>
                         <span style={{ color:'#000', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700, letterSpacing:'0.08em' }}>+ New Trade</span>
                       </td>
                     </tr>
@@ -1027,21 +1060,33 @@ export default function AccountsPage() {
                       return (
                         <>
                           <tr key={trade.id} className={isOpen?'row-open':'row-closed'} onClick={() => handleRowClick(trade.id)} style={{ cursor:'pointer' }}>
-                            <td><span className="ticker-badge">{trade.ticker}</span></td>
-                            <td><span className={`badge badge-${trade.direction.toLowerCase()}`}>{trade.direction}</span></td>
-                            <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                            <td className="right">Rs.{toINRd(entryPrice)}</td>
-                            <td className="right">
-                              {isOpen && lp ? <div><div style={{ fontWeight:600 }}>Rs.{toINRd(lp.price)}</div><div style={{ fontSize:'10px', color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</div></div> : <span className="neutral">—</span>}
+                            <td>
+                              <div className="tk-cell">
+                                <span className="tk-name">{trade.ticker}</span>
+                                <div className="tk-badges">
+                                  <span className={trade.direction==='LONG'?'dir-long':'dir-short'}>{trade.direction}</span>
+                                  {isOpen ? <span className="st-open">OPEN</span> : <span className="st-closed">CLOSED</span>}
+                                </div>
+                              </div>
                             </td>
-                            <td className="right">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{toINR(originalQty)}</td>
-                            <td className="right"><span style={{ fontWeight:700, color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--text)' }}>{toINR(currentQty)}</span></td>
-                            <td className="right">{investment ? `Rs.${toINRd(investment)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{actualInv ? `Rs.${toINRd(actualInv)}` : <span className="neutral">—</span>}</td>
-                            <td className="right">{mtfInt ? <span style={{ color:'var(--gold)' }}>Rs.{toINRd(mtfInt)}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{unrealisedPnL !== null ? <span style={{ color:unrealisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span className="neutral">—</span>}</td>
-                            <td className="right">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span style={{ color:realisedPnL>=0?'var(--bull)':'var(--bear)', fontWeight:600 }}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span className="neutral">—</span>}</td>
+                            <td style={{ fontSize:'11px', color:'var(--muted)' }}>{trade.entry_date?.slice(0,10)}</td>
+                            <td className="num">Rs.{toINRd(entryPrice)}</td>
+                            <td className="num">
+                              {isOpen && lp ? <div className="sc"><span className="sc1">Rs.{toINRd(lp.price)}</span><span className="sc2" style={{ color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</span></div> : <span style={{ color:'var(--muted)' }}>—</span>}
+                            </td>
+                            <td className="num">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                            <td className="num">
+                              <div className="sc">
+                                <span className="sc1">{toINR(originalQty)}</span>
+                                <span className="sc2" style={{ color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--muted)' }}>{toINR(currentQty)}</span>
+                              </div>
+                            </td>
+                            <td className="num">
+                              {investment ? <div className="sc"><span className="sc1">Rs.{toINRd(investment)}</span><span className="sc2">{actualInv ? `Rs.${toINRd(actualInv)}` : '—'}</span></div> : <span style={{ color:'var(--muted)' }}>—</span>}
+                            </td>
+                            <td className="num">{mtfInt ? <span className="mtf-val">Rs.{toINRd(mtfInt)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                            <td className="num">{unrealisedPnL !== null ? <span className={unrealisedPnL>=0?'pnl-pos':'pnl-neg'}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                            <td className="num">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span className={realisedPnL>=0?'pnl-pos':'pnl-neg'}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
                             <td style={{ textAlign:'center', position:'relative' }} onClick={e => e.stopPropagation()}>
                               <button onClick={e => { e.preventDefault(); e.stopPropagation(); setOpenMenu(prev => prev===trade.id ? null : trade.id) }} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
                               {openMenu === trade.id && (
@@ -1054,7 +1099,7 @@ export default function AccountsPage() {
                           </tr>
                           {expandedTrade === trade.id && (
                             <tr key={`exec-${trade.id}`}>
-                              <td colSpan={14} style={{ padding:0, background:'var(--surface)', borderBottom:'2px solid var(--accent)' }}>
+                              <td colSpan={11} style={{ padding:0, background:'var(--surface)', borderBottom:'2px solid var(--accent)' }}>
                                 <ExecutionPanel trade={trade} executions={executions[trade.id]||[]} onAdd={(exec) => addExecution(trade.id, exec)} onDelete={(execId) => deleteExecution(execId, trade.id)} onAutoClose={(updates) => handleAutoClose(trade.id, updates)} />
                               </td>
                             </tr>

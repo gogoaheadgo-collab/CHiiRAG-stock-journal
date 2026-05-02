@@ -11,7 +11,7 @@ function StatCard({ label, value, sub, color }) {
   return (
     <div className="stat-card" style={{ padding:'18px 20px' }}>
       <div style={{ fontSize:'10px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'8px', fontFamily:'DM Mono, monospace' }}>{label}</div>
-      <div style={{ fontSize:'26px', fontWeight:800, fontFamily:'Bookman Old Style, serif', color: color||'var(--text)', lineHeight:1.1 }}>{value}</div>
+      <div style={{ fontSize:'22px', fontWeight:800, fontFamily:'Bookman Old Style, serif', color: color||'var(--text)', lineHeight:1.2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{value}</div>
       {sub && <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'6px', fontFamily:'DM Mono, monospace' }}>{sub}</div>}
     </div>
   )
@@ -400,7 +400,7 @@ export default function Dashboard() {
         ) : (
           <>
             {/* STAT CARDS */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:'14px', marginBottom:'28px' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))', gap:'14px', marginBottom:'28px' }}>
               <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
               <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
               <StatCard label="Win Rate" value={`${winRate}%`} color="var(--accent)" sub={`${wins.length}W · ${closedTrades.length-wins.length}L`} />
@@ -413,19 +413,26 @@ export default function Dashboard() {
             {isAdmin && subscriberBreakdown.length>1 && (
               <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginBottom:'20px' }}>
                 <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'14px' }}>Account Breakdown</div>
-                <div style={{ overflowX:'auto' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
+                <table className="data-table">
+                    <colgroup>
+                      <col style={{ width:'24%' }} />
+                      <col style={{ width:'8%' }} />
+                      <col style={{ width:'8%' }} />
+                      <col style={{ width:'20%' }} />
+                      <col style={{ width:'20%' }} />
+                      <col style={{ width:'20%' }} />
+                    </colgroup>
                     <thead>
-                      <tr style={{ borderBottom:'1px solid var(--border)' }}>
+                      <tr>
                         {[
                           { label:'Account', col:'name' },
                           { label:'Open',    col:'_open' },
                           { label:'Closed',  col:'_closed' },
-                          { label:'Unrealised P&L', col:'_unr' },
-                          { label:'Realised P&L',   col:'_rel' },
-                          { label:'MTF Interest',   col:'_mtf' },
+                          { label:'Unreal. P&L', col:'_unr' },
+                          { label:'Real. P&L',   col:'_rel' },
+                          { label:'MTF Int',   col:'_mtf' },
                         ].map(({ label, col }) => (
-                          <th key={col} onClick={() => doBdSort(col)} style={{ padding:'6px 12px', textAlign:col==='name'?'left':'right', fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600, cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>
+                          <th key={col} className={`sortable${col!=='name'?' r':''}`} onClick={() => doBdSort(col)} style={{ textAlign:col==='name'?'left':'right' }}>
                             {label}{bdSortIcon(col)}
                           </th>
                         ))}
@@ -459,7 +466,6 @@ export default function Dashboard() {
                       ))}
                     </tbody>
                   </table>
-                </div>
               </div>
             )}
 
@@ -514,21 +520,30 @@ export default function Dashboard() {
                   Open Positions
                   <span style={{ fontSize:'10px', background:'var(--accent-dim)', color:'var(--accent)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>{openTrades.length}</span>
                 </div>
-                <div style={{ overflowX:'auto' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
+                <table className="data-table">
+                    <colgroup>
+                      <col style={{ width:'13%' }} />
+                      <col style={{ width:'11%' }} />
+                      <col style={{ width:'7%' }} />
+                      <col style={{ width:'12%' }} />
+                      <col style={{ width:'8%' }} />
+                      <col style={{ width:'13%' }} />
+                      <col style={{ width:'10%' }} />
+                      <col style={{ width:'18%' }} />
+                    </colgroup>
                     <thead>
-                      <tr style={{ borderBottom:'1px solid var(--border)' }}>
+                      <tr>
                         {[
-                          { label:'Ticker',  col:'ticker' },
-                          { label:isAdmin?'Owner':'Account', col:'account' },
-                          { label:'Dir',  col:'direction' },
+                          { label:'Ticker',  col:'ticker', left:true },
+                          { label:isAdmin?'Owner':'Account', col:'account', left:true },
+                          { label:'Dir',  col:'direction', left:true },
                           { label:'Entry Rs.', col:'entry_price' },
                           { label:'Qty',       col:'quantity' },
                           { label:'CMP',       col:null },
                           { label:'Change %',  col:null },
-                          { label:'Unrealised P&L', col:null },
-                        ].map(({ label, col }) => (
-                          <th key={label} onClick={col ? () => doOpSort(col) : undefined} style={{ padding:'6px 12px', textAlign:['Ticker',isAdmin?'Owner':'Account','Dir'].includes(label)?'left':'right', fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:600, whiteSpace:'nowrap', cursor:col?'pointer':'default', userSelect:'none' }}>
+                          { label:'Unreal. P&L', col:null },
+                        ].map(({ label, col, left }) => (
+                          <th key={label} className={`${col?'sortable':''} ${!left?'r':''}`} onClick={col ? () => doOpSort(col) : undefined}>
                             {label}{col ? opSortIcon(col) : ''}
                           </th>
                         ))}
@@ -577,7 +592,6 @@ export default function Dashboard() {
                       })}
                     </tbody>
                   </table>
-                </div>
               </div>
             )}
 

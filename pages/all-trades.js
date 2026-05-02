@@ -103,6 +103,7 @@ export default function AllTradesPage() {
     setLoading(false)
   }
 
+  const [expandedTicker, setExpandedTicker] = useState(null)
   const [sortCol, setSortCol] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
   const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
@@ -226,6 +227,36 @@ export default function AllTradesPage() {
   const pnlColor = n => n >= 0 ? 'var(--bull)' : 'var(--bear)'
   const pnlSign  = n => n >= 0 ? '+' : '−'
 
+  // ── Ticker summary groups ──
+  const tickerGroupMap = {}
+  allRows.forEach(({ trade, execMap, isSub, subName }) => {
+    const tk = trade.ticker
+    if (!tickerGroupMap[tk]) tickerGroupMap[tk] = []
+    tickerGroupMap[tk].push({ trade, execMap, isSub, subName })
+  })
+  const tickerSummary = Object.entries(tickerGroupMap).map(([ticker, rows]) => {
+    const totalQty = rows.reduce((s, { trade }) => s + Number(trade.quantity || 0), 0)
+    const currQty = rows.reduce((s, { trade, execMap }) => {
+      const sold = (execMap[trade.id] || []).reduce((es, e) => es + Number(e.quantity || 0), 0)
+      return s + Math.max(0, Number(trade.quantity || 0) - sold)
+    }, 0)
+    const cmp = livePrices[ticker]?.price || null
+    const totalInvestment = rows.reduce((s, { trade }) =>
+      s + (Number(trade.invested_capital) || (Number(trade.entry_price) * Number(trade.quantity)) || 0), 0)
+    const actualInvestment = rows.reduce((s, { trade }) => s + (Number(trade.actual_investment) || 0), 0)
+    const unrealised = rows.filter(({ trade }) => trade.status === 'OPEN').reduce((s, { trade, execMap }) => {
+      if (!cmp) return s
+      const sold = (execMap[trade.id] || []).reduce((es, e) => es + Number(e.quantity || 0), 0)
+      const qty = Math.max(0, Number(trade.quantity) - sold)
+      return s + (trade.direction === 'SHORT' ? (Number(trade.entry_price) - cmp) * qty : (cmp - Number(trade.entry_price)) * qty)
+    }, 0)
+    const realised = rows.reduce((s, { trade, execMap }) => {
+      const exs = execMap[trade.id] || []
+      return s + exs.reduce((es, e) => es + (Number(e.price) - Number(trade.entry_price)) * Number(e.quantity), 0)
+    }, 0)
+    return { ticker, totalQty, currQty, cmp, totalInvestment, actualInvestment, unrealised, realised, rows }
+  }).sort((a, b) => a.ticker.localeCompare(b.ticker))
+
   if (!session) return null
 
   const StatTile = ({ label, adminVal, subVal, adminColor, subColor }) => (
@@ -299,13 +330,105 @@ export default function AllTradesPage() {
               />
             </div>
 
-            {/* ── Table header row with filter ── */}
+            {/* ── Ticker Summary ── */}
+            <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginBottom:'20px' }}>
+              <div style={{ marginBottom:'14px' }}>
+                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Ticker Summary</div>
+                <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginTop:'2px' }}>Click any row to see account-wise breakdown</div>
+              </div>
+              <table className="data-table">
+                <colgroup>
+                  <col style={{ width:'12%' }} />
+                  <col style={{ width:'7%' }} />
+                  <col style={{ width:'7%' }} />
+                  <col style={{ width:'9%' }} />
+                  <col style={{ width:'13%' }} />
+                  <col style={{ width:'13%' }} />
+                  <col style={{ width:'14%' }} />
+                  <col style={{ width:'14%' }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th className="r">Total Qty</th>
+                    <th className="r">Curr Qty</th>
+                    <th className="r">CMP</th>
+                    <th className="r">Total Inv.</th>
+                    <th className="r">Actual Inv.</th>
+                    <th className="r">Unreal. P&L</th>
+                    <th className="r">Real. P&L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tickerSummary.map(tg => (
+                    <React.Fragment key={tg.ticker}>
+                      <tr onClick={() => setExpandedTicker(expandedTicker === tg.ticker ? null : tg.ticker)}
+                        style={{ cursor:'pointer', borderLeft:`3px solid ${expandedTicker===tg.ticker?'var(--accent)':'transparent'}`, background: expandedTicker===tg.ticker?'rgba(14,165,233,0.04)':'transparent' }}>
+                        <td>
+                          <div className="tk-cell">
+                            <span style={{ fontSize:'11px', color:'var(--muted)', marginRight:'4px' }}>{expandedTicker===tg.ticker?'▼':'▶'}</span>
+                            <span className="tk-name">{tg.ticker}</span>
+                          </div>
+                        </td>
+                        <td className="num">{toINR(tg.totalQty)}</td>
+                        <td className="num" style={{ fontWeight:700, color: tg.currQty===0?'var(--bear)':tg.currQty<tg.totalQty?'var(--gold)':'var(--text)' }}>{toINR(tg.currQty)}</td>
+                        <td className="num">{tg.cmp ? `Rs.${toINRd(tg.cmp)}` : <span className="neutral">—</span>}</td>
+                        <td className="num">Rs.{toINRd(tg.totalInvestment)}</td>
+                        <td className="num">{tg.actualInvestment > 0 ? `Rs.${toINRd(tg.actualInvestment)}` : <span className="neutral">—</span>}</td>
+                        <td className="num">
+                          {tg.cmp
+                            ? <span className={tg.unrealised>=0?'pnl-pos':'pnl-neg'}>{pnlSign(tg.unrealised)}Rs.{toINRd(Math.abs(tg.unrealised))}</span>
+                            : <span className="neutral">—</span>}
+                        </td>
+                        <td className="num">
+                          {tg.realised !== 0
+                            ? <span className={tg.realised>=0?'pnl-pos':'pnl-neg'}>{pnlSign(tg.realised)}Rs.{toINRd(Math.abs(tg.realised))}</span>
+                            : <span className="neutral">—</span>}
+                        </td>
+                      </tr>
+                      {expandedTicker === tg.ticker && tg.rows.map(({ trade, execMap, isSub, subName }, idx) => {
+                        const r = calcRow(trade, execMap)
+                        const acctLabel = isSub ? `${subName} / ${trade.account || '—'}` : (trade.account || '—')
+                        return (
+                          <tr key={`${tg.ticker}-sub-${idx}`} style={{ background:'var(--surface)', borderLeft:'3px solid var(--accent)' }}>
+                            <td style={{ paddingLeft:'20px' }}>
+                              <div style={{ fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600, color: isSub?'var(--gold)':'var(--accent)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{acctLabel}</div>
+                              <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>Entry: Rs.{toINRd(r.entryPrice)} · {trade.entry_date?.slice(0,10)}</div>
+                            </td>
+                            <td className="num">{toINR(r.originalQty)}</td>
+                            <td className="num" style={{ fontWeight:700, color: r.currentQty===0?'var(--bear)':r.currentQty<r.originalQty?'var(--gold)':'var(--text)' }}>{toINR(r.currentQty)}</td>
+                            <td className="num">{r.cmp ? `Rs.${toINRd(r.cmp)}` : <span className="neutral">—</span>}</td>
+                            <td className="num">Rs.{toINRd(r.investment)}</td>
+                            <td className="num">{r.actualInv > 0 ? `Rs.${toINRd(r.actualInv)}` : <span className="neutral">—</span>}</td>
+                            <td className="num">
+                              {r.unrealisedPnL !== null
+                                ? <span className={r.unrealisedPnL>=0?'pnl-pos':'pnl-neg'}>{pnlSign(r.unrealisedPnL)}Rs.{toINRd(Math.abs(r.unrealisedPnL))}</span>
+                                : <span className="neutral">—</span>}
+                            </td>
+                            <td className="num">
+                              {r.realisedPnL !== 0
+                                ? <span className={r.realisedPnL>=0?'pnl-pos':'pnl-neg'}>{pnlSign(r.realisedPnL)}Rs.{toINRd(Math.abs(r.realisedPnL))}</span>
+                                : <span className="neutral">—</span>}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ── All Trades — Detailed View ── */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
-              <div style={{ fontSize:'12px', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>
-                {filtered.length} trades &nbsp;
-                <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px' }}>
-                  ■ gold = subscriber account
-                </span>
+              <div>
+                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>All Trades — Detailed View</div>
+                <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginTop:'2px' }}>
+                  {filtered.length} trades &nbsp;
+                  <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px' }}>
+                    ■ gold = subscriber account
+                  </span>
+                </div>
               </div>
               <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
                 <button onClick={downloadCSV} style={{ padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>⬇ CSV</button>
@@ -323,35 +446,38 @@ export default function AllTradesPage() {
               </div>
             </div>
 
-            {/* ── Trade table ── */}
-            <div style={{ overflowX:'auto', border:'1px solid var(--border)', borderRadius:'8px' }}>
-              <table className="trade-table" style={{ width:'100%' }}>
+            {/* ── Trade table — responsive, no horizontal scroll ── */}
+            <div style={{ border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
+              <table className="data-table">
+                <colgroup>
+                  <col style={{ width:'13%' }} />
+                  <col style={{ width:'11%' }} />
+                  <col style={{ width:'9%' }} />
+                  <col style={{ width:'8%' }} />
+                  <col style={{ width:'9%' }} />
+                  <col style={{ width:'8%' }} />
+                  <col style={{ width:'7%' }} />
+                  <col style={{ width:'7%' }} />
+                  <col style={{ width:'14%' }} />
+                  <col style={{ width:'14%' }} />
+                </colgroup>
                 <thead>
                   <tr>
-                    {[
-                      { label:'Account',      col:'account',    right:false },
-                      { label:'Ticker',       col:'ticker',     right:false },
-                      { label:'Direction',    col:'direction',  right:false },
-                      { label:'Entry Date',   col:'entry_date', right:false },
-                      { label:'Entry Rs.',    col:'entry_price',right:true  },
-                      { label:'CMP',          col:null,         right:true  },
-                      { label:'Exit Rs.',     col:'exit_price', right:true  },
-                      { label:'Qty',          col:'quantity',   right:true  },
-                      { label:'Curr Qty',     col:null,         right:true  },
-                      { label:'MTF Interest', col:null,         right:true  },
-                      { label:'Unrealised P&L', col:null,       right:true  },
-                      { label:'Realised P&L', col:null,         right:true  },
-                    ].map(({ label, col, right }) => (
-                      <th key={label} className={right ? 'right' : ''} onClick={col ? () => doSort(col) : undefined}
-                        style={{ cursor:col?'pointer':'default', userSelect:'none', whiteSpace:'nowrap' }}>
-                        {label}{col ? sortIcon(col) : ''}
-                      </th>
-                    ))}
+                    <th className="sortable" onClick={() => doSort('account')}>Account{sortIcon('account')}</th>
+                    <th className="sortable" onClick={() => doSort('ticker')}>Ticker/Dir{sortIcon('ticker')}</th>
+                    <th className="sortable" onClick={() => doSort('entry_date')}>Entry Date{sortIcon('entry_date')}</th>
+                    <th className="sortable r" onClick={() => doSort('entry_price')}>Entry Rs.{sortIcon('entry_price')}</th>
+                    <th className="r">CMP</th>
+                    <th className="sortable r" onClick={() => doSort('exit_price')}>Exit Rs.{sortIcon('exit_price')}</th>
+                    <th className="r">Qty / Curr</th>
+                    <th className="r">MTF Int</th>
+                    <th className="r">Unreal. P&L</th>
+                    <th className="r">Real. P&L</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
-                    <tr><td colSpan={12} style={{ textAlign:'center', padding:'40px', color:'var(--muted)' }}>No trades found.</td></tr>
+                    <tr><td colSpan={10} style={{ textAlign:'center', padding:'40px', color:'var(--muted)' }}>No trades found.</td></tr>
                   ) : filtered.map(({ trade, execMap, isSub, subName }) => {
                     const r = calcRow(trade, execMap)
                     const accountLabel = isSub
@@ -360,51 +486,51 @@ export default function AllTradesPage() {
                     return (
                       <tr key={`${isSub?'sub':'own'}-${trade.id}`} style={{ borderLeft: isSub ? '3px solid var(--gold)' : '3px solid transparent' }}>
                         <td>
-                          <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, fontSize:'11px', color: isSub ? 'var(--gold)' : 'var(--text)' }}>
+                          <div style={{ fontFamily:'DM Mono, monospace', fontWeight:600, fontSize:'11px', color: isSub ? 'var(--gold)' : 'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                             {accountLabel}
                           </div>
-                          {isSub && <div style={{ fontSize:'9px', color:'var(--gold)', opacity:0.7, marginTop:'1px' }}>SUBSCRIBER</div>}
                         </td>
-                        <td><span className="ticker-badge">{trade.ticker}</span></td>
-                        <td><span className={`badge badge-${trade.direction?.toLowerCase()}`}>{trade.direction}</span></td>
-                        <td className="muted">{trade.entry_date?.slice(0,10)}</td>
-                        <td className="right">Rs.{toINRd(r.entryPrice)}</td>
-                        <td className="right">
+                        <td>
+                          <div className="tk-cell">
+                            <span className="tk-name">{trade.ticker}</span>
+                            <div className="tk-badges">
+                              <span className={trade.direction==='LONG'?'dir-long':'dir-short'}>{trade.direction}</span>
+                              <span className={trade.status==='OPEN'?'st-open':'st-closed'}>{trade.status}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{trade.entry_date?.slice(0,10)}</td>
+                        <td className="num">Rs.{toINRd(r.entryPrice)}</td>
+                        <td className="num">
                           {r.cmp
-                            ? <div>
-                                <div style={{ fontWeight:600 }}>Rs.{toINRd(r.cmp)}</div>
-                                <div style={{ fontSize:'10px', color: r.lp?.change>=0?'var(--bull)':'var(--bear)' }}>
+                            ? <div className="sc">
+                                <span className="sc1" style={{ fontWeight:600 }}>Rs.{toINRd(r.cmp)}</span>
+                                <span className="sc2" style={{ color: r.lp?.change>=0?'var(--bull)':'var(--bear)' }}>
                                   {r.lp?.change>=0?'+':''}{r.lp?.changePercent?.toFixed(2)}%
-                                </div>
+                                </span>
                               </div>
                             : <span className="neutral">—</span>}
                         </td>
-                        <td className="right">
-                          {r.exitPrice ? `Rs.${toINRd(r.exitPrice)}` : <span className="neutral">—</span>}
+                        <td className="num">{r.exitPrice ? `Rs.${toINRd(r.exitPrice)}` : <span className="neutral">—</span>}</td>
+                        <td className="num">
+                          <div className="sc">
+                            <span className="sc1">{toINR(r.originalQty)}</span>
+                            <span className="sc2" style={{ color: r.currentQty===0?'var(--bear)':r.currentQty<r.originalQty?'var(--gold)':'var(--muted)' }}>{toINR(r.currentQty)} cur</span>
+                          </div>
                         </td>
-                        <td className="right">{toINR(r.originalQty)}</td>
-                        <td className="right">
-                          <span style={{ fontWeight:700, color: r.currentQty===0?'var(--bear)':r.currentQty<r.originalQty?'var(--gold)':'var(--text)' }}>
-                            {toINR(r.currentQty)}
-                          </span>
-                        </td>
-                        <td className="right">
+                        <td className="num">
                           {r.mtfInt > 0
-                            ? <span style={{ color:'var(--gold)' }}>Rs.{toINRd(r.mtfInt)}</span>
+                            ? <span className="mtf-val">Rs.{toINRd(r.mtfInt)}</span>
                             : <span className="neutral">—</span>}
                         </td>
-                        <td className="right">
+                        <td className="num">
                           {r.unrealisedPnL !== null
-                            ? <span style={{ fontWeight:600, color:pnlColor(r.unrealisedPnL) }}>
-                                {pnlSign(r.unrealisedPnL)}{toINRd(Math.abs(r.unrealisedPnL))}
-                              </span>
+                            ? <span className={r.unrealisedPnL>=0?'pnl-pos':'pnl-neg'}>{pnlSign(r.unrealisedPnL)}Rs.{toINRd(Math.abs(r.unrealisedPnL))}</span>
                             : <span className="neutral">—</span>}
                         </td>
-                        <td className="right">
+                        <td className="num">
                           {r.realisedPnL !== 0 || trade.status==='CLOSED'
-                            ? <span style={{ fontWeight:600, color:pnlColor(r.realisedPnL) }}>
-                                {pnlSign(r.realisedPnL)}{toINRd(Math.abs(r.realisedPnL))}
-                              </span>
+                            ? <span className={r.realisedPnL>=0?'pnl-pos':'pnl-neg'}>{pnlSign(r.realisedPnL)}Rs.{toINRd(Math.abs(r.realisedPnL))}</span>
                             : <span className="neutral">—</span>}
                         </td>
                       </tr>
