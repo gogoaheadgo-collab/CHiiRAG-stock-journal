@@ -3,7 +3,7 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
-import NavPill from '../components/NavPill'
+import Sidebar from '../components/Sidebar'
 
 function triggerCSVDownload(csvContent, filename) {
   if (typeof window === 'undefined') return
@@ -535,26 +535,9 @@ export default function RevenueSharingPage() {
     <>
       <Head><title>Revenue Sharing — CHiiRAG Stock Journal</title></Head>
       <div className="tricolor-bar" />
-      <header className="header" style={{ top:'4px' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-          <div className="india-flag-logo-sm" style={{ display:'flex', flexDirection:'column' }}>
-            <div style={{ flex:1, background:'#FF9933' }} />
-            <div style={{ flex:1, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ width:'8px', height:'8px', borderRadius:'50%', border:'1.5px solid #000080' }} />
-            </div>
-            <div style={{ flex:1, background:'#138808' }} />
-          </div>
-          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>
-            CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span>
-          </div>
-        </div>
-        <NavPill active="Revenue Sharing" isAdmin={isAdmin} />
-        <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
-          <button onClick={signOut} className="btn btn-ghost" style={{ padding:'6px 10px', fontSize:'11px' }}>Sign Out</button>
-        </div>
-      </header>
+      <Sidebar active="Revenue Sharing" isAdmin={isAdmin} user={session?.user} onSignOut={signOut} />
 
-      <main style={{ maxWidth:'1500px', margin:'0 auto', padding:'72px 16px 40px' }}>
+      <main className="sidebar-offset" style={{ padding:'28px 32px 40px' }}>
         <div style={{ marginBottom:'24px' }}>
           <h1 style={{ fontFamily:'Bookman Old Style, serif', fontSize:'22px', fontWeight:800, color:'var(--text)', margin:0 }}>Revenue Sharing</h1>
           <p style={{ color:'var(--muted)', fontSize:'12px', marginTop:'6px', fontFamily:'DM Mono, monospace' }}>MTF profit sharing — tracks admin gross & net P&L · settlement calendar per subscriber</p>

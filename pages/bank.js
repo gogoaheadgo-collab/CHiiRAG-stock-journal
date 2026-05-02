@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
-import NavPill from '../components/NavPill'
+import Sidebar from '../components/Sidebar'
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
@@ -616,22 +616,9 @@ export default function BankPage() {
     <>
       <div className="tricolor-bar" />
       <Head><title>Bank Transfer — CHiiRAG Stock Journal</title></Head>
-      <header className="header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div className="india-flag-logo-sm" style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1, background: '#FF9933' }} />
-            <div style={{ flex: 1, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1.5px solid #000080' }} />
-            </div>
-            <div style={{ flex: 1, background: '#138808' }} />
-          </div>
-          <div className="header-brand" style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)' }}>CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK Journal</span></div>
-        </div>
-        <NavPill active="Bank" isAdmin={bankIsAdmin} />
-        <button onClick={signOut} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '11px' }}>Sign Out</button>
-      </header>
+      <Sidebar active="Bank" isAdmin={bankIsAdmin} user={bankSession?.user} onSignOut={signOut} />
 
-      <main style={{ maxWidth: '100%', padding: '72px 20px 40px' }}>
+      <main className="sidebar-offset" style={{ padding: '28px 32px 40px' }}>
         <div style={{ marginBottom: '20px' }}>
           <h1 style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 800, fontSize: '22px', color: 'var(--text)', margin: 0 }}>🏦 Bank Transfer</h1>
           <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '4px', fontFamily: 'DM Mono, monospace' }}>Track bank accounts and transactions</p>

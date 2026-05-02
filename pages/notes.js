@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
-import NavPill from '../components/NavPill'
+import Sidebar from '../components/Sidebar'
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
@@ -87,6 +87,8 @@ export default function NotesPage() {
 
   const getToken = useCallback(async () =>
     (await supabase.auth.getSession()).data.session?.access_token, [])
+
+  const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session:s } }) => {
@@ -285,23 +287,9 @@ export default function NotesPage() {
         <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap" rel="stylesheet" />
       </Head>
       <div className="tricolor-bar" />
-      <header className="header" style={{ top:'4px' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-          <div className="india-flag-logo-sm" style={{ display:'flex', flexDirection:'column' }}>
-            <div style={{ flex:1, background:'#FF9933' }} />
-            <div style={{ flex:1, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ width:'8px', height:'8px', borderRadius:'50%', border:'1.5px solid #000080' }} />
-            </div>
-            <div style={{ flex:1, background:'#138808' }} />
-          </div>
-          <div className="header-brand" style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
-        </div>
-        <NavPill active="Notes" isAdmin={isAdmin} />
-        <button onClick={async () => { await supabase.auth.signOut(); window.location.href='/' }}
-          className="btn btn-ghost" style={{ padding:'6px 12px', fontSize:'11px' }}>EXIT ▾</button>
-      </header>
+      <Sidebar active="Notes" isAdmin={isAdmin} user={session?.user} onSignOut={signOut} />
 
-      <main style={{ maxWidth:'100%', padding:'72px 20px 40px' }}>
+      <main className="sidebar-offset" style={{ padding:'28px 32px 40px' }}>
 
         {/* MY NOTES */}
         {(

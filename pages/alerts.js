@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
-import NavPill from '../components/NavPill'
+import Sidebar from '../components/Sidebar'
 
 function triggerCSVDownload(csvContent, filename) {
   if (typeof window === 'undefined') return
@@ -302,26 +302,9 @@ export default function AlertsPage() {
     <>
       <Head><title>Price Alerts — CHiiRAG Stock Journal</title></Head>
       <div className="tricolor-bar" />
-      <header className="header" style={{ top: '4px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div className="india-flag-logo-sm" style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1, background: '#FF9933' }} />
-            <div style={{ flex: 1, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1.5px solid #000080' }} />
-            </div>
-            <div style={{ flex: 1, background: '#138808' }} />
-          </div>
-          <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 800, fontSize: '15px', color: 'var(--text)' }}>
-            CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK Journal</span>
-          </div>
-        </div>
-        <NavPill active="Alerts" isAdmin={isAdmin} />
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button onClick={signOut} className="btn btn-ghost" style={{ padding: '6px 10px', fontSize: '11px' }}>Sign Out</button>
-        </div>
-      </header>
+      <Sidebar active="Alerts" isAdmin={isAdmin} user={session?.user} onSignOut={signOut} />
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '72px 16px 40px' }}>
+      <main className="sidebar-offset" style={{ padding: '28px 32px 40px' }}>
 
         {/* Page header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>

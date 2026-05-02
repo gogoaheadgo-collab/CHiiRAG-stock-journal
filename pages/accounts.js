@@ -6,7 +6,7 @@ import { differenceInDays } from 'date-fns'
 import AddTradeModal from '../components/AddTradeModal'
 import EditTradeModal from '../components/EditTradeModal'
 import ExecutionPanel from '../components/ExecutionPanel'
-import NavPill from '../components/NavPill'
+import Sidebar from '../components/Sidebar'
 
 function triggerCSVDownload(csvContent, filename) {
   if (typeof window === 'undefined') return
@@ -644,16 +644,6 @@ export default function AccountsPage() {
 
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
-  // ── EXIT DROPDOWN ──
-  const [showExitMenu, setShowExitMenu] = useState(false)
-  const exitRef = React.useRef(null)
-
-  React.useEffect(() => {
-    const handler = (e) => { if (exitRef.current && !exitRef.current.contains(e.target)) setShowExitMenu(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
   const handleDeleteMyAccount = async () => {
     if (isAdmin) return
     const confirmed = window.confirm('🗑 DELETE YOUR ACCOUNT?\n\nThis will permanently erase:\n• All your trades\n• All accounts\n• All execution history\n• All notes and alerts\n\nThis CANNOT be undone.')
@@ -670,39 +660,6 @@ export default function AccountsPage() {
       window.location.href = '/'
     } catch (e) { alert('Error: ' + e.message) }
   }
-
-  const ExitMenu = () => (
-    <div ref={exitRef} style={{ position:'relative' }}>
-      <button onClick={() => setShowExitMenu(p => !p)} className="btn btn-ghost"
-        style={{ padding:'6px 12px', fontSize:'11px', display:'flex', alignItems:'center', gap:'5px' }}>
-        EXIT <span style={{ fontSize:'9px' }}>{showExitMenu ? '▲' : '▼'}</span>
-      </button>
-      {showExitMenu && (
-        <div style={{ position:'absolute', right:0, top:'calc(100% + 6px)', background:'var(--surface)',
-          border:'1px solid var(--border)', borderRadius:'8px', minWidth:'190px',
-          boxShadow:'0 8px 24px rgba(0,0,0,0.5)', zIndex:1000, overflow:'hidden' }}>
-          <button onClick={() => { setShowExitMenu(false); signOut() }}
-            style={{ display:'block', width:'100%', padding:'11px 16px', background:'none', border:'none',
-              textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--text)',
-              fontFamily:'DM Mono, monospace', borderBottom:'1px solid var(--border)' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
-            onMouseLeave={e => e.currentTarget.style.background='none'}>
-            🚪&nbsp; Sign Out
-          </button>
-          {!isAdmin && (
-            <button onClick={() => { setShowExitMenu(false); handleDeleteMyAccount() }}
-              style={{ display:'block', width:'100%', padding:'11px 16px', background:'none', border:'none',
-                textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--bear)',
-                fontFamily:'DM Mono, monospace' }}
-              onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,0.08)'}
-              onMouseLeave={e => e.currentTarget.style.background='none'}>
-              🗑&nbsp; Delete My Account
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
 
   const toINR = (n) => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
   const toINRd = (n) => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
@@ -787,29 +744,17 @@ export default function AccountsPage() {
     <>
       <div className="tricolor-bar" />
       <Head><title>Accounts — CHiiRAG Stock Journal</title></Head>
-      <header className="header">
-        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-          <div className="india-flag-logo-sm" style={{ display:'flex', flexDirection:'column' }}>
-            <div style={{ flex:1, background:'#FF9933' }} />
-            <div style={{ flex:1, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ width:'8px', height:'8px', borderRadius:'50%', border:'1.5px solid #000080' }} />
-            </div>
-            <div style={{ flex:1, background:'#138808' }} />
-          </div>
-          <div className="header-brand" style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span></div>
-        </div>
-        <NavPill active="Accounts" isAdmin={isAdmin} />
-        <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+      <Sidebar active="Accounts" isAdmin={isAdmin} user={session?.user} onSignOut={signOut} onDeleteAccount={!isAdmin ? handleDeleteMyAccount : undefined} />
+
+      <main className="sidebar-offset" style={{ padding:'28px 32px 40px' }}>
+
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:'8px', marginBottom:'16px', alignItems:'center' }}>
           <button onClick={() => { loadData(); if(isAdmin) loadMirroredAccounts() }}
             style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', cursor:'pointer', fontSize:'11px', padding:'4px 10px', fontFamily:'DM Mono, monospace' }}>
             ↻ {openTrades.length > 0 ? `${countdown}s` : 'Refresh'}
           </button>
           <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding:'6px 14px', fontSize:'11px' }}>+ New Trade</button>
-          <ExitMenu />
         </div>
-      </header>
-
-      <main style={{ maxWidth:'100%', margin:'0 auto', padding:'72px 20px 32px' }}>
 
         {/* ── AGGREGATE STATS (always visible) ── */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px,1fr))', gap:'10px', marginBottom:'20px' }}>

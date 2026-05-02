@@ -3,7 +3,7 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
-import NavPill from '../components/NavPill'
+import Sidebar from '../components/Sidebar'
 
 function triggerCSVDownload(csvContent, filename) {
   if (typeof window === 'undefined') return
@@ -114,55 +114,6 @@ export default function SubscribersPage() {
   }
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
 
-  // ── EXIT DROPDOWN ──
-  const [showExitMenu, setShowExitMenu] = useState(false)
-  const exitRef = React.useRef(null)
-
-  React.useEffect(() => {
-    const handler = (e) => { if (exitRef.current && !exitRef.current.contains(e.target)) setShowExitMenu(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const handleDeleteMyAccount = async () => {
-    const confirmed = window.confirm('🗑 DELETE YOUR ACCOUNT?\n\nThis will permanently erase ALL your trades, accounts, notes and history.\n\nThis CANNOT be undone.')
-    if (!confirmed) return
-    if (!window.confirm('⚠️ FINAL CONFIRMATION\n\nType OK to permanently delete your account. This is irreversible.')) return
-    const typed = window.prompt('Type DELETE to confirm:')
-    if (typed !== 'DELETE') { alert('Cancelled.'); return }
-    try {
-      const token = await getToken()
-      const res = await fetch('/api/delete-account', { method:'DELETE', headers:{ Authorization:`Bearer ${token}` } })
-      const data = await res.json()
-      if (data.error) { alert('Error: ' + data.error); return }
-      await supabase.auth.signOut()
-      window.location.href = '/'
-    } catch (e) { alert('Error: ' + e.message) }
-  }
-
-  const ExitMenu = () => (
-    <div ref={exitRef} style={{ position:'relative' }}>
-      <button onClick={() => setShowExitMenu(p => !p)} className="btn btn-ghost"
-        style={{ padding:'6px 12px', fontSize:'11px', display:'flex', alignItems:'center', gap:'5px' }}>
-        EXIT <span style={{ fontSize:'9px' }}>{showExitMenu ? '▲' : '▼'}</span>
-      </button>
-      {showExitMenu && (
-        <div style={{ position:'absolute', right:0, top:'calc(100% + 6px)', background:'var(--surface)',
-          border:'1px solid var(--border)', borderRadius:'8px', minWidth:'190px',
-          boxShadow:'0 8px 24px rgba(0,0,0,0.5)', zIndex:1000, overflow:'hidden' }}>
-          <button onClick={() => { setShowExitMenu(false); signOut() }}
-            style={{ display:'block', width:'100%', padding:'11px 16px', background:'none', border:'none',
-              textAlign:'left', cursor:'pointer', fontSize:'12px', color:'var(--text)',
-              fontFamily:'DM Mono, monospace', borderBottom:'1px solid var(--border)' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
-            onMouseLeave={e => e.currentTarget.style.background='none'}>
-            🚪\u00a0 Sign Out
-          </button>
-        </div>
-      )}
-    </div>
-  )
-
   useEffect(() => { if (session?.user?.email === ADMIN_EMAIL) loadSubscribers(session) }, [session])
 
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
@@ -249,27 +200,9 @@ export default function SubscribersPage() {
       <Head><title>Subscribers — CHiiRAG Journal</title></Head>
       <div className="tricolor-bar" />
 
-      <header className="header" style={{ top:'4px' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-          <div className="india-flag-logo-sm" style={{ display:'flex', flexDirection:'column' }}>
-            <div style={{ flex:1, background:'#FF9933' }} />
-            <div style={{ flex:1, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ width:'8px', height:'8px', borderRadius:'50%', border:'1.5px solid #000080' }} />
-            </div>
-            <div style={{ flex:1, background:'#138808' }} />
-          </div>
-          <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>
-            CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span>
-          </div>
-        </div>
-        <NavPill active="Subscribers" isAdmin={true} />
-        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-          <span style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>ADMIN</span>
-          <ExitMenu />
-        </div>
-      </header>
+      <Sidebar active="Subscribers" isAdmin={true} user={session?.user} onSignOut={signOut} />
 
-      <main style={{ paddingTop:'80px', maxWidth:'1400px', margin:'0 auto', padding:'72px 20px 40px' }}>
+      <main className="sidebar-offset" style={{ padding:'28px 32px 40px' }}>
 
         {/* Subscriber Summary Table */}
         <div style={{ marginBottom:'32px' }}>
