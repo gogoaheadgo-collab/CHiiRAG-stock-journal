@@ -105,6 +105,7 @@ export default function AllTradesPage() {
 
   const [expandedTicker, setExpandedTicker] = useState(null)
   // Ticker summary sort state
+  const [tickerStatusFilter, setTickerStatusFilter] = useState('ALL')
   const [tkSortKey, setTkSortKey] = useState(null)
   const [tkSortDir, setTkSortDir] = useState('asc')
   const [tkHiddenTickers, setTkHiddenTickers] = useState(new Set())
@@ -264,11 +265,11 @@ export default function AllTradesPage() {
 
   const tickerSummary = useMemo(() => {
     let result = tickerSummaryRaw
-    // Apply status filter shared with detailed table
-    if (tf.statusFilter !== 'ALL') {
+    // Apply ticker-specific status filter (independent from detailed table filter)
+    if (tickerStatusFilter !== 'ALL') {
       result = result.filter(tg => {
-        if (tf.statusFilter === 'OPEN') return tg.rows.some(r => r.trade.status === 'OPEN')
-        return tg.rows.every(r => r.trade.status === 'CLOSED')
+        if (tickerStatusFilter === 'OPEN') return tg.rows.some(r => r.trade.status === 'OPEN')
+        return tg.rows.some(r => r.trade.status === 'CLOSED')
       })
     }
     // Apply ticker column filter
@@ -283,7 +284,7 @@ export default function AllTradesPage() {
       })
     }
     return result
-  }, [tickerSummaryRaw, tf.statusFilter, tkHiddenTickers, tkSortKey, tkSortDir])  // eslint-disable-line
+  }, [tickerSummaryRaw, tickerStatusFilter, tkHiddenTickers, tkSortKey, tkSortDir])  // eslint-disable-line
 
   const tkSort = (key) => {
     if (tkSortKey === key) { if (tkSortDir === 'asc') setTkSortDir('desc'); else { setTkSortKey(null) } }
@@ -370,9 +371,18 @@ export default function AllTradesPage() {
 
             {/* ── Ticker Summary ── */}
             <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginBottom:'20px' }}>
-              <div style={{ marginBottom:'14px' }}>
-                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Ticker Summary</div>
-                <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginTop:'2px' }}>Click any row to see account-wise breakdown</div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'14px' }}>
+                <div>
+                  <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Ticker Summary</div>
+                  <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginTop:'2px' }}>Click any row to see account-wise breakdown</div>
+                </div>
+                <div style={{ display:'flex', gap:'4px', background:'var(--bg)', borderRadius:'8px', padding:'3px', border:'1px solid var(--border)' }}>
+                  {['ALL', 'OPEN', 'CLOSED'].map(status => (
+                    <button key={status} onClick={() => setTickerStatusFilter(status)} style={{ padding:'5px 14px', border:'none', borderRadius:'6px', fontSize:'11px', fontWeight:600, cursor:'pointer', fontFamily:'DM Mono, monospace', transition:'all 0.15s', background: tickerStatusFilter === status ? 'var(--accent)' : 'transparent', color: tickerStatusFilter === status ? '#fff' : 'var(--muted)' }}>
+                      {status === 'ALL' ? 'All' : status === 'OPEN' ? 'Open' : 'Closed'}
+                    </button>
+                  ))}
+                </div>
               </div>
               <table className="data-table">
                 <colgroup>
@@ -441,7 +451,7 @@ export default function AllTradesPage() {
                             : <span className="neutral">—</span>}
                         </td>
                       </tr>
-                      {expandedTicker === tg.ticker && tg.rows.map(({ trade, execMap, isSub, subName }, idx) => {
+                      {expandedTicker === tg.ticker && tg.rows.filter(r => tickerStatusFilter === 'ALL' || r.trade.status === tickerStatusFilter).map(({ trade, execMap, isSub, subName }, idx) => {
                         const r = calcRow(trade, execMap)
                         const acctLabel = isSub ? `${subName} / ${trade.account || '—'}` : (trade.account || '—')
                         return (

@@ -12,7 +12,7 @@ function StatCard({ label, value, sub, color }) {
   return (
     <div className="stat-card" style={{ padding:'18px 20px' }}>
       <div style={{ fontSize:'10px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'8px', fontFamily:'DM Mono, monospace' }}>{label}</div>
-      <div style={{ fontSize:'16px', fontWeight:700, fontFamily:"'DM Mono', monospace", color: color||'var(--text)', lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{value}</div>
+      <div style={{ fontSize:'14px', fontWeight:700, fontFamily:"'DM Mono', monospace", color: color||'var(--text)', lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{value}</div>
       {sub && <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'6px', fontFamily:'DM Mono, monospace' }}>{sub}</div>}
     </div>
   )
@@ -280,12 +280,10 @@ export default function Dashboard() {
 
   const toINR = n => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
   const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
-  const fmtCompact = n => {
-    const abs = Math.abs(n)
-    if (abs >= 10000000) return (n / 10000000).toFixed(2) + ' Cr'
-    if (abs >= 100000)   return (n / 100000).toFixed(2) + ' L'
-    if (abs >= 1000)     return Number(n).toLocaleString('en-IN', { maximumFractionDigits:0 })
-    return Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
+  const fmtINR = n => {
+    const num = Number(n)
+    if (isNaN(num)) return '0.00'
+    return num.toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
   }
 
   const calcMTF = (tradeList) => tradeList.reduce((s,t) => {
@@ -451,12 +449,12 @@ export default function Dashboard() {
         ) : (
           <>
             {/* STAT CARDS */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))', gap:'14px', marginBottom:'28px' }}>
-              <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs.${fmtCompact(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
-              <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}Rs.${fmtCompact(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'14px', marginBottom:'28px' }}>
+              <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs.${fmtINR(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
+              <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}Rs.${fmtINR(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
               <StatCard label="Win Rate" value={`${winRate}%`} color="var(--accent)" sub={`${wins.length}W · ${closedTrades.length-wins.length}L`} />
-              <StatCard label="Open Positions" value={openTrades.length} sub={`Rs.${fmtCompact(totalInvested)} deployed`} />
-              <StatCard label="MTF Interest" value={`Rs.${fmtCompact(totalMTF)}`} color="var(--gold)" sub="Accrued" />
+              <StatCard label="Open Positions" value={openTrades.length} sub={`Rs.${fmtINR(totalInvested)} deployed`} />
+              <StatCard label="MTF Interest" value={`Rs.${fmtINR(totalMTF)}`} color="var(--gold)" sub="Accrued" />
               <StatCard label="Total Trades" value={allTrades.length} sub={`${openTrades.length} open · ${closedTrades.length} closed`} />
             </div>
 
