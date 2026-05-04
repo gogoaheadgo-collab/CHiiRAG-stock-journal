@@ -37,6 +37,7 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
   const [newMtfLabel, setNewMtfLabel] = useState('')
   const [newMtfRate, setNewMtfRate] = useState('')
   const [mtfRateLoading, setMtfRateLoading] = useState(false)
+  const [mtfError, setMtfError] = useState('')
 
   // Auto-calc total buying value
   const totalBuyingValue = form.entry_price && form.quantity
@@ -148,12 +149,24 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
   const handleAddMtfRate = async () => {
     if (!newMtfLabel.trim() || !newMtfRate) return
     setMtfRateLoading(true)
-    const res = await fetch('/api/mtf-rates', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-      body: JSON.stringify({ label: newMtfLabel.trim(), rate: parseFloat(newMtfRate) }),
-    })
-    if (res.ok) { await fetchMtfRates(); setNewMtfLabel(''); setNewMtfRate('') }
+    setMtfError('')
+    try {
+      const res = await fetch('/api/mtf-rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ label: newMtfLabel.trim(), rate: parseFloat(newMtfRate) }),
+      })
+      if (res.ok) {
+        await fetchMtfRates()
+        setNewMtfLabel('')
+        setNewMtfRate('')
+      } else {
+        const d = await res.json().catch(() => ({}))
+        setMtfError(d.error || `Save failed (${res.status})`)
+      }
+    } catch (e) {
+      setMtfError(e.message)
+    }
     setMtfRateLoading(false)
   }
 
@@ -350,6 +363,7 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
                 <input type="number" value={newMtfRate} onChange={e => setNewMtfRate(e.target.value)} placeholder="Rate %" style={{ ...fieldStyle, flex:1 }} step="0.01" min="0" max="100" />
                 <button type="button" onClick={handleAddMtfRate} disabled={mtfRateLoading} className="btn btn-primary" style={{ padding:'7px 14px', fontSize:'11px' }}>{mtfRateLoading ? '...' : 'Add'}</button>
               </div>
+              {mtfError && <div style={{ fontSize:'11px', color:'var(--bear)', marginBottom:'8px' }}>{mtfError}</div>}
               {mtfRates.length > 0 && (
                 <div style={{ display:'flex', flexWrap:'wrap', gap:'6px' }}>
                   {mtfRates.map(r => (
