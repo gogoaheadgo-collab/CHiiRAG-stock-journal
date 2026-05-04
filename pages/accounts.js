@@ -131,15 +131,18 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
                     { key:'realised', label:'Real. P&L', right:true },
                     { key:'status', label:'Status', filterable:true },
                   ].map(col => (
-                    <th key={col.key} className={`col-header${col.right?' r':''}`} onClick={() => mTf.handleSort(col.key)}>
-                      {col.label}
-                      <span className={`sort-arrow${mTf.sortConfig?.key===col.key?' active':''}`}>
-                        {mTf.sortConfig?.key===col.key?(mTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
-                      </span>
-                      {col.filterable && (
-                        <span className={`filter-icon${(mTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
-                          onClick={e => mTf.openFilter(e, col.key)}>▼</span>
-                      )}
+                    <th key={col.key} className={col.right ? 'r' : undefined} style={{ cursor:'pointer' }}
+                      onClick={() => mTf.handleSort(col.key)}>
+                      <div className="col-header" style={col.right ? { justifyContent:'flex-end' } : undefined}>
+                        <span>{col.label}</span>
+                        <span className={`sort-arrow${mTf.sortConfig?.key===col.key?' active':''}`}>
+                          {mTf.sortConfig?.key===col.key?(mTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
+                        </span>
+                        {col.filterable && (
+                          <span className={`filter-icon${(mTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
+                            onClick={e => mTf.openFilter(e, col.key)}>▼</span>
+                        )}
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -1027,15 +1030,18 @@ export default function AccountsPage() {
                         { key:'unrealised', label:'Unreal. P&L', right:true },
                         { key:'realised', label:'Real. P&L', right:true },
                       ].map(col => (
-                        <th key={col.key} className={`col-header${col.right?' r':''}`} onClick={() => mainTf.handleSort(col.key)}>
-                          {col.label}
-                          <span className={`sort-arrow${mainTf.sortConfig?.key===col.key?' active':''}`}>
-                            {mainTf.sortConfig?.key===col.key?(mainTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
-                          </span>
-                          {col.filterable && (
-                            <span className={`filter-icon${(mainTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
-                              onClick={e => mainTf.openFilter(e, col.key)}>▼</span>
-                          )}
+                        <th key={col.key} className={col.right ? 'r' : undefined} style={{ cursor:'pointer' }}
+                          onClick={() => mainTf.handleSort(col.key)}>
+                          <div className="col-header" style={col.right ? { justifyContent:'flex-end' } : undefined}>
+                            <span>{col.label}</span>
+                            <span className={`sort-arrow${mainTf.sortConfig?.key===col.key?' active':''}`}>
+                              {mainTf.sortConfig?.key===col.key?(mainTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
+                            </span>
+                            {col.filterable && (
+                              <span className={`filter-icon${(mainTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
+                                onClick={e => mainTf.openFilter(e, col.key)}>▼</span>
+                            )}
+                          </div>
                         </th>
                       ))}
                       <th style={{ cursor:'default' }}>Act</th>

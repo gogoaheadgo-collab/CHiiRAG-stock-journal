@@ -12,7 +12,7 @@ function StatCard({ label, value, sub, color }) {
   return (
     <div className="stat-card" style={{ padding:'18px 20px' }}>
       <div style={{ fontSize:'10px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'8px', fontFamily:'DM Mono, monospace' }}>{label}</div>
-      <div style={{ fontSize:'18px', fontWeight:800, fontFamily:'Bookman Old Style, serif', color: color||'var(--text)', lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{value}</div>
+      <div style={{ fontSize:'16px', fontWeight:700, fontFamily:"'DM Mono', monospace", color: color||'var(--text)', lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{value}</div>
       {sub && <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'6px', fontFamily:'DM Mono, monospace' }}>{sub}</div>}
     </div>
   )
@@ -280,6 +280,13 @@ export default function Dashboard() {
 
   const toINR = n => Number(n||0).toLocaleString('en-IN', { maximumFractionDigits:0 })
   const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
+  const fmtCompact = n => {
+    const abs = Math.abs(n)
+    if (abs >= 10000000) return (n / 10000000).toFixed(2) + ' Cr'
+    if (abs >= 100000)   return (n / 100000).toFixed(2) + ' L'
+    if (abs >= 1000)     return Number(n).toLocaleString('en-IN', { maximumFractionDigits:0 })
+    return Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
+  }
 
   const calcMTF = (tradeList) => tradeList.reduce((s,t) => {
     if (!t.mtf_interest_rate||!t.entry_date) return s
@@ -445,11 +452,11 @@ export default function Dashboard() {
           <>
             {/* STAT CARDS */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))', gap:'14px', marginBottom:'28px' }}>
-              <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
-              <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}Rs.${toINRd(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
+              <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs.${fmtCompact(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
+              <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}Rs.${fmtCompact(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
               <StatCard label="Win Rate" value={`${winRate}%`} color="var(--accent)" sub={`${wins.length}W · ${closedTrades.length-wins.length}L`} />
-              <StatCard label="Open Positions" value={openTrades.length} sub={`Rs.${toINR(totalInvested)} deployed`} />
-              <StatCard label="MTF Interest" value={`Rs.${toINRd(totalMTF)}`} color="var(--gold)" sub="Accrued" />
+              <StatCard label="Open Positions" value={openTrades.length} sub={`Rs.${fmtCompact(totalInvested)} deployed`} />
+              <StatCard label="MTF Interest" value={`Rs.${fmtCompact(totalMTF)}`} color="var(--gold)" sub="Accrued" />
               <StatCard label="Total Trades" value={allTrades.length} sub={`${openTrades.length} open · ${closedTrades.length} closed`} />
             </div>
 
@@ -469,16 +476,18 @@ export default function Dashboard() {
                     <thead>
                       <tr>
                         {bdColumns.map(col => (
-                          <th key={col.key} className="col-header" style={{ textAlign: col.key === 'name' ? 'left' : 'right' }}
+                          <th key={col.key} className={col.key !== 'name' ? 'r' : undefined} style={{ cursor:'pointer' }}
                             onClick={() => bd.handleSort(col.key)}>
-                            {col.label}
-                            <span className={`sort-arrow${bd.sortConfig?.key === col.key ? ' active' : ''}`}>
-                              {bd.sortConfig?.key === col.key ? (bd.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
-                            </span>
-                            {col.filterable && (
-                              <span className={`filter-icon${(bd.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`}
-                                onClick={e => bd.openFilter(e, col.key)}>▼</span>
-                            )}
+                            <div className="col-header" style={col.key !== 'name' ? { justifyContent:'flex-end' } : undefined}>
+                              <span>{col.label}</span>
+                              <span className={`sort-arrow${bd.sortConfig?.key === col.key ? ' active' : ''}`}>
+                                {bd.sortConfig?.key === col.key ? (bd.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                              </span>
+                              {col.filterable && (
+                                <span className={`filter-icon${(bd.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`}
+                                  onClick={e => bd.openFilter(e, col.key)}>▼</span>
+                              )}
+                            </div>
                           </th>
                         ))}
                       </tr>
@@ -578,19 +587,24 @@ export default function Dashboard() {
                     </colgroup>
                     <thead>
                       <tr>
-                        {opColumns.map(col => (
-                          <th key={col.key} className="col-header" style={{ textAlign: ['ticker','ownerLabel','direction'].includes(col.key) ? 'left' : 'right' }}
-                            onClick={() => op.handleSort(col.key)}>
-                            {col.label}
-                            <span className={`sort-arrow${op.sortConfig?.key === col.key ? ' active' : ''}`}>
-                              {op.sortConfig?.key === col.key ? (op.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
-                            </span>
-                            {col.filterable && (
-                              <span className={`filter-icon${(op.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`}
-                                onClick={e => op.openFilter(e, col.key)}>▼</span>
-                            )}
-                          </th>
-                        ))}
+                        {opColumns.map(col => {
+                          const isLeft = ['ticker','ownerLabel','direction'].includes(col.key)
+                          return (
+                            <th key={col.key} className={!isLeft ? 'r' : undefined} style={{ cursor:'pointer' }}
+                              onClick={() => op.handleSort(col.key)}>
+                              <div className="col-header" style={!isLeft ? { justifyContent:'flex-end' } : undefined}>
+                                <span>{col.label}</span>
+                                <span className={`sort-arrow${op.sortConfig?.key === col.key ? ' active' : ''}`}>
+                                  {op.sortConfig?.key === col.key ? (op.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                                </span>
+                                {col.filterable && (
+                                  <span className={`filter-icon${(op.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`}
+                                    onClick={e => op.openFilter(e, col.key)}>▼</span>
+                                )}
+                              </div>
+                            </th>
+                          )
+                        })}
                       </tr>
                     </thead>
                     <tbody>

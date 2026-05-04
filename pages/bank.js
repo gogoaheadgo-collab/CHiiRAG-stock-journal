@@ -803,10 +803,14 @@ export default function BankPage() {
                             { key: 'amount', label: 'Amount', sortable: true, right: true },
                             { key: 'balance_after', label: 'Balance', sortable: true, right: true },
                           ].map(col => (
-                            <th key={col.key} className={`col-header${col.right ? ' r' : ''}`} onClick={() => col.sortable && txnTf.handleSort(col.key)}>
-                              <span>{col.label}</span>
-                              {col.sortable && <span className={`sort-arrow${txnTf.sortConfig?.key === col.key ? ' active' : ''}`}>{txnTf.sortConfig?.key === col.key ? (txnTf.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span>}
-                              {col.filterable && <span className={`filter-icon${(txnTf.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`} onClick={e => { e.stopPropagation(); txnTf.openFilter(e, col.key) }}>▼</span>}
+                            <th key={col.key} className={col.right ? 'r' : undefined}
+                              style={{ cursor: col.sortable ? 'pointer' : 'default' }}
+                              onClick={() => col.sortable && txnTf.handleSort(col.key)}>
+                              <div className="col-header" style={col.right ? { justifyContent:'flex-end' } : undefined}>
+                                <span>{col.label}</span>
+                                {col.sortable && <span className={`sort-arrow${txnTf.sortConfig?.key === col.key ? ' active' : ''}`}>{txnTf.sortConfig?.key === col.key ? (txnTf.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span>}
+                                {col.filterable && <span className={`filter-icon${(txnTf.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`} onClick={e => { e.stopPropagation(); txnTf.openFilter(e, col.key) }}>▼</span>}
+                              </div>
                             </th>
                           ))}
                           <th style={{ padding: '10px 14px', fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Actions</th>

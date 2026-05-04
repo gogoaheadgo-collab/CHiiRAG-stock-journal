@@ -440,15 +440,18 @@ export default function SubscribersPage() {
                         { key:'realised', label:'Real. P&L', right:true },
                         { key:'status', label:'Status', filterable:true },
                       ].map(col => (
-                        <th key={col.key} className={`col-header${col.right?' r':''}`} onClick={() => subTf.handleSort(col.key)}>
-                          {col.label}
-                          <span className={`sort-arrow${subTf.sortConfig?.key===col.key?' active':''}`}>
-                            {subTf.sortConfig?.key===col.key?(subTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
-                          </span>
-                          {col.filterable && (
-                            <span className={`filter-icon${(subTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
-                              onClick={e => subTf.openFilter(e, col.key)}>▼</span>
-                          )}
+                        <th key={col.key} className={col.right ? 'r' : undefined} style={{ cursor:'pointer' }}
+                          onClick={() => subTf.handleSort(col.key)}>
+                          <div className="col-header" style={col.right ? { justifyContent:'flex-end' } : undefined}>
+                            <span>{col.label}</span>
+                            <span className={`sort-arrow${subTf.sortConfig?.key===col.key?' active':''}`}>
+                              {subTf.sortConfig?.key===col.key?(subTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
+                            </span>
+                            {col.filterable && (
+                              <span className={`filter-icon${(subTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
+                                onClick={e => subTf.openFilter(e, col.key)}>▼</span>
+                            )}
+                          </div>
                         </th>
                       ))}
                     </tr>

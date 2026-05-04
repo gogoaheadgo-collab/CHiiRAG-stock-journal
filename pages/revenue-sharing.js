@@ -519,15 +519,18 @@ export default function RevenueSharingPage() {
                     { key:'net_pnl_admin', label:'Net (Admin)', right:true },
                     { key:'status', label:'Status', filterable:true },
                   ].map(col => (
-                    <th key={col.key} className={`col-header${col.right?' r':''}`} onClick={() => trTf.handleSort(col.key)}>
-                      {col.label}
-                      <span className={`sort-arrow${trTf.sortConfig?.key===col.key?' active':''}`}>
-                        {trTf.sortConfig?.key===col.key?(trTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
-                      </span>
-                      {col.filterable && (
-                        <span className={`filter-icon${(trTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
-                          onClick={e => trTf.openFilter(e, col.key)}>▼</span>
-                      )}
+                    <th key={col.key} className={col.right ? 'r' : undefined} style={{ cursor:'pointer' }}
+                      onClick={() => trTf.handleSort(col.key)}>
+                      <div className="col-header" style={col.right ? { justifyContent:'flex-end' } : undefined}>
+                        <span>{col.label}</span>
+                        <span className={`sort-arrow${trTf.sortConfig?.key===col.key?' active':''}`}>
+                          {trTf.sortConfig?.key===col.key?(trTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
+                        </span>
+                        {col.filterable && (
+                          <span className={`filter-icon${(trTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
+                            onClick={e => trTf.openFilter(e, col.key)}>▼</span>
+                        )}
+                      </div>
                     </th>
                   ))}
                 </tr>
