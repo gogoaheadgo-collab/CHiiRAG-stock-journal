@@ -1113,7 +1113,7 @@ export default function AccountsPage() {
                             <td className="num">{mtfInt ? <span className="mtf-val">Rs.{toINRd(mtfInt)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
                             <td className="num">{unrealisedPnL !== null ? <span className={unrealisedPnL>=0?'pnl-pos':'pnl-neg'}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
                             <td className="num">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span className={realisedPnL>=0?'pnl-pos':'pnl-neg'}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                            <td style={{ textAlign:'center', position:'relative' }} onClick={e => e.stopPropagation()}>
+                            <td style={{ textAlign:'center', position:'relative', overflow:'visible' }} onClick={e => e.stopPropagation()}>
                               <button onClick={e => { e.preventDefault(); e.stopPropagation(); setOpenMenu(prev => prev===trade.id ? null : trade.id) }} style={{ background:'none', border:'1px solid var(--border)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer', color:'var(--muted)', fontSize:'14px', letterSpacing:'2px' }}>···</button>
                               {openMenu === trade.id && (
                                 <div onClick={e => e.stopPropagation()} style={{ position:'absolute', right:0, bottom:'calc(100% + 4px)', zIndex:100, background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'8px', boxShadow:'0 -4px 24px rgba(0,0,0,0.15)', minWidth:'130px', padding:'4px' }}>
