@@ -805,8 +805,8 @@ export default function BankPage() {
                           ].map(col => (
                             <th key={col.key} className={`col-header${col.right ? ' r' : ''}`} onClick={() => col.sortable && txnTf.handleSort(col.key)}>
                               <span>{col.label}</span>
-                              {col.sortable && <span className={`sort-arrow${txnTf.sortConfig?.key === col.key ? ' active' : ''}`}>{txnTf.sortConfig?.key === col.key ? (txnTf.sortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>}
-                              {col.filterable && <span className={`filter-icon${txnTf.columnFilters[col.key]?.length ? ' has-filter' : ''}`} onClick={e => { e.stopPropagation(); txnTf.openFilter(col.key, e) }}>▼</span>}
+                              {col.sortable && <span className={`sort-arrow${txnTf.sortConfig?.key === col.key ? ' active' : ''}`}>{txnTf.sortConfig?.key === col.key ? (txnTf.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span>}
+                              {col.filterable && <span className={`filter-icon${(txnTf.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`} onClick={e => { e.stopPropagation(); txnTf.openFilter(e, col.key) }}>▼</span>}
                             </th>
                           ))}
                           <th style={{ padding: '10px 14px', fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Actions</th>
@@ -857,7 +857,17 @@ export default function BankPage() {
                         })}
                       </tbody>
                     </table>
-                    <FilterDropdown tf={txnTf} columns={txnColumns} />
+                    {txnTf.openFilterKey && (
+                      <FilterDropdown
+                        position={txnTf.filterDropPos}
+                        uniqueValues={txnTf.getUniqueValues(txnTf.openFilterKey)}
+                        hiddenValues={txnTf.columnFilters[txnTf.openFilterKey] || new Set()}
+                        onToggle={v => txnTf.toggleFilterValue(txnTf.openFilterKey, v)}
+                        onSelectAll={() => txnTf.selectAllFilter(txnTf.openFilterKey)}
+                        onDeselectAll={() => txnTf.deselectAllFilter(txnTf.openFilterKey, txnTf.getUniqueValues(txnTf.openFilterKey))}
+                        onClose={() => txnTf.setOpenFilterKey(null)}
+                      />
+                    )}
                   </div>
                 )}
               </div>

@@ -12,7 +12,7 @@ function StatCard({ label, value, sub, color }) {
   return (
     <div className="stat-card" style={{ padding:'18px 20px' }}>
       <div style={{ fontSize:'10px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'8px', fontFamily:'DM Mono, monospace' }}>{label}</div>
-      <div style={{ fontSize:'22px', fontWeight:800, fontFamily:'Bookman Old Style, serif', color: color||'var(--text)', lineHeight:1.2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{value}</div>
+      <div style={{ fontSize:'18px', fontWeight:800, fontFamily:'Bookman Old Style, serif', color: color||'var(--text)', lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{value}</div>
       {sub && <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'6px', fontFamily:'DM Mono, monospace' }}>{sub}</div>}
     </div>
   )
