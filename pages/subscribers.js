@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
 import Sidebar from '../components/Sidebar'
+import { useTableFilter, FilterDropdown } from '../components/TableFilter'
 
 function triggerCSVDownload(csvContent, filename) {
   if (typeof window === 'undefined') return
@@ -85,18 +86,6 @@ export default function SubscribersPage() {
     loadSubscribers(session)
   }
 
-  const [sortCol, setSortCol] = useState(null)
-  const [sortDir, setSortDir] = useState('asc')
-  const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
-  const sortIcon = (col) => sortCol===col ? (sortDir==='asc'?' ↑':' ↓') : ' ↕'
-  const applySort = (list) => {
-    if (!sortCol) return list
-    return [...list].sort((a,b) => {
-      let av=a[sortCol]??'', bv=b[sortCol]??''
-      if (typeof av==='string') av=av.toLowerCase(), bv=bv.toLowerCase()
-      return sortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
-    })
-  }
   const downloadCSV = () => {
     if (!selected) return
     const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Realised P&L','Status']
@@ -194,6 +183,43 @@ export default function SubscribersPage() {
   const accounts = [...new Set(subTrades.map(t => t.account).filter(Boolean))]
   const accountFiltered = accountFilter === 'ALL' ? subTrades : subTrades.filter(t => t.account === accountFilter)
   const filtered = statusFilter === 'ALL' ? accountFiltered : accountFiltered.filter(t => t.status === statusFilter)
+
+  const subColumns = useMemo(() => [
+    { key: 'ticker', filterable: true, sortable: true },
+    { key: 'account', filterable: true, sortable: true },
+    { key: 'entry_date', sortable: true },
+    { key: 'entry_price', sortable: true, getSortValue: t => Number(t.entry_price) || 0 },
+    { key: 'cmp', sortable: true, getSortValue: t => livePrices[t.ticker]?.price || 0 },
+    { key: 'exit_price', sortable: true, getSortValue: t => Number(t.exit_price) || 0 },
+    { key: 'quantity', sortable: true, getSortValue: t => Number(t.quantity) || 0 },
+    { key: 'invested_capital', sortable: true, getSortValue: t => Number(t.invested_capital) || 0 },
+    { key: 'mtf_int', sortable: true, getSortValue: t => {
+      const exs = subExecs.filter(e => e.trade_id === t.id)
+      const orig = Number(t.quantity) || 0
+      const curr = Math.max(0, orig - exs.reduce((s,e) => s+Number(e.quantity), 0))
+      const inv = Number(t.invested_capital) || 0
+      const base = inv - (Number(t.actual_investment)||0)
+      if (!base || !t.mtf_interest_rate || !t.entry_date) return 0
+      return base*(curr/orig)*t.mtf_interest_rate*Math.max(1,Math.floor((new Date()-new Date(t.entry_date))/86400000))/36500
+    }},
+    { key: 'unrealised', sortable: true, getSortValue: t => {
+      const exs = subExecs.filter(e => e.trade_id === t.id)
+      const orig = Number(t.quantity) || 0
+      const curr = Math.max(0, orig - exs.reduce((s,e) => s+Number(e.quantity), 0))
+      const lp = livePrices[t.ticker]?.price
+      if (!lp || curr === 0) return -Infinity
+      const entry = Number(t.entry_price) || 0
+      return t.direction === 'LONG' ? (lp-entry)*curr : (entry-lp)*curr
+    }},
+    { key: 'realised', sortable: true, getSortValue: t => {
+      const exs = subExecs.filter(e => e.trade_id === t.id)
+      const entry = Number(t.entry_price) || 0
+      return exs.length > 0 ? exs.reduce((s,e) => s+(Number(e.price)-entry)*Number(e.quantity), 0) : (Number(t.realized_gains)||0)
+    }},
+    { key: 'status', filterable: true, sortable: true },
+  ], [subExecs, livePrices])
+
+  const subTf = useTableFilter(filtered, subColumns)
 
   return (
     <>
@@ -400,22 +426,35 @@ export default function SubscribersPage() {
                   </colgroup>
                   <thead>
                     <tr>
-                      <th>Ticker</th>
-                      <th>Account</th>
-                      <th>Entry Date</th>
-                      <th className="r">Entry Rs.</th>
-                      <th className="r">CMP</th>
-                      <th className="r">Exit Rs.</th>
-                      <th className="r">Qty / Curr</th>
-                      <th className="r">Inv / Actual</th>
-                      <th className="r">MTF Int</th>
-                      <th className="r">Unreal. P&L</th>
-                      <th className="r">Real. P&L</th>
-                      <th>Status</th>
+                      {[
+                        { key:'ticker', label:'Ticker', filterable:true },
+                        { key:'account', label:'Account', filterable:true },
+                        { key:'entry_date', label:'Entry Date' },
+                        { key:'entry_price', label:'Entry Rs.', right:true },
+                        { key:'cmp', label:'CMP', right:true },
+                        { key:'exit_price', label:'Exit Rs.', right:true },
+                        { key:'quantity', label:'Qty / Curr', right:true },
+                        { key:'invested_capital', label:'Inv / Actual', right:true },
+                        { key:'mtf_int', label:'MTF Int', right:true },
+                        { key:'unrealised', label:'Unreal. P&L', right:true },
+                        { key:'realised', label:'Real. P&L', right:true },
+                        { key:'status', label:'Status', filterable:true },
+                      ].map(col => (
+                        <th key={col.key} className={`col-header${col.right?' r':''}`} onClick={() => subTf.handleSort(col.key)}>
+                          {col.label}
+                          <span className={`sort-arrow${subTf.sortConfig?.key===col.key?' active':''}`}>
+                            {subTf.sortConfig?.key===col.key?(subTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
+                          </span>
+                          {col.filterable && (
+                            <span className={`filter-icon${(subTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
+                              onClick={e => subTf.openFilter(e, col.key)}>▼</span>
+                          )}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {applySort(filtered).map(trade => {
+                    {subTf.filteredData.map(trade => {
                       const execs = subExecs.filter(e => e.trade_id === trade.id)
                       const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
                       const originalQty = Number(trade.quantity) || 0
@@ -482,6 +521,17 @@ export default function SubscribersPage() {
                     })}
                   </tbody>
                 </table>
+                {subTf.openFilterKey && (
+                  <FilterDropdown
+                    position={subTf.filterDropPos}
+                    uniqueValues={subTf.getUniqueValues(subTf.openFilterKey)}
+                    hiddenValues={subTf.columnFilters[subTf.openFilterKey] || new Set()}
+                    onToggle={v => subTf.toggleFilterValue(subTf.openFilterKey, v)}
+                    onSelectAll={() => subTf.selectAllFilter(subTf.openFilterKey)}
+                    onDeselectAll={() => subTf.deselectAllFilter(subTf.openFilterKey, subTf.getUniqueValues(subTf.openFilterKey))}
+                    onClose={() => subTf.setOpenFilterKey(null)}
+                  />
+                )}
               </div>
             )}
           </div>

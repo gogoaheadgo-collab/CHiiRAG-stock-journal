@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, addMonths } from 'date-fns'
+import { useTableFilter, FilterDropdown } from '../components/TableFilter'
 import Sidebar from '../components/Sidebar'
 
 const ADMIN = 'gogoaheadgo@gmail.com'
@@ -340,17 +341,6 @@ export default function Dashboard() {
   const winRate = closedTrades.length>0 ? (wins.length/closedTrades.length*100).toFixed(1) : '0.0'
   const totalInvested = openTrades.reduce((s,t)=>s+(Number(t.actual_investment)||Number(t.invested_capital)||0),0)
 
-  // ── Sort state ──
-  const [bdSortCol, setBdSortCol] = React.useState(null)
-  const [bdSortDir, setBdSortDir] = React.useState('asc')
-  const doBdSort = (col) => { if(bdSortCol===col) setBdSortDir(d=>d==='asc'?'desc':'asc'); else { setBdSortCol(col); setBdSortDir('asc') } }
-  const bdSortIcon = (col) => bdSortCol===col ? (bdSortDir==='asc'?' ↑':' ↓') : ' ↕'
-
-  const [opSortCol, setOpSortCol] = React.useState(null)
-  const [opSortDir, setOpSortDir] = React.useState('asc')
-  const doOpSort = (col) => { if(opSortCol===col) setOpSortDir(d=>d==='asc'?'desc':'asc'); else { setOpSortCol(col); setOpSortDir('asc') } }
-  const opSortIcon = (col) => opSortCol===col ? (opSortDir==='asc'?' ↑':' ↓') : ' ↕'
-
   // Build per-account breakdown — each own account separately + each mirrored subscriber
   const ownAccountNames = [...new Set(trades.map(t => t.account).filter(Boolean))]
   const subscriberBreakdown = isAdmin ? [
@@ -367,6 +357,60 @@ export default function Dashboard() {
       isOwn: false,
     }))
   ] : []
+
+  const breakdownRows = useMemo(() =>
+    subscriberBreakdown.map(({ name, trades: t, execs: e, isOwn }) => ({
+      name, isOwn,
+      _open: t.filter(x => x.status === 'OPEN').length,
+      _closed: t.filter(x => x.status === 'CLOSED').length,
+      _unr: calcUnrealised(t, e),
+      _rel: calcRealised(t, e),
+      _mtf: calcMTF(t),
+    })), [subscriberBreakdown]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const bdColumns = useMemo(() => [
+    { key: 'name', label: 'Account', filterable: true, sortable: true },
+    { key: '_open', label: 'Open', sortable: true },
+    { key: '_closed', label: 'Closed', sortable: true },
+    { key: '_unr', label: 'Unreal. P&L', sortable: true },
+    { key: '_rel', label: 'Real. P&L', sortable: true },
+    { key: '_mtf', label: 'MTF Int', sortable: true },
+  ], [])
+
+  const bd = useTableFilter(breakdownRows, bdColumns)
+
+  const openPositionRows = useMemo(() => openTrades.map(trade => {
+    const execs = allExecs.filter(e => e.trade_id === trade.id)
+    const soldQty = execs.reduce((s, e) => s + Number(e.quantity), 0)
+    const currentQty = Math.max(0, Number(trade.quantity) - soldQty)
+    const lp = livePrices[trade.ticker]
+    const cmp = lp?.price
+    const unr = cmp && currentQty > 0
+      ? (trade.direction === 'SHORT' ? (Number(trade.entry_price) - cmp) * currentQty : (cmp - Number(trade.entry_price)) * currentQty)
+      : null
+    const ownerLabel = (() => {
+      if (!isAdmin) return trade.account
+      for (const m of mirroredAccounts) {
+        if ((mirroredTrades[m.subscriber_id] || []).find(t => t.id === trade.id))
+          return (m.subscriber_name || m.subscriber_email || '').split(' ')[0] + "'s"
+      }
+      return trade.account
+    })()
+    return { id: trade.id, ticker: trade.ticker, direction: trade.direction, entry_price: Number(trade.entry_price), currentQty, lp, cmp, unr, ownerLabel }
+  }), [openTrades, allExecs, livePrices, isAdmin, mirroredAccounts, mirroredTrades])
+
+  const opColumns = useMemo(() => [
+    { key: 'ticker', label: 'Ticker', filterable: true, sortable: true },
+    { key: 'ownerLabel', label: isAdmin ? 'Owner' : 'Account', filterable: true, sortable: true },
+    { key: 'direction', label: 'Dir', filterable: true, sortable: true },
+    { key: 'entry_price', label: 'Entry Rs.', sortable: true },
+    { key: 'currentQty', label: 'Qty', sortable: true },
+    { key: 'cmp', label: 'CMP', sortable: true },
+    { key: '_changePercent', label: 'Change %', sortable: true, getSortValue: r => r.lp?.changePercent ?? -Infinity },
+    { key: 'unr', label: 'Unreal. P&L', sortable: true },
+  ], [isAdmin])
+
+  const op = useTableFilter(openPositionRows, opColumns)
 
   if (!session) return null
 
@@ -424,33 +468,23 @@ export default function Dashboard() {
                     </colgroup>
                     <thead>
                       <tr>
-                        {[
-                          { label:'Account', col:'name' },
-                          { label:'Open',    col:'_open' },
-                          { label:'Closed',  col:'_closed' },
-                          { label:'Unreal. P&L', col:'_unr' },
-                          { label:'Real. P&L',   col:'_rel' },
-                          { label:'MTF Int',   col:'_mtf' },
-                        ].map(({ label, col }) => (
-                          <th key={col} className={`sortable${col!=='name'?' r':''}`} onClick={() => doBdSort(col)} style={{ textAlign:col==='name'?'left':'right' }}>
-                            {label}{bdSortIcon(col)}
+                        {bdColumns.map(col => (
+                          <th key={col.key} className="col-header" style={{ textAlign: col.key === 'name' ? 'left' : 'right' }}
+                            onClick={() => bd.handleSort(col.key)}>
+                            {col.label}
+                            <span className={`sort-arrow${bd.sortConfig?.key === col.key ? ' active' : ''}`}>
+                              {bd.sortConfig?.key === col.key ? (bd.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                            </span>
+                            {col.filterable && (
+                              <span className={`filter-icon${(bd.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`}
+                                onClick={e => bd.openFilter(e, col.key)}>▼</span>
+                            )}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {(() => {
-                        const rows = subscriberBreakdown.map(({ name, trades:t, execs:e, isOwn }) => {
-                          const unr = calcUnrealised(t,e), rel = calcRealised(t,e), mtf = calcMTF(t)
-                          return { name, trades:t, execs:e, isOwn, _open:t.filter(x=>x.status==='OPEN').length, _closed:t.filter(x=>x.status==='CLOSED').length, _unr:unr, _rel:rel, _mtf:mtf }
-                        })
-                        if (bdSortCol) rows.sort((a,b) => {
-                          let av = a[bdSortCol]??'', bv = b[bdSortCol]??''
-                          if (typeof av==='string') { av=av.toLowerCase(); bv=bv.toLowerCase() }
-                          return bdSortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
-                        })
-                        return rows
-                      })().map(({ name, isOwn, _open, _closed, _unr, _rel, _mtf }) => (
+                      {bd.filteredData.map(({ name, isOwn, _open, _closed, _unr, _rel, _mtf }) => (
                           <tr key={name} style={{ borderBottom:'1px solid var(--border)' }}>
                             <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>
                               <span style={{ fontWeight:700 }}>{name}</span>
@@ -466,6 +500,17 @@ export default function Dashboard() {
                       ))}
                     </tbody>
                   </table>
+                {bd.openFilterKey && (
+                  <FilterDropdown
+                    position={bd.filterDropPos}
+                    uniqueValues={bd.getUniqueValues(bd.openFilterKey)}
+                    hiddenValues={bd.columnFilters[bd.openFilterKey] || new Set()}
+                    onToggle={v => bd.toggleFilterValue(bd.openFilterKey, v)}
+                    onSelectAll={() => bd.selectAllFilter(bd.openFilterKey)}
+                    onDeselectAll={() => bd.deselectAllFilter(bd.openFilterKey, bd.getUniqueValues(bd.openFilterKey))}
+                    onClose={() => bd.setOpenFilterKey(null)}
+                  />
+                )}
               </div>
             )}
 
@@ -533,65 +578,55 @@ export default function Dashboard() {
                     </colgroup>
                     <thead>
                       <tr>
-                        {[
-                          { label:'Ticker',  col:'ticker', left:true },
-                          { label:isAdmin?'Owner':'Account', col:'account', left:true },
-                          { label:'Dir',  col:'direction', left:true },
-                          { label:'Entry Rs.', col:'entry_price' },
-                          { label:'Qty',       col:'quantity' },
-                          { label:'CMP',       col:null },
-                          { label:'Change %',  col:null },
-                          { label:'Unreal. P&L', col:null },
-                        ].map(({ label, col, left }) => (
-                          <th key={label} className={`${col?'sortable':''} ${!left?'r':''}`} onClick={col ? () => doOpSort(col) : undefined}>
-                            {label}{col ? opSortIcon(col) : ''}
+                        {opColumns.map(col => (
+                          <th key={col.key} className="col-header" style={{ textAlign: ['ticker','ownerLabel','direction'].includes(col.key) ? 'left' : 'right' }}
+                            onClick={() => op.handleSort(col.key)}>
+                            {col.label}
+                            <span className={`sort-arrow${op.sortConfig?.key === col.key ? ' active' : ''}`}>
+                              {op.sortConfig?.key === col.key ? (op.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                            </span>
+                            {col.filterable && (
+                              <span className={`filter-icon${(op.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`}
+                                onClick={e => op.openFilter(e, col.key)}>▼</span>
+                            )}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {(opSortCol ? [...openTrades].sort((a,b) => {
-                        let av=a[opSortCol]??'', bv=b[opSortCol]??''
-                        if(typeof av==='string'){av=av.toLowerCase();bv=bv.toLowerCase()}
-                        return opSortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
-                      }) : openTrades).map(trade => {
-                        const execs = allExecs.filter(e=>e.trade_id===trade.id)
-                        const soldQty = execs.reduce((s,e)=>s+Number(e.quantity),0)
-                        const currentQty = Math.max(0, Number(trade.quantity)-soldQty)
-                        const lp = livePrices[trade.ticker]
-                        const cmp = lp?.price
-                        const unr = cmp&&currentQty>0 ? (trade.direction==='SHORT'?(Number(trade.entry_price)-cmp)*currentQty:(cmp-Number(trade.entry_price))*currentQty) : null
-                        const ownerLabel = (() => {
-                          if (!isAdmin) return trade.account
-                          for (const m of mirroredAccounts) {
-                            if ((mirroredTrades[m.subscriber_id]||[]).find(t=>t.id===trade.id))
-                              return (m.subscriber_name||m.subscriber_email||'').split(' ')[0]+"'s"
-                          }
-                          return trade.account
-                        })()
-                        return (
-                          <tr key={trade.id} style={{ borderBottom:'1px solid var(--border)' }}>
-                            <td style={{ padding:'8px 12px', fontWeight:700, fontFamily:'DM Mono, monospace' }}>{trade.ticker}</td>
-                            <td style={{ padding:'8px 12px', color:'var(--muted)', fontSize:'11px', fontFamily:'DM Mono, monospace' }}>{ownerLabel}</td>
-                            <td style={{ padding:'8px 12px' }}>
-                              <span style={{ fontSize:'10px', padding:'2px 6px', borderRadius:'3px', fontWeight:700, fontFamily:'DM Mono, monospace',
-                                background:trade.direction==='LONG'?'var(--accent-dim)':'var(--bear-dim)',
-                                color:trade.direction==='LONG'?'var(--accent)':'var(--bear)' }}>{trade.direction}</span>
-                            </td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(trade.entry_price)}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>{toINR(currentQty)}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{cmp?`Rs.${toINRd(cmp)}`:'—'}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700, color:lp?.change>=0?'var(--bull)':'var(--bear)' }}>
-                              {lp?.changePercent!=null?`${lp.change>=0?'+':''}${lp.changePercent.toFixed(2)}%`:'—'}
-                            </td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700, color:unr===null?'var(--muted)':unr>=0?'var(--bull)':'var(--bear)' }}>
-                              {unr!==null?`${unr>=0?'+':'−'}${toINRd(Math.abs(unr))}`:'—'}
-                            </td>
-                          </tr>
-                        )
-                      })}
+                      {op.filteredData.map(({ id, ticker, direction, entry_price, currentQty, lp, cmp, unr, ownerLabel }) => (
+                        <tr key={id} style={{ borderBottom:'1px solid var(--border)' }}>
+                          <td style={{ padding:'8px 12px', fontWeight:700, fontFamily:'DM Mono, monospace' }}>{ticker}</td>
+                          <td style={{ padding:'8px 12px', color:'var(--muted)', fontSize:'11px', fontFamily:'DM Mono, monospace' }}>{ownerLabel}</td>
+                          <td style={{ padding:'8px 12px' }}>
+                            <span style={{ fontSize:'10px', padding:'2px 6px', borderRadius:'3px', fontWeight:700, fontFamily:'DM Mono, monospace',
+                              background:direction==='LONG'?'var(--accent-dim)':'var(--bear-dim)',
+                              color:direction==='LONG'?'var(--accent)':'var(--bear)' }}>{direction}</span>
+                          </td>
+                          <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(entry_price)}</td>
+                          <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>{toINR(currentQty)}</td>
+                          <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{cmp?`Rs.${toINRd(cmp)}`:'—'}</td>
+                          <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700, color:lp?.change>=0?'var(--bull)':'var(--bear)' }}>
+                            {lp?.changePercent!=null?`${lp.change>=0?'+':''}${lp.changePercent.toFixed(2)}%`:'—'}
+                          </td>
+                          <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700, color:unr===null?'var(--muted)':unr>=0?'var(--bull)':'var(--bear)' }}>
+                            {unr!==null?`${unr>=0?'+':'−'}${toINRd(Math.abs(unr))}`:'—'}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
+                {op.openFilterKey && (
+                  <FilterDropdown
+                    position={op.filterDropPos}
+                    uniqueValues={op.getUniqueValues(op.openFilterKey)}
+                    hiddenValues={op.columnFilters[op.openFilterKey] || new Set()}
+                    onToggle={v => op.toggleFilterValue(op.openFilterKey, v)}
+                    onSelectAll={() => op.selectAllFilter(op.openFilterKey)}
+                    onDeselectAll={() => op.deselectAllFilter(op.openFilterKey, op.getUniqueValues(op.openFilterKey))}
+                    onClose={() => op.setOpenFilterKey(null)}
+                  />
+                )}
               </div>
             )}
 

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
 import Sidebar from '../components/Sidebar'
+import { useTableFilter, FilterDropdown } from '../components/TableFilter'
 
 function triggerCSVDownload(csvContent, filename) {
   if (typeof window === 'undefined') return
@@ -32,7 +33,6 @@ export default function AllTradesPage() {
   const [ownExecs, setOwnExecs] = useState({})
   const [subGroups, setSubGroups] = useState([])
   const [livePrices, setLivePrices] = useState({})
-  const [statusFilter, setStatusFilter] = useState('ALL')
 
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
   const fetchPrice = async (ticker) => {
@@ -104,20 +104,14 @@ export default function AllTradesPage() {
   }
 
   const [expandedTicker, setExpandedTicker] = useState(null)
-  const [sortCol, setSortCol] = useState(null)
-  const [sortDir, setSortDir] = useState('asc')
-  const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
-  const sortIcon = (col) => sortCol===col ? (sortDir==='asc'?' ↑':' ↓') : ' ↕'
-  const applySort = (list) => {
-    if (!sortCol) return list
-    return [...list].sort((a,b) => {
-      let av=a[sortCol]??'', bv=b[sortCol]??''
-      if (typeof av==='string') av=av.toLowerCase(), bv=bv.toLowerCase()
-      return sortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
-    })
-  }
+  // Ticker summary sort state
+  const [tkSortKey, setTkSortKey] = useState(null)
+  const [tkSortDir, setTkSortDir] = useState('asc')
+  const [tkHiddenTickers, setTkHiddenTickers] = useState(new Set())
+  const [tkFilterOpen, setTkFilterOpen] = useState(false)
+  const [tkFilterPos, setTkFilterPos] = useState({ top:0, left:0 })
   const downloadCSV = () => {
-    const list = statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===statusFilter)
+    const list = tf.statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===tf.statusFilter)
     const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Investment','Unrealised P&L','Realised P&L','MTF Interest','Status','Type']
     const rows=list.map(({trade,isSub,execMap:rowExecMap}) => {
       const exs = rowExecMap?.[trade.id] || []
@@ -215,17 +209,28 @@ export default function AllTradesPage() {
     ...ownTrades.map(t => ({ trade:t, execMap:ownExecs, isSub:false, subName:null })),
     ...subGroups.flatMap(g => g.trades.map(t => ({ trade:t, execMap:g.execMap, isSub:true, subName:g.sub.full_name || g.sub.email?.split('@')[0] })))
   ]
-  const filteredRaw = allRows.filter(r => statusFilter==='ALL' || r.trade.status===statusFilter)
-  const filtered = sortCol
-    ? [...filteredRaw].sort((a, b) => {
-        let av = a.trade[sortCol] ?? '', bv = b.trade[sortCol] ?? ''
-        if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase() }
-        return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1)
-      })
-    : filteredRaw
 
   const pnlColor = n => n >= 0 ? 'var(--bull)' : 'var(--bear)'
   const pnlSign  = n => n >= 0 ? '+' : '−'
+
+  // ── Detailed table columns ──
+  const detailedColumns = useMemo(() => [
+    { key:'account', label:'Account', getValue: r => r.isSub ? `${r.subName} / ${r.trade.account||''}` : (r.trade.account||''), filterable:true, sortable:true },
+    { key:'ticker',  label:'Ticker',  getValue: r => r.trade.ticker, filterable:true, sortable:true },
+    { key:'direction', label:'Dir',   getValue: r => r.trade.direction, filterable:true, sortable:true },
+    { key:'entry_date', label:'Entry Date', getValue: r => r.trade.entry_date, sortable:true },
+    { key:'entry_price', label:'Entry Rs.', getSortValue: r => Number(r.trade.entry_price), sortable:true },
+    { key:'exit_price',  label:'Exit Rs.',  getSortValue: r => Number(r.trade.exit_price)||0, sortable:true },
+    { key:'qty',     label:'Qty',    getSortValue: r => Number(r.trade.quantity), sortable:true },
+    { key:'mtf_int', label:'MTF Int',getSortValue: r => { const rc = calcRow(r.trade, r.execMap); return rc.mtfInt||0 }, sortable:true },
+    { key:'unrealised', label:'Unreal. P&L', getSortValue: r => { const rc = calcRow(r.trade, r.execMap); return rc.unrealisedPnL??-Infinity }, sortable:true },
+    { key:'realised',   label:'Real. P&L',   getSortValue: r => { const rc = calcRow(r.trade, r.execMap); return rc.realisedPnL??0 }, sortable:true },
+  ], [calcRow])  // eslint-disable-line
+
+  const tf = useTableFilter(allRows, detailedColumns, {
+    hasStatusFilter: true,
+    statusField: r => r.trade.status,
+  })
 
   // ── Ticker summary groups ──
   const tickerGroupMap = {}
@@ -234,7 +239,7 @@ export default function AllTradesPage() {
     if (!tickerGroupMap[tk]) tickerGroupMap[tk] = []
     tickerGroupMap[tk].push({ trade, execMap, isSub, subName })
   })
-  const tickerSummary = Object.entries(tickerGroupMap).map(([ticker, rows]) => {
+  const tickerSummaryRaw = Object.entries(tickerGroupMap).map(([ticker, rows]) => {
     const totalQty = rows.reduce((s, { trade }) => s + Number(trade.quantity || 0), 0)
     const currQty = rows.reduce((s, { trade, execMap }) => {
       const sold = (execMap[trade.id] || []).reduce((es, e) => es + Number(e.quantity || 0), 0)
@@ -256,6 +261,39 @@ export default function AllTradesPage() {
     }, 0)
     return { ticker, totalQty, currQty, cmp, totalInvestment, actualInvestment, unrealised, realised, rows }
   }).sort((a, b) => a.ticker.localeCompare(b.ticker))
+
+  const tickerSummary = useMemo(() => {
+    let result = tickerSummaryRaw
+    // Apply status filter shared with detailed table
+    if (tf.statusFilter !== 'ALL') {
+      result = result.filter(tg => {
+        if (tf.statusFilter === 'OPEN') return tg.rows.some(r => r.trade.status === 'OPEN')
+        return tg.rows.every(r => r.trade.status === 'CLOSED')
+      })
+    }
+    // Apply ticker column filter
+    if (tkHiddenTickers.size > 0) result = result.filter(tg => !tkHiddenTickers.has(tg.ticker))
+    // Apply sort
+    if (tkSortKey) {
+      result = [...result].sort((a, b) => {
+        const av = a[tkSortKey] ?? -Infinity
+        const bv = b[tkSortKey] ?? -Infinity
+        if (typeof av === 'string') return tkSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+        return tkSortDir === 'asc' ? av - bv : bv - av
+      })
+    }
+    return result
+  }, [tickerSummaryRaw, tf.statusFilter, tkHiddenTickers, tkSortKey, tkSortDir])  // eslint-disable-line
+
+  const tkSort = (key) => {
+    if (tkSortKey === key) { if (tkSortDir === 'asc') setTkSortDir('desc'); else { setTkSortKey(null) } }
+    else { setTkSortKey(key); setTkSortDir('asc') }
+  }
+  const tkArrow = (key) => tkSortKey === key
+    ? <span className={`sort-arrow active`}>{tkSortDir === 'asc' ? '↑' : '↓'}</span>
+    : <span className="sort-arrow">↕</span>
+
+  const allTickerValues = tickerSummaryRaw.map(tg => tg.ticker)
 
   if (!session) return null
 
@@ -349,14 +387,31 @@ export default function AllTradesPage() {
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>Ticker</th>
-                    <th className="r">Total Qty</th>
-                    <th className="r">Curr Qty</th>
-                    <th className="r">CMP</th>
-                    <th className="r">Total Inv.</th>
-                    <th className="r">Actual Inv.</th>
-                    <th className="r">Unreal. P&L</th>
-                    <th className="r">Real. P&L</th>
+                    <th style={{ position:'relative' }}>
+                      <div className="col-header">
+                        <span style={{ cursor:'pointer' }} onClick={() => tkSort('ticker')}>Ticker{tkArrow('ticker')}</span>
+                        <span className={`filter-icon ${tkHiddenTickers.size > 0 ? 'has-filter' : ''}`}
+                          onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setTkFilterPos({ top:r.bottom+4, left:Math.min(r.left, window.innerWidth-228) }); setTkFilterOpen(o=>!o) }}>▼</span>
+                      </div>
+                      {tkFilterOpen && (
+                        <FilterDropdown
+                          position={tkFilterPos}
+                          uniqueValues={allTickerValues}
+                          hiddenValues={tkHiddenTickers}
+                          onToggle={val => { const s = new Set(tkHiddenTickers); s.has(val)?s.delete(val):s.add(val); setTkHiddenTickers(s) }}
+                          onSelectAll={() => setTkHiddenTickers(new Set())}
+                          onDeselectAll={() => setTkHiddenTickers(new Set(allTickerValues))}
+                          onClose={() => setTkFilterOpen(false)}
+                        />
+                      )}
+                    </th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tkSort('totalQty')}><span className="col-header" style={{ justifyContent:'flex-end' }}>Total Qty{tkArrow('totalQty')}</span></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tkSort('currQty')}><span className="col-header" style={{ justifyContent:'flex-end' }}>Curr Qty{tkArrow('currQty')}</span></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tkSort('cmp')}><span className="col-header" style={{ justifyContent:'flex-end' }}>CMP{tkArrow('cmp')}</span></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tkSort('totalInvestment')}><span className="col-header" style={{ justifyContent:'flex-end' }}>Total Inv.{tkArrow('totalInvestment')}</span></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tkSort('actualInvestment')}><span className="col-header" style={{ justifyContent:'flex-end' }}>Actual Inv.{tkArrow('actualInvestment')}</span></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tkSort('unrealised')}><span className="col-header" style={{ justifyContent:'flex-end' }}>Unreal. P&L{tkArrow('unrealised')}</span></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tkSort('realised')}><span className="col-header" style={{ justifyContent:'flex-end' }}>Real. P&L{tkArrow('realised')}</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -424,27 +479,44 @@ export default function AllTradesPage() {
               <div>
                 <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>All Trades — Detailed View</div>
                 <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginTop:'2px' }}>
-                  {filtered.length} trades &nbsp;
+                  {tf.filteredData.length} trades &nbsp;
                   <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px' }}>
                     ■ gold = subscriber account
                   </span>
                 </div>
               </div>
-              <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
+              <div style={{ display:'flex', gap:'6px', alignItems:'center', flexWrap:'wrap' }}>
                 <button onClick={downloadCSV} style={{ padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>⬇ CSV</button>
-                {['ALL','OPEN','CLOSED'].map(f => (
-                  <button key={f} onClick={() => setStatusFilter(f)} style={{
-                    padding:'5px 14px', borderRadius:'4px', cursor:'pointer', fontSize:'10px',
-                    fontFamily:'DM Mono, monospace', fontWeight:600,
-                    border:`1px solid ${statusFilter===f?'var(--accent)':'var(--border)'}`,
-                    background: statusFilter===f ? 'var(--accent-dim)' : 'transparent',
-                    color: statusFilter===f ? 'var(--accent)' : 'var(--muted)',
-                  }}>
-                    {f} ({f==='ALL'?allRows.length:allRows.filter(r=>r.trade.status===f).length})
-                  </button>
-                ))}
+                <div className="status-filter-bar" style={{ marginBottom:0 }}>
+                  {['ALL','OPEN','CLOSED'].map(f => (
+                    <button key={f} className={`status-btn ${tf.statusFilter===f?'active':''}`}
+                      onClick={() => tf.setStatusFilter(f)}>
+                      {f==='ALL'?'All':f} ({f==='ALL'?allRows.length:allRows.filter(r=>r.trade.status===f).length})
+                    </button>
+                  ))}
+                </div>
+                {tf.activeFilterCount > 0 && (
+                  <button className="clear-all-btn" onClick={tf.clearAllFilters}>✕ Clear filters</button>
+                )}
               </div>
             </div>
+
+            {/* Active filter pills */}
+            {tf.activeFilterCount > 0 && (
+              <div className="active-filters-bar" style={{ marginBottom:'10px' }}>
+                <span className="filter-label">Active:</span>
+                {Object.entries(tf.columnFilters).map(([colKey, hidden]) => {
+                  if (!hidden || hidden.size === 0) return null
+                  const col = detailedColumns.find(c => c.key === colKey)
+                  return (
+                    <span key={colKey} className="filter-pill">
+                      {col?.label}: {hidden.size} hidden
+                      <span className="remove-filter" onClick={() => tf.clearColumnFilter(colKey)}>×</span>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
 
             {/* ── Trade table — responsive, no horizontal scroll ── */}
             <div style={{ border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
@@ -463,22 +535,36 @@ export default function AllTradesPage() {
                 </colgroup>
                 <thead>
                   <tr>
-                    <th className="sortable" onClick={() => doSort('account')}>Account{sortIcon('account')}</th>
-                    <th className="sortable" onClick={() => doSort('ticker')}>Ticker/Dir{sortIcon('ticker')}</th>
-                    <th className="sortable" onClick={() => doSort('entry_date')}>Entry Date{sortIcon('entry_date')}</th>
-                    <th className="sortable r" onClick={() => doSort('entry_price')}>Entry Rs.{sortIcon('entry_price')}</th>
+                    <th style={{ position:'relative' }}>
+                      <div className="col-header">
+                        <span style={{ cursor:'pointer' }} onClick={() => tf.handleSort('account')}>Account<span className={`sort-arrow ${tf.sortConfig?.key==='account'?'active':''}`}>{tf.sortConfig?.key==='account'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></span>
+                        <span className={`filter-icon ${tf.columnFilters['account']?.size>0?'has-filter':''}`} onClick={e => tf.openFilter(e,'account')}>▼</span>
+                      </div>
+                      {tf.openFilterKey==='account' && <FilterDropdown position={tf.filterDropPos} uniqueValues={tf.getUniqueValues('account')} hiddenValues={tf.columnFilters['account']||new Set()} onToggle={v=>tf.toggleFilterValue('account',v)} onSelectAll={()=>tf.selectAllFilter('account')} onDeselectAll={()=>tf.deselectAllFilter('account',tf.getUniqueValues('account'))} onClose={()=>tf.setOpenFilterKey(null)} />}
+                    </th>
+                    <th style={{ position:'relative' }}>
+                      <div className="col-header">
+                        <span style={{ cursor:'pointer' }} onClick={() => tf.handleSort('ticker')}>Ticker/Dir<span className={`sort-arrow ${tf.sortConfig?.key==='ticker'?'active':''}`}>{tf.sortConfig?.key==='ticker'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></span>
+                        <span className={`filter-icon ${tf.columnFilters['ticker']?.size>0?'has-filter':''}`} onClick={e => tf.openFilter(e,'ticker')} title="Filter Ticker">▼</span>
+                        <span className={`filter-icon ${tf.columnFilters['direction']?.size>0?'has-filter':''}`} onClick={e => tf.openFilter(e,'direction')} title="Filter Dir" style={{ fontSize:'8px' }}>⇅</span>
+                      </div>
+                      {tf.openFilterKey==='ticker' && <FilterDropdown position={tf.filterDropPos} uniqueValues={tf.getUniqueValues('ticker')} hiddenValues={tf.columnFilters['ticker']||new Set()} onToggle={v=>tf.toggleFilterValue('ticker',v)} onSelectAll={()=>tf.selectAllFilter('ticker')} onDeselectAll={()=>tf.deselectAllFilter('ticker',tf.getUniqueValues('ticker'))} onClose={()=>tf.setOpenFilterKey(null)} />}
+                      {tf.openFilterKey==='direction' && <FilterDropdown position={tf.filterDropPos} uniqueValues={tf.getUniqueValues('direction')} hiddenValues={tf.columnFilters['direction']||new Set()} onToggle={v=>tf.toggleFilterValue('direction',v)} onSelectAll={()=>tf.selectAllFilter('direction')} onDeselectAll={()=>tf.deselectAllFilter('direction',tf.getUniqueValues('direction'))} onClose={()=>tf.setOpenFilterKey(null)} />}
+                    </th>
+                    <th style={{ cursor:'pointer' }} onClick={() => tf.handleSort('entry_date')}><div className="col-header">Entry Date<span className={`sort-arrow ${tf.sortConfig?.key==='entry_date'?'active':''}`}>{tf.sortConfig?.key==='entry_date'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('entry_price')}><div className="col-header" style={{ justifyContent:'flex-end' }}>Entry Rs.<span className={`sort-arrow ${tf.sortConfig?.key==='entry_price'?'active':''}`}>{tf.sortConfig?.key==='entry_price'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
                     <th className="r">CMP</th>
-                    <th className="sortable r" onClick={() => doSort('exit_price')}>Exit Rs.{sortIcon('exit_price')}</th>
-                    <th className="r">Qty / Curr</th>
-                    <th className="r">MTF Int</th>
-                    <th className="r">Unreal. P&L</th>
-                    <th className="r">Real. P&L</th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('exit_price')}><div className="col-header" style={{ justifyContent:'flex-end' }}>Exit Rs.<span className={`sort-arrow ${tf.sortConfig?.key==='exit_price'?'active':''}`}>{tf.sortConfig?.key==='exit_price'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('qty')}><div className="col-header" style={{ justifyContent:'flex-end' }}>Qty / Curr<span className={`sort-arrow ${tf.sortConfig?.key==='qty'?'active':''}`}>{tf.sortConfig?.key==='qty'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('mtf_int')}><div className="col-header" style={{ justifyContent:'flex-end' }}>MTF Int<span className={`sort-arrow ${tf.sortConfig?.key==='mtf_int'?'active':''}`}>{tf.sortConfig?.key==='mtf_int'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('unrealised')}><div className="col-header" style={{ justifyContent:'flex-end' }}>Unreal. P&L<span className={`sort-arrow ${tf.sortConfig?.key==='unrealised'?'active':''}`}>{tf.sortConfig?.key==='unrealised'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('realised')}><div className="col-header" style={{ justifyContent:'flex-end' }}>Real. P&L<span className={`sort-arrow ${tf.sortConfig?.key==='realised'?'active':''}`}>{tf.sortConfig?.key==='realised'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length === 0 ? (
+                  {tf.filteredData.length === 0 ? (
                     <tr><td colSpan={10} style={{ textAlign:'center', padding:'40px', color:'var(--muted)' }}>No trades found.</td></tr>
-                  ) : filtered.map(({ trade, execMap, isSub, subName }) => {
+                  ) : tf.filteredData.map(({ trade, execMap, isSub, subName }) => {
                     const r = calcRow(trade, execMap)
                     const accountLabel = isSub
                       ? `${subName} / ${trade.account || '—'}`

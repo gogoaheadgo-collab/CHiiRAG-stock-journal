@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays } from 'date-fns'
 import Sidebar from '../components/Sidebar'
+import { useTableFilter, FilterDropdown } from '../components/TableFilter'
 
 function triggerCSVDownload(csvContent, filename) {
   if (typeof window === 'undefined') return
@@ -418,22 +419,31 @@ export default function RevenueSharingPage() {
   const TradeTable = ({ trades, execs, subscriberId }) => {
     const [statusFilter, setStatusFilter] = React.useState('ALL')
 
-    const [sortCol, setSortCol] = React.useState(null)
-    const [sortDir, setSortDir] = React.useState('asc')
-    const doSort = (col) => { if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc') } }
-    const sortIcon = (col) => sortCol===col ? (sortDir==='asc'?' ↑':' ↓') : ' ↕'
-    const applySort = (list) => {
-      if (!sortCol) return list
-      return [...list].sort((a,b) => { let av=a[sortCol]??'',bv=b[sortCol]??''; if(typeof av==='string') av=av.toLowerCase(),bv=bv.toLowerCase(); return sortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1) })
-    }
+    const trColumns = React.useMemo(() => [
+      { key: 'ticker', filterable: true, sortable: true },
+      { key: 'entry_date', sortable: true },
+      { key: 'entry_price', sortable: true, getSortValue: t => Number(t.entry_price) || 0 },
+      { key: 'exit_price', sortable: true, getSortValue: t => calcTradePnL(t, execs).exitPrice || 0 },
+      { key: 'quantity', sortable: true, getSortValue: t => Number(t.quantity) || 0 },
+      { key: 'invested_capital', sortable: true, getSortValue: t => Number(t.invested_capital) || 0 },
+      { key: 'admin_ratio', sortable: true, getSortValue: t => calcTradePnL(t, execs).adminRatio },
+      { key: 'mtf_int', sortable: true, getSortValue: t => calcTradePnL(t, execs).mtfInt },
+      { key: 'gross_pnl', sortable: true, getSortValue: t => calcTradePnL(t, execs).grossPnL },
+      { key: 'gross_pnl_admin', sortable: true, getSortValue: t => calcTradePnL(t, execs).grossPnLAdmin },
+      { key: 'net_pnl_admin', sortable: true, getSortValue: t => calcTradePnL(t, execs).netPnLAdmin },
+      { key: 'status', filterable: true, sortable: true },
+    ], [execs]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const allMtfTrades = trades.filter(t => Number(t.actual_investment) > 0)
+    const mtfTrades = statusFilter === 'ALL' ? allMtfTrades : allMtfTrades.filter(t => t.status === statusFilter)
+    const trTf = useTableFilter(mtfTrades, trColumns)
+
     const downloadCSV = () => {
       const h=['Ticker','Entry Date','Entry Price','Exit Price','Qty','Investment','Admin%','Gross P&L','Net P&L Admin']
       const rows=mtfTrades.map(t=>{ const r=calcTradePnL(t,execs); return [t.ticker,t.entry_date,r.entryPrice,r.exitPrice||'',r.originalQty,r.investment,(r.adminRatio*100).toFixed(1)+'%',r.grossPnL.toFixed(2),r.netPnLAdmin.toFixed(2)] })
       const csv=[h,...rows].map(r=>r.join(',')).join('\n')
       triggerCSVDownload(csv, 'revenue-sharing.csv')
     }
-    const allMtfTrades = trades.filter(t => Number(t.actual_investment) > 0)
-    const mtfTrades = statusFilter === 'ALL' ? allMtfTrades : allMtfTrades.filter(t => t.status === statusFilter)
     if (allMtfTrades.length === 0) return (
       <div style={{ color:'var(--muted)', fontSize:'13px', padding:'24px', textAlign:'center' }}>
         No MTF trades found. Revenue sharing applies only to trades with "Actual Investment" set.
@@ -495,21 +505,35 @@ export default function RevenueSharingPage() {
               </colgroup>
               <thead>
                 <tr>
-                  <th onClick={() => doSort('ticker')} style={{ cursor:'pointer', userSelect:'none' }}>Ticker{sortIcon('ticker')}</th>
-                  <th onClick={() => doSort('entry_date')} style={{ cursor:'pointer', userSelect:'none' }}>Entry Date{sortIcon('entry_date')}</th>
-                  <th className="r">Entry Rs.</th>
-                  <th className="r">Exit Rs.</th>
-                  <th className="r">Qty</th>
-                  <th className="r">Inv / Actual</th>
-                  <th className="r">Admin %</th>
-                  <th className="r">MTF Int</th>
-                  <th className="r">Gross P&L</th>
-                  <th className="r">Gross (Admin)</th>
-                  <th className="r">Net (Admin)</th>
+                  {[
+                    { key:'ticker', label:'Ticker', filterable:true },
+                    { key:'entry_date', label:'Entry Date' },
+                    { key:'entry_price', label:'Entry Rs.', right:true },
+                    { key:'exit_price', label:'Exit Rs.', right:true },
+                    { key:'quantity', label:'Qty', right:true },
+                    { key:'invested_capital', label:'Inv / Actual', right:true },
+                    { key:'admin_ratio', label:'Admin %', right:true },
+                    { key:'mtf_int', label:'MTF Int', right:true },
+                    { key:'gross_pnl', label:'Gross P&L', right:true },
+                    { key:'gross_pnl_admin', label:'Gross (Admin)', right:true },
+                    { key:'net_pnl_admin', label:'Net (Admin)', right:true },
+                    { key:'status', label:'Status', filterable:true },
+                  ].map(col => (
+                    <th key={col.key} className={`col-header${col.right?' r':''}`} onClick={() => trTf.handleSort(col.key)}>
+                      {col.label}
+                      <span className={`sort-arrow${trTf.sortConfig?.key===col.key?' active':''}`}>
+                        {trTf.sortConfig?.key===col.key?(trTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
+                      </span>
+                      {col.filterable && (
+                        <span className={`filter-icon${(trTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
+                          onClick={e => trTf.openFilter(e, col.key)}>▼</span>
+                      )}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {applySort(mtfTrades).map(trade => {
+                {trTf.filteredData.map(trade => {
                   const r = calcTradePnL(trade, execs)
                   return (
                     <tr key={trade.id}>
@@ -541,6 +565,17 @@ export default function RevenueSharingPage() {
                 })}
               </tbody>
             </table>
+            {trTf.openFilterKey && (
+              <FilterDropdown
+                position={trTf.filterDropPos}
+                uniqueValues={trTf.getUniqueValues(trTf.openFilterKey)}
+                hiddenValues={trTf.columnFilters[trTf.openFilterKey] || new Set()}
+                onToggle={v => trTf.toggleFilterValue(trTf.openFilterKey, v)}
+                onSelectAll={() => trTf.selectAllFilter(trTf.openFilterKey)}
+                onDeselectAll={() => trTf.deselectAllFilter(trTf.openFilterKey, trTf.getUniqueValues(trTf.openFilterKey))}
+                onClose={() => trTf.setOpenFilterKey(null)}
+              />
+            )}
           </div>
           <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'8px', fontFamily:'DM Mono, monospace' }}>
             Net P&L Admin = Gross P&L Admin − MTF Interest (closed trades only)

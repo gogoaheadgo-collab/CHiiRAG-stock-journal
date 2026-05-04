@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
@@ -7,6 +7,7 @@ import AddTradeModal from '../components/AddTradeModal'
 import EditTradeModal from '../components/EditTradeModal'
 import ExecutionPanel from '../components/ExecutionPanel'
 import Sidebar from '../components/Sidebar'
+import { useTableFilter, FilterDropdown } from '../components/TableFilter'
 
 function triggerCSVDownload(csvContent, filename) {
   if (typeof window === 'undefined') return
@@ -22,50 +23,43 @@ function triggerCSVDownload(csvContent, filename) {
   window.URL.revokeObjectURL(url)
 }
 function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, setMirrorFilter, livePrices, toINRd, toINR, loadMirroredTrades, activeMirror, selectedMonth, setSelectedMonth }) {
-  const [mSortCol, setMSortCol] = React.useState(null)
-  const [mSortDir, setMSortDir] = React.useState('asc')
-  const mDoSort = (col) => { if(mSortCol===col) setMSortDir(d=>d==='asc'?'desc':'asc'); else { setMSortCol(col); setMSortDir('asc') } }
-  const mSortIcon = (col) => mSortCol===col ? (mSortDir==='asc'?' ↑':' ↓') : ' ↕'
-
-  const mComputeVal = (trade, col) => {
-    const mExs = mExecs.filter(e => e.trade_id === trade.id)
-    const mTotalSold = mExs.reduce((s,e) => s+Number(e.quantity), 0)
-    const mOrigQty = Number(trade.quantity) || 0
-    const mCurrQty = Math.max(0, mOrigQty - mTotalSold)
-    const mEntry = Number(trade.entry_price) || 0
-    if (col === 'curr_qty') return mCurrQty
-    if (col === 'cmp') return livePrices[trade.ticker]?.price || 0
-    if (col === 'unrealised') {
-      const mLp = livePrices[trade.ticker]?.price
-      if (!mLp || mCurrQty === 0) return -Infinity
-      return trade.direction === 'LONG' ? (mLp - mEntry) * mCurrQty : (mEntry - mLp) * mCurrQty
-    }
-    if (col === 'realised') return mExs.length > 0 ? mExs.reduce((s,e) => s+(Number(e.price)-mEntry)*Number(e.quantity), 0) : (Number(trade.realized_gains)||0)
-    if (col === 'mtf_int') {
-      const mInv = Number(trade.invested_capital) || (mEntry * mOrigQty)
-      const mActInv = Number(trade.actual_investment) || 0
-      const mBase = mInv - mActInv
-      if (!mBase || !trade.mtf_interest_rate || !trade.entry_date) return 0
-      return mBase * (mCurrQty/mOrigQty) * trade.mtf_interest_rate * Math.max(1, Math.floor((new Date() - new Date(trade.entry_date))/86400000)) / 36500
-    }
-    return trade[col]
-  }
-
-  const mApplySort = (list) => {
-    if (!mSortCol) return list
-    const computed = ['curr_qty','unrealised','realised','mtf_int','cmp']
-    return [...list].sort((a,b) => {
-      let av = computed.includes(mSortCol) ? mComputeVal(a, mSortCol) : a[mSortCol]
-      let bv = computed.includes(mSortCol) ? mComputeVal(b, mSortCol) : b[mSortCol]
-      if (typeof av==='string') av=av.toLowerCase(), bv=(bv||'').toLowerCase()
-      if (av==null||av===-Infinity) av=mSortDir==='asc'?Infinity:-Infinity
-      if (bv==null||bv===-Infinity) bv=mSortDir==='asc'?Infinity:-Infinity
-      return mSortDir==='asc'?(av>bv?1:-1):(av<bv?1:-1)
-    })
-  }
+  const mColumns = React.useMemo(() => [
+    { key: 'ticker', filterable: true, sortable: true },
+    { key: 'account', filterable: true, sortable: true },
+    { key: 'entry_date', sortable: true },
+    { key: 'entry_price', sortable: true, getSortValue: t => Number(t.entry_price) || 0 },
+    { key: 'cmp', sortable: true, getSortValue: t => livePrices[t.ticker]?.price || 0 },
+    { key: 'exit_price', sortable: true, getSortValue: t => Number(t.exit_price) || 0 },
+    { key: 'quantity', sortable: true, getSortValue: t => Number(t.quantity) || 0 },
+    { key: 'invested_capital', sortable: true, getSortValue: t => Number(t.invested_capital) || 0 },
+    { key: 'mtf_int', sortable: true, getSortValue: t => {
+      const xs = mExecs.filter(e => e.trade_id === t.id)
+      const orig = Number(t.quantity) || 0
+      const curr = Math.max(0, orig - xs.reduce((s,e) => s+Number(e.quantity), 0))
+      const inv = Number(t.invested_capital) || (Number(t.entry_price)*orig)
+      const base = inv - (Number(t.actual_investment)||0)
+      if (!base || !t.mtf_interest_rate || !t.entry_date) return 0
+      return base*(curr/orig)*t.mtf_interest_rate*Math.max(1,Math.floor((new Date()-new Date(t.entry_date))/86400000))/36500
+    }},
+    { key: 'unrealised', sortable: true, getSortValue: t => {
+      const xs = mExecs.filter(e => e.trade_id === t.id)
+      const orig = Number(t.quantity) || 0
+      const curr = Math.max(0, orig - xs.reduce((s,e) => s+Number(e.quantity), 0))
+      const entry = Number(t.entry_price) || 0
+      const lp = livePrices[t.ticker]?.price
+      if (!lp || curr === 0) return -Infinity
+      return t.direction === 'LONG' ? (lp-entry)*curr : (entry-lp)*curr
+    }},
+    { key: 'realised', sortable: true, getSortValue: t => {
+      const xs = mExecs.filter(e => e.trade_id === t.id)
+      const entry = Number(t.entry_price) || 0
+      return xs.length > 0 ? xs.reduce((s,e) => s+(Number(e.price)-entry)*Number(e.quantity), 0) : (Number(t.realized_gains)||0)
+    }},
+    { key: 'status', filterable: true, sortable: true },
+  ], [mExecs, livePrices])
 
   const baseFiltered = mirrorFilter === 'ALL' ? mTrades : mTrades.filter(t => t.status === mirrorFilter)
-  const filtered = mApplySort(baseFiltered)
+  const mTf = useTableFilter(baseFiltered, mColumns)
   return (
     <div style={{ display:'flex', gap:'16px', alignItems:'flex-start' }}>
       <div style={{ flex:1, minWidth:0 }}>
@@ -123,22 +117,35 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
               </colgroup>
               <thead>
                 <tr>
-                  <th onClick={() => mDoSort('ticker')} style={{ cursor:'pointer', userSelect:'none' }}>Ticker{mSortIcon('ticker')}</th>
-                  <th onClick={() => mDoSort('account')} style={{ cursor:'pointer', userSelect:'none' }}>Account{mSortIcon('account')}</th>
-                  <th onClick={() => mDoSort('entry_date')} style={{ cursor:'pointer', userSelect:'none' }}>Entry Date{mSortIcon('entry_date')}</th>
-                  <th className="r" onClick={() => mDoSort('entry_price')} style={{ cursor:'pointer', userSelect:'none' }}>Entry Rs.{mSortIcon('entry_price')}</th>
-                  <th className="r" onClick={() => mDoSort('cmp')} style={{ cursor:'pointer', userSelect:'none' }}>CMP{mSortIcon('cmp')}</th>
-                  <th className="r" onClick={() => mDoSort('exit_price')} style={{ cursor:'pointer', userSelect:'none' }}>Exit Rs.{mSortIcon('exit_price')}</th>
-                  <th className="r" onClick={() => mDoSort('quantity')} style={{ cursor:'pointer', userSelect:'none' }}>Qty / Curr{mSortIcon('quantity')}</th>
-                  <th className="r" onClick={() => mDoSort('invested_capital')} style={{ cursor:'pointer', userSelect:'none' }}>Inv / Actual{mSortIcon('invested_capital')}</th>
-                  <th className="r" onClick={() => mDoSort('mtf_int')} style={{ cursor:'pointer', userSelect:'none' }}>MTF Int{mSortIcon('mtf_int')}</th>
-                  <th className="r" onClick={() => mDoSort('unrealised')} style={{ cursor:'pointer', userSelect:'none' }}>Unreal. P&L{mSortIcon('unrealised')}</th>
-                  <th className="r" onClick={() => mDoSort('realised')} style={{ cursor:'pointer', userSelect:'none' }}>Real. P&L{mSortIcon('realised')}</th>
-                  <th onClick={() => mDoSort('status')} style={{ cursor:'pointer', userSelect:'none' }}>Status{mSortIcon('status')}</th>
+                  {[
+                    { key:'ticker', label:'Ticker', filterable:true },
+                    { key:'account', label:'Account', filterable:true },
+                    { key:'entry_date', label:'Entry Date' },
+                    { key:'entry_price', label:'Entry Rs.', right:true },
+                    { key:'cmp', label:'CMP', right:true },
+                    { key:'exit_price', label:'Exit Rs.', right:true },
+                    { key:'quantity', label:'Qty / Curr', right:true },
+                    { key:'invested_capital', label:'Inv / Actual', right:true },
+                    { key:'mtf_int', label:'MTF Int', right:true },
+                    { key:'unrealised', label:'Unreal. P&L', right:true },
+                    { key:'realised', label:'Real. P&L', right:true },
+                    { key:'status', label:'Status', filterable:true },
+                  ].map(col => (
+                    <th key={col.key} className={`col-header${col.right?' r':''}`} onClick={() => mTf.handleSort(col.key)}>
+                      {col.label}
+                      <span className={`sort-arrow${mTf.sortConfig?.key===col.key?' active':''}`}>
+                        {mTf.sortConfig?.key===col.key?(mTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
+                      </span>
+                      {col.filterable && (
+                        <span className={`filter-icon${(mTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
+                          onClick={e => mTf.openFilter(e, col.key)}>▼</span>
+                      )}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(trade => {
+                {mTf.filteredData.map(trade => {
                   const execs = mExecs.filter(e => e.trade_id === trade.id)
                   const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
                   const originalQty = Number(trade.quantity) || 0
@@ -189,6 +196,17 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
                 })}
               </tbody>
             </table>
+            {mTf.openFilterKey && (
+              <FilterDropdown
+                position={mTf.filterDropPos}
+                uniqueValues={mTf.getUniqueValues(mTf.openFilterKey)}
+                hiddenValues={mTf.columnFilters[mTf.openFilterKey] || new Set()}
+                onToggle={v => mTf.toggleFilterValue(mTf.openFilterKey, v)}
+                onSelectAll={() => mTf.selectAllFilter(mTf.openFilterKey)}
+                onDeselectAll={() => mTf.deselectAllFilter(mTf.openFilterKey, mTf.getUniqueValues(mTf.openFilterKey))}
+                onClose={() => mTf.setOpenFilterKey(null)}
+              />
+            )}
           </div>
         )}
       </div>
@@ -324,8 +342,6 @@ export default function AccountsPage() {
   const [activeMirrorAccount, setActiveMirrorAccount] = useState(null)
   const [mirrorFilter, setMirrorFilter] = useState('ALL')
   const [selectedMonth, setSelectedMonth] = useState(null) // 'YYYY-MM' or null=ALL
-  const [sortCol, setSortCol] = useState(null)
-  const [sortDir, setSortDir] = useState('asc')
   const [shareModal, setShareModal] = useState(null) // account name being shared
   const [accountShares, setAccountShares] = useState([]) // { account_name, subscriber_id }[]
   const [subscribers, setSubscribers] = useState([]) // for share picker
@@ -599,53 +615,6 @@ export default function AccountsPage() {
     setSharedAdminExecs(data.executions || [])
   }
 
-  const doSort = (col) => {
-    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortCol(col); setSortDir('asc') }
-  }
-  const sortIcon = (col) => sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
-
-  const computeSortVal = (trade, col) => {
-    const exs = executions[trade.id] || []
-    const totalSold = exs.reduce((s,e) => s + Number(e.quantity), 0)
-    const origQty = Number(trade.quantity) || 0
-    const currQty = Math.max(0, origQty - totalSold)
-    const entry = Number(trade.entry_price) || 0
-    const investment = Number(trade.invested_capital) || (entry * origQty)
-    const actualInv = Number(trade.actual_investment) || 0
-    const mtfBase = investment - actualInv
-    if (col === 'curr_qty') return currQty
-    if (col === 'cmp') return livePrices[trade.ticker]?.price || 0
-    if (col === 'unrealised') {
-      const cLp = livePrices[trade.ticker]?.price
-      if (!cLp || currQty === 0) return -Infinity
-      return trade.direction === 'LONG' ? (cLp - entry) * currQty : (entry - cLp) * currQty
-    }
-    if (col === 'realised') {
-      if (exs.length > 0) return exs.reduce((s,e) => s + (Number(e.price) - entry) * Number(e.quantity), 0)
-      return Number(trade.realized_gains) || 0
-    }
-    if (col === 'mtf_int') {
-      if (!mtfBase || !trade.mtf_interest_rate || !trade.entry_date) return 0
-      const cDays = Math.max(1, Math.floor((new Date() - new Date(trade.entry_date)) / 86400000))
-      return mtfBase * (currQty/origQty) * trade.mtf_interest_rate * cDays / 36500
-    }
-    return trade[col]
-  }
-
-  const applySortToTrades = (tradeList) => {
-    if (!sortCol) return tradeList
-    return [...tradeList].sort((a, b) => {
-      const computed = ['curr_qty','unrealised','realised','mtf_int','cmp']
-      let av = computed.includes(sortCol) ? computeSortVal(a, sortCol) : a[sortCol]
-      let bv = computed.includes(sortCol) ? computeSortVal(b, sortCol) : b[sortCol]
-      if (typeof av === 'string') av = av.toLowerCase(), bv = (bv||'').toLowerCase()
-      if (av == null || av === -Infinity) av = sortDir === 'asc' ? Infinity : -Infinity
-      if (bv == null || bv === -Infinity) bv = sortDir === 'asc' ? Infinity : -Infinity
-      return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1)
-    })
-  }
-
   const downloadCSV = (tradeList, filename) => {
     const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Status']
     const rows = tradeList.map(t => {
@@ -757,6 +726,48 @@ export default function AccountsPage() {
     }, 0)
 
   const totalUnrealised = calcUnrealised(trades, allOwnExecs) + calcUnrealised(allMirroredTrades, allMirroredExecs) + calcUnrealised(sharedAdminTrades, sharedAdminExecs)
+
+  const mainColumns = useMemo(() => [
+    { key: 'ticker', filterable: true, sortable: true },
+    { key: 'direction', filterable: true, sortable: true },
+    { key: 'entry_date', sortable: true },
+    { key: 'entry_price', sortable: true, getSortValue: t => Number(t.entry_price) || 0 },
+    { key: 'cmp', sortable: true, getSortValue: t => livePrices[t.ticker]?.price || 0 },
+    { key: 'exit_price', sortable: true, getSortValue: t => Number(t.exit_price) || 0 },
+    { key: 'quantity', sortable: true, getSortValue: t => Number(t.quantity) || 0 },
+    { key: 'invested_capital', sortable: true, getSortValue: t => Number(t.invested_capital) || 0 },
+    { key: 'mtf_int', sortable: true, getSortValue: t => {
+      const exs = executions[t.id] || []
+      const orig = Number(t.quantity) || 0
+      const curr = Math.max(0, orig - exs.reduce((s,e) => s+Number(e.quantity), 0))
+      const inv = Number(t.invested_capital) || (Number(t.entry_price)*orig)
+      const base = inv - (Number(t.actual_investment)||0)
+      if (!base || !t.mtf_interest_rate || !t.entry_date) return 0
+      return base*(curr/orig)*t.mtf_interest_rate*Math.max(1,Math.floor((new Date()-new Date(t.entry_date))/86400000))/36500
+    }},
+    { key: 'unrealised', sortable: true, getSortValue: t => {
+      const exs = executions[t.id] || []
+      const orig = Number(t.quantity) || 0
+      const curr = Math.max(0, orig - exs.reduce((s,e) => s+Number(e.quantity), 0))
+      const entry = Number(t.entry_price) || 0
+      const lp = livePrices[t.ticker]?.price
+      if (!lp || curr === 0) return -Infinity
+      return t.direction === 'LONG' ? (lp-entry)*curr : (entry-lp)*curr
+    }},
+    { key: 'realised', sortable: true, getSortValue: t => {
+      const exs = executions[t.id] || []
+      const entry = Number(t.entry_price) || 0
+      return exs.length > 0 ? exs.reduce((s,e) => s+(Number(e.price)-entry)*Number(e.quantity), 0) : (Number(t.realized_gains)||0)
+    }},
+  ], [livePrices, executions])
+
+  const monthFilteredForHook = useMemo(() =>
+    selectedMonth
+      ? filtered.filter(t => t.entry_date && t.entry_date.slice(0,7) === selectedMonth)
+      : filtered,
+    [filtered, selectedMonth])
+
+  const mainTf = useTableFilter(monthFilteredForHook, mainColumns)
 
   if (!session) return null
 
@@ -981,11 +992,7 @@ export default function AccountsPage() {
                   </button>
                 </div>
 
-            {(() => {
-              const monthFiltered = selectedMonth
-                ? filtered.filter(t => t.entry_date && t.entry_date.slice(0,7) === selectedMonth)
-                : filtered
-              return monthFiltered.length === 0 ? (
+            {monthFilteredForHook.length === 0 ? (
               <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)', border:'1px dashed var(--border)', borderRadius:'8px' }}>
   <div style={{ marginBottom:'14px' }}>{selectedMonth ? 'No trades in this month.' : 'No trades yet.'}</div>
   {!selectedMonth && <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ padding:'8px 20px', fontSize:'12px' }}>+ New Trade</button>}
@@ -1008,16 +1015,29 @@ export default function AccountsPage() {
                   </colgroup>
                   <thead>
                     <tr>
-                      <th onClick={() => doSort('ticker')} style={{ cursor:'pointer', userSelect:'none' }}>Ticker{sortIcon('ticker')}</th>
-                      <th onClick={() => doSort('entry_date')} style={{ cursor:'pointer', userSelect:'none' }}>Entry Date{sortIcon('entry_date')}</th>
-                      <th className="r" onClick={() => doSort('entry_price')} style={{ cursor:'pointer', userSelect:'none' }}>Entry Rs.{sortIcon('entry_price')}</th>
-                      <th className="r" onClick={() => doSort('cmp')} style={{ cursor:'pointer', userSelect:'none' }}>CMP{sortIcon('cmp')}</th>
-                      <th className="r" onClick={() => doSort('exit_price')} style={{ cursor:'pointer', userSelect:'none' }}>Exit Rs.{sortIcon('exit_price')}</th>
-                      <th className="r" onClick={() => doSort('quantity')} style={{ cursor:'pointer', userSelect:'none' }}>Qty / Curr{sortIcon('quantity')}</th>
-                      <th className="r" onClick={() => doSort('invested_capital')} style={{ cursor:'pointer', userSelect:'none' }}>Inv / Actual{sortIcon('invested_capital')}</th>
-                      <th className="r" onClick={() => doSort('mtf_int')} style={{ cursor:'pointer', userSelect:'none' }}>MTF Int{sortIcon('mtf_int')}</th>
-                      <th className="r" onClick={() => doSort('unrealised')} style={{ cursor:'pointer', userSelect:'none' }}>Unreal. P&L{sortIcon('unrealised')}</th>
-                      <th className="r" onClick={() => doSort('realised')} style={{ cursor:'pointer', userSelect:'none' }}>Real. P&L{sortIcon('realised')}</th>
+                      {[
+                        { key:'ticker', label:'Ticker / Dir', filterable:true },
+                        { key:'entry_date', label:'Entry Date' },
+                        { key:'entry_price', label:'Entry Rs.', right:true },
+                        { key:'cmp', label:'CMP', right:true },
+                        { key:'exit_price', label:'Exit Rs.', right:true },
+                        { key:'quantity', label:'Qty / Curr', right:true },
+                        { key:'invested_capital', label:'Inv / Actual', right:true },
+                        { key:'mtf_int', label:'MTF Int', right:true },
+                        { key:'unrealised', label:'Unreal. P&L', right:true },
+                        { key:'realised', label:'Real. P&L', right:true },
+                      ].map(col => (
+                        <th key={col.key} className={`col-header${col.right?' r':''}`} onClick={() => mainTf.handleSort(col.key)}>
+                          {col.label}
+                          <span className={`sort-arrow${mainTf.sortConfig?.key===col.key?' active':''}`}>
+                            {mainTf.sortConfig?.key===col.key?(mainTf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}
+                          </span>
+                          {col.filterable && (
+                            <span className={`filter-icon${(mainTf.columnFilters[col.key]?.size||0)>0?' has-filter':''}`}
+                              onClick={e => mainTf.openFilter(e, col.key)}>▼</span>
+                          )}
+                        </th>
+                      ))}
                       <th style={{ cursor:'default' }}>Act</th>
                     </tr>
                   </thead>
@@ -1027,7 +1047,7 @@ export default function AccountsPage() {
                         <span style={{ color:'#000', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700, letterSpacing:'0.08em' }}>+ New Trade</span>
                       </td>
                     </tr>
-                    {applySortToTrades(monthFiltered).map(trade => {
+                    {mainTf.filteredData.map(trade => {
                       const execs = executions[trade.id] || []
                       const totalSoldQty = execs.reduce((s,e) => s + Number(e.quantity), 0)
                       const originalQty = Number(trade.quantity) || 0
@@ -1109,8 +1129,19 @@ export default function AccountsPage() {
                     })}
                   </tbody>
                 </table>
+                {mainTf.openFilterKey && (
+                  <FilterDropdown
+                    position={mainTf.filterDropPos}
+                    uniqueValues={mainTf.getUniqueValues(mainTf.openFilterKey)}
+                    hiddenValues={mainTf.columnFilters[mainTf.openFilterKey] || new Set()}
+                    onToggle={v => mainTf.toggleFilterValue(mainTf.openFilterKey, v)}
+                    onSelectAll={() => mainTf.selectAllFilter(mainTf.openFilterKey)}
+                    onDeselectAll={() => mainTf.deselectAllFilter(mainTf.openFilterKey, mainTf.getUniqueValues(mainTf.openFilterKey))}
+                    onClose={() => mainTf.setOpenFilterKey(null)}
+                  />
+                )}
               </div>
-            )})()}
+            ) }
               </div>{/* end left column */}
 
               {/* RIGHT PANEL */}

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
+import { useTableFilter, FilterDropdown } from '../components/TableFilter'
 
 const ADMIN_EMAIL = 'gogoaheadgo@gmail.com'
 
@@ -610,6 +611,15 @@ export default function BankPage() {
     await loadBankAccounts(bankIsAdmin ? bankSelSubId : null, savedAcctId2)
   }
 
+  const txnColumns = useMemo(() => [
+    { key: 'transaction_date', label: 'Transaction Date', sortable: true },
+    { key: 'transaction_type', label: 'Transaction Type', sortable: true, filterable: true },
+    { key: 'source_detail', label: 'Source', sortable: true, filterable: true, getValue: r => r.source_detail || (r.source_type === 'CASH_DEPOSIT' ? 'બેંકમાં જમા' : r.source_type) },
+    { key: 'amount', label: 'Amount', sortable: true, getSortValue: r => Number(r.amount) || 0 },
+    { key: 'balance_after', label: 'Balance', sortable: true, getSortValue: r => Number(r.balance_after) || 0 },
+  ], [])
+  const txnTf = useTableFilter(bankTxns, txnColumns)
+
   if (bankPageLoad || !bankSession) return null
 
   return (
@@ -774,13 +784,32 @@ export default function BankPage() {
                 {bankTxnLoad ? (
                   <div style={{ padding: '30px', textAlign: 'center', color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>Loading transactions...</div>
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="trade-table" style={{ width: '100%' }}>
+                  <div style={{ overflow: 'hidden' }}>
+                    <table className="data-table">
+                      <colgroup>
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '32%' }} />
+                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '14%' }} />
+                      </colgroup>
                       <thead>
                         <tr>
-                          {['Transaction Date', 'Transaction Type', 'Source', 'Amount', 'Balance', 'Actions'].map((colHdr, colIdx) => (
-                            <th key={colIdx} style={{ padding: '10px 14px', textAlign: colIdx >= 3 && colIdx < 5 ? 'right' : 'left', fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{colHdr}</th>
+                          {[
+                            { key: 'transaction_date', label: 'Transaction Date', sortable: true },
+                            { key: 'transaction_type', label: 'Transaction Type', sortable: true, filterable: true },
+                            { key: 'source_detail', label: 'Source', sortable: true, filterable: true },
+                            { key: 'amount', label: 'Amount', sortable: true, right: true },
+                            { key: 'balance_after', label: 'Balance', sortable: true, right: true },
+                          ].map(col => (
+                            <th key={col.key} className={`col-header${col.right ? ' r' : ''}`} onClick={() => col.sortable && txnTf.handleSort(col.key)}>
+                              <span>{col.label}</span>
+                              {col.sortable && <span className={`sort-arrow${txnTf.sortConfig?.key === col.key ? ' active' : ''}`}>{txnTf.sortConfig?.key === col.key ? (txnTf.sortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>}
+                              {col.filterable && <span className={`filter-icon${txnTf.columnFilters[col.key]?.length ? ' has-filter' : ''}`} onClick={e => { e.stopPropagation(); txnTf.openFilter(col.key, e) }}>▼</span>}
+                            </th>
                           ))}
+                          <th style={{ padding: '10px 14px', fontSize: '10px', color: 'var(--muted)', fontFamily: 'DM Mono, monospace', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -797,7 +826,7 @@ export default function BankPage() {
                               No transactions yet. Click "+ Record Transaction" above to add one.
                             </td>
                           </tr>
-                        ) : bankTxns.map((bankTxnRow, bankTxnIdx) => {
+                        ) : txnTf.filteredData.map((bankTxnRow, bankTxnIdx) => {
                           const bankTxnIsCredit = bankTxnRow.transaction_type === 'CREDIT'
                           const bankTxnColor = bankTxnIsCredit ? 'var(--bull)' : 'var(--bear)'
                           const bankTxnLabel = bankTxnIsCredit ? 'પૈસા આવ્યા' : 'પૈસા ગયા'
@@ -828,6 +857,7 @@ export default function BankPage() {
                         })}
                       </tbody>
                     </table>
+                    <FilterDropdown tf={txnTf} columns={txnColumns} />
                   </div>
                 )}
               </div>
