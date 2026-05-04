@@ -49,27 +49,21 @@ function calcRealisedForTrade(trade: any, execs: any[]): number {
 // ── P&L Calendar ────────────────────────────────────────────────────────────
 function PnLCalendar({ trades, execsMap }: { trades: any[]; execsMap: Record<string, any[]> }) {
   const [month, setMonth] = useState(() => new Date())
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
+  // Match web: group by exit_date, exec-based P&L per trade
   const dailyPnL: Record<string, number> = {}
-  trades.forEach(t => {
+  trades.filter(t => t.status === 'CLOSED' && t.exit_date).forEach(t => {
+    const key   = t.exit_date.slice(0, 10)
     const execs = execsMap[t.id] || []
-    if (execs.length > 0) {
-      execs.forEach(e => {
-        const key = (e.date || '').slice(0, 10)
-        if (!key) return
-        const pnl = (Number(e.price) - Number(t.entry_price)) * Number(e.quantity)
-        dailyPnL[key] = (dailyPnL[key] || 0) + pnl
-      })
-    } else if (t.status === 'CLOSED' && t.exit_date && t.exit_price) {
-      const key = t.exit_date.slice(0, 10)
-      const pnl = (t.direction === 'LONG' ? 1 : -1) *
-        (Number(t.exit_price) - Number(t.entry_price)) * Number(t.quantity)
-      dailyPnL[key] = (dailyPnL[key] || 0) + pnl
-    }
+    const pnl   = execs.length > 0
+      ? execs.reduce((s: number, e: any) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+      : (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
+    dailyPnL[key] = (dailyPnL[key] || 0) + pnl
   })
 
-  const year = month.getFullYear()
-  const mon  = month.getMonth()
+  const year        = month.getFullYear()
+  const mon         = month.getMonth()
   const daysInMonth = new Date(year, mon + 1, 0).getDate()
   const firstDow    = new Date(year, mon, 1).getDay()
   const todayStr    = new Date().toISOString().slice(0, 10)
@@ -85,12 +79,17 @@ function PnLCalendar({ trades, execsMap }: { trades: any[]; execsMap: Record<str
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ]
 
+  const dayTrades = selectedDate
+    ? trades.filter(t => t.status === 'CLOSED' && t.exit_date?.slice(0, 10) === selectedDate)
+    : []
+
+  const prevMonth = () => { setMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1)); setSelectedDate(null) }
+  const nextMonth = () => { setMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1)); setSelectedDate(null) }
+
   return (
     <View style={cal.wrap}>
       <View style={cal.head}>
-        <TouchableOpacity onPress={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}>
-          <Text style={cal.arrow}>‹</Text>
-        </TouchableOpacity>
+        <TouchableOpacity onPress={prevMonth}><Text style={cal.arrow}>‹</Text></TouchableOpacity>
         <View style={{ alignItems: 'center' }}>
           <Text style={cal.month}>{monthLabel}</Text>
           {monthTotal !== 0 && (
@@ -99,9 +98,7 @@ function PnLCalendar({ trades, execsMap }: { trades: any[]; execsMap: Record<str
             </Text>
           )}
         </View>
-        <TouchableOpacity onPress={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}>
-          <Text style={cal.arrow}>›</Text>
-        </TouchableOpacity>
+        <TouchableOpacity onPress={nextMonth}><Text style={cal.arrow}>›</Text></TouchableOpacity>
       </View>
 
       <View style={cal.weekRow}>
@@ -113,25 +110,73 @@ function PnLCalendar({ trades, execsMap }: { trades: any[]; execsMap: Record<str
       <View style={cal.grid}>
         {cells.map((day, i) => {
           if (!day) return <View key={`e${i}`} style={cal.dayEmpty} />
-          const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-          const pnl = dailyPnL[dateStr]
-          const isToday = dateStr === todayStr
+          const dateStr  = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const pnl      = dailyPnL[dateStr]
+          const isToday  = dateStr === todayStr
+          const isSel    = dateStr === selectedDate
           return (
-            <View key={dateStr} style={[
-              cal.day,
-              pnl != null && (pnl >= 0 ? cal.dayProfit : cal.dayLoss),
-              isToday && cal.dayToday,
-            ]}>
-              <Text style={[cal.dayNum, isToday && cal.dayNumToday]}>{day}</Text>
+            <TouchableOpacity
+              key={dateStr}
+              activeOpacity={pnl != null ? 0.7 : 1}
+              onPress={() => {
+                if (pnl == null) return
+                setSelectedDate(prev => prev === dateStr ? null : dateStr)
+              }}
+              style={[
+                cal.day,
+                pnl != null && (pnl >= 0 ? cal.dayProfit : cal.dayLoss),
+                isToday && cal.dayToday,
+                isSel && cal.daySelected,
+              ]}
+            >
+              <Text style={[cal.dayNum, isToday && cal.dayNumToday, isSel && { fontWeight: '800' }]}>{day}</Text>
               {pnl != null && (
                 <Text style={[cal.dayPnl, { color: pnl >= 0 ? colors.green : colors.red }]} numberOfLines={1}>
                   {pnl >= 0 ? '+' : '−'}{Math.abs(pnl) >= 10000 ? `${(Math.abs(pnl) / 1000).toFixed(0)}k` : fmt0(Math.abs(pnl))}
                 </Text>
               )}
-            </View>
+            </TouchableOpacity>
           )
         })}
       </View>
+
+      {/* Day detail — trades closed on selectedDate */}
+      {selectedDate && dayTrades.length > 0 && (
+        <View style={cal.detail}>
+          <View style={cal.detailHead}>
+            <Text style={cal.detailTitle}>
+              {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </Text>
+            <Text style={[cal.detailTotal, { color: (dailyPnL[selectedDate] || 0) >= 0 ? colors.green : colors.red }]}>
+              {(dailyPnL[selectedDate] || 0) >= 0 ? '+' : '−'}₹{fmtd(Math.abs(dailyPnL[selectedDate] || 0))}
+            </Text>
+          </View>
+          {dayTrades.map(t => {
+            const execs = execsMap[t.id] || []
+            const pnl   = execs.length > 0
+              ? execs.reduce((s: number, e: any) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+              : (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
+            return (
+              <View key={t.id} style={cal.detailRow}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={cal.detailTicker}>{t.ticker}</Text>
+                    <View style={[cal.dirBadge, t.direction === 'LONG' ? cal.dirLong : cal.dirShort]}>
+                      <Text style={[cal.dirBadgeText, { color: t.direction === 'LONG' ? colors.accent : colors.red }]}>
+                        {t.direction}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={cal.detailMeta}>₹{fmtd(t.entry_price)} → ₹{fmtd(t.exit_price)}  ·  Qty {fmt0(t.quantity)}</Text>
+                </View>
+                <Text style={[cal.detailPnl, { color: pnl >= 0 ? colors.green : colors.red }]}>
+                  {pnl >= 0 ? '+' : '−'}₹{fmtd(Math.abs(pnl))}
+                </Text>
+              </View>
+            )
+          })}
+        </View>
+      )}
     </View>
   )
 }
@@ -481,9 +526,23 @@ const cal = StyleSheet.create({
   dayProfit:  { backgroundColor: 'rgba(22,163,74,0.1)', borderColor: 'rgba(22,163,74,0.3)' },
   dayLoss:    { backgroundColor: 'rgba(220,38,38,0.1)', borderColor: 'rgba(220,38,38,0.3)' },
   dayToday:   { borderColor: colors.accent },
+  daySelected:{ borderWidth: 2, borderColor: colors.accent },
   dayNum:     { fontSize: 10, color: colors.muted },
   dayNumToday:{ color: colors.accent, fontWeight: '700' },
   dayPnl:     { fontSize: 7, fontWeight: '700', marginTop: 1 },
+
+  detail:      { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
+  detailHead:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
+  detailTitle: { fontSize: font.size.xs, color: colors.muted, fontWeight: '700' },
+  detailTotal: { fontSize: font.size.md, fontWeight: '800' },
+  detailRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  detailTicker:{ fontSize: font.size.md, fontWeight: '800', color: colors.text },
+  detailMeta:  { fontSize: font.size.xs, color: colors.muted, marginTop: 2 },
+  detailPnl:   { fontSize: font.size.sm, fontWeight: '700' },
+  dirBadge:    { paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, borderWidth: 1 },
+  dirLong:     { backgroundColor: 'rgba(14,165,233,0.1)', borderColor: 'rgba(14,165,233,0.3)' },
+  dirShort:    { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)' },
+  dirBadgeText:{ fontSize: 9, fontWeight: '700' },
 })
 
 const s = StyleSheet.create({

@@ -19,7 +19,17 @@ const fmtM = (n: number) => {
   return `₹${fmt0(n)}`
 }
 
-const EMPTY_TRADE = { ticker: '', direction: 'LONG', entry_date: new Date().toISOString().slice(0, 10), entry_price: '', quantity: '' }
+const EMPTY_TRADE = {
+  ticker: '',
+  direction: 'LONG',
+  entry_date: new Date().toISOString().slice(0, 10),
+  entry_price: '',
+  quantity: '',
+  invested_capital: '',
+  actual_investment: '',
+  mtf_interest_rate: '',
+  notes: '',
+}
 
 export default function AccountsScreen() {
   const { session, role } = useAuth()
@@ -32,7 +42,8 @@ export default function AccountsScreen() {
   const [sharedTrades,      setSharedTrades]      = useState<any[]>([])
   const [loading,           setLoading]           = useState(true)
   const [refreshing,        setRefreshing]        = useState(false)
-  const [selected,          setSelected]          = useState<string | null>(null)
+  const [expandedAccount,   setExpandedAccount]   = useState<string | null>(null)
+  const [tradeFilter,       setTradeFilter]       = useState<'OPEN' | 'CLOSED'>('OPEN')
 
   const [addAcctModal,  setAddAcctModal]  = useState(false)
   const [newName,       setNewName]       = useState('')
@@ -97,14 +108,34 @@ export default function AccountsScreen() {
     setAddTradeModal(true)
   }
 
+  const handleOpenTap = (key: string) => {
+    if (expandedAccount === key && tradeFilter === 'OPEN') {
+      setExpandedAccount(null)
+    } else {
+      setExpandedAccount(key)
+      setTradeFilter('OPEN')
+    }
+  }
+
+  const handleClosedTap = (key: string) => {
+    if (expandedAccount === key && tradeFilter === 'CLOSED') {
+      setExpandedAccount(null)
+    } else {
+      setExpandedAccount(key)
+      setTradeFilter('CLOSED')
+    }
+  }
+
   const handleAddTrade = async () => {
-    const { ticker, direction, entry_date, entry_price, quantity } = tradeForm
+    const { ticker, direction, entry_date, entry_price, quantity,
+            invested_capital, actual_investment, mtf_interest_rate, notes } = tradeForm
     if (!ticker.trim()) { Alert.alert('Error', 'Enter a ticker'); return }
     if (!entry_price || !quantity) { Alert.alert('Error', 'Entry price and quantity required'); return }
     setSavingTrade(true)
     try {
-      const qty = parseFloat(quantity)
+      const qty   = parseFloat(quantity)
       const price = parseFloat(entry_price)
+      const ic    = invested_capital ? parseFloat(invested_capital) : price * qty
       await createTrade({
         account: tradeAcct,
         ticker: ticker.trim().toUpperCase(),
@@ -112,7 +143,10 @@ export default function AccountsScreen() {
         entry_date,
         entry_price: price,
         quantity: qty,
-        invested_capital: price * qty,
+        invested_capital: ic,
+        actual_investment: actual_investment ? parseFloat(actual_investment) : null,
+        mtf_interest_rate: mtf_interest_rate ? parseFloat(mtf_interest_rate) : null,
+        notes: notes || null,
         status: 'OPEN',
         trade_type: 'NORMAL',
       })
@@ -123,7 +157,7 @@ export default function AccountsScreen() {
   }
 
   const ownStatsFor = (name: string) => {
-    const ts = ownTrades.filter(t => t.account === name)
+    const ts      = ownTrades.filter(t => t.account === name)
     const open    = ts.filter(t => t.status === 'OPEN')
     const closed  = ts.filter(t => t.status === 'CLOSED')
     const invested = open.reduce((s, t) => s + Number(t.invested_capital || 0), 0)
@@ -136,7 +170,7 @@ export default function AccountsScreen() {
   }
 
   const mirroredStatsFor = (subId: string) => {
-    const ts = mirroredTradesMap[subId] || []
+    const ts      = mirroredTradesMap[subId] || []
     const open    = ts.filter(t => t.status === 'OPEN')
     const closed  = ts.filter(t => t.status === 'CLOSED')
     const invested = open.reduce((s: number, t: any) => s + Number(t.invested_capital || 0), 0)
@@ -173,15 +207,16 @@ export default function AccountsScreen() {
           </View>
         ) : (
           accounts.map(acc => {
-            const st   = ownStatsFor(acc.name)
-            const isSel = selected === acc.id
+            const st             = ownStatsFor(acc.name)
+            const key            = acc.id
+            const isOpenActive   = expandedAccount === key && tradeFilter === 'OPEN'
+            const isClosedActive = expandedAccount === key && tradeFilter === 'CLOSED'
+            const visibleTrades  = expandedAccount === key
+              ? st.trades.filter(t => t.status === tradeFilter)
+              : []
             return (
-              <View key={acc.id}>
-                <TouchableOpacity
-                  style={[s.tile, isSel && s.tileActive]}
-                  onPress={() => setSelected(isSel ? null : acc.id)}
-                  activeOpacity={0.8}
-                >
+              <View key={key}>
+                <View style={[s.tile, (isOpenActive || isClosedActive) && s.tileActive]}>
                   <View style={s.tileHead}>
                     <Text style={s.tileName}>{acc.name}</Text>
                     <View style={s.tileActions}>
@@ -196,9 +231,27 @@ export default function AccountsScreen() {
                     </View>
                   </View>
 
+                  {/* Tappable Open / Closed filter tiles */}
+                  <View style={s.filterRow}>
+                    <TouchableOpacity
+                      style={[s.filterTile, isOpenActive && s.filterTileOpenActive]}
+                      onPress={() => handleOpenTap(key)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[s.filterCount, { color: isOpenActive ? colors.green : colors.accent }]}>{st.open}</Text>
+                      <Text style={[s.filterLabel, isOpenActive && { color: colors.green }]}>{'Open\nTrades'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.filterTile, isClosedActive && s.filterTileClosedActive]}
+                      onPress={() => handleClosedTap(key)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[s.filterCount, { color: isClosedActive ? colors.muted : colors.text }]}>{st.closed}</Text>
+                      <Text style={[s.filterLabel, isClosedActive && { color: colors.muted }]}>{'Closed\nTrades'}</Text>
+                    </TouchableOpacity>
+                  </View>
+
                   <View style={s.statRow}>
-                    <View style={s.stat}><Text style={s.statLabel}>OPEN</Text><Text style={[s.statVal, { color: colors.accent }]}>{st.open}</Text></View>
-                    <View style={s.stat}><Text style={s.statLabel}>CLOSED</Text><Text style={s.statVal}>{st.closed}</Text></View>
                     <View style={s.stat}><Text style={s.statLabel}>INVESTED</Text><Text style={s.statVal}>{fmtM(st.invested)}</Text></View>
                     <View style={s.stat}>
                       <Text style={s.statLabel}>REALISED</Text>
@@ -211,34 +264,40 @@ export default function AccountsScreen() {
                   {st.mtfCount > 0 && (
                     <View style={s.mtfRow}><Text style={s.mtfText}>MTF: {st.mtfCount} open positions</Text></View>
                   )}
-                  <Text style={s.expandHint}>{isSel ? '▲ Hide trades' : '▼ Show trades'}</Text>
-                </TouchableOpacity>
+                </View>
 
-                {isSel && (
+                {expandedAccount === key && (
                   <View style={s.tradeList}>
-                    {st.trades.length === 0 ? (
-                      <Text style={s.noTrades}>No trades in this account</Text>
+                    {visibleTrades.length === 0 ? (
+                      <Text style={s.noTrades}>No {tradeFilter.toLowerCase()} trades</Text>
                     ) : (
-                      st.trades.map(t => {
+                      visibleTrades.map(t => {
                         const isOpen = t.status === 'OPEN'
                         const pnl = !isOpen
                           ? (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
                           : null
                         return (
                           <View key={t.id} style={[s.tradeRow, isOpen ? s.tradeOpen : s.tradeClosed]}>
-                            <View>
-                              <Text style={s.tradeTicker}>{t.ticker}</Text>
-                              <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)} · {t.strategy || ''}</Text>
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                <Text style={s.tradeTicker}>{t.ticker}</Text>
+                                <View style={[s.dirBadge, t.direction === 'LONG' ? s.dirLong : s.dirShort]}>
+                                  <Text style={[s.dirBadgeText, { color: t.direction === 'LONG' ? colors.accent : colors.red }]}>
+                                    {t.direction === 'LONG' ? '▲' : '▼'} {t.direction}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}</Text>
+                              {isOpen
+                                ? <Text style={s.tradeMeta}>Qty {fmt0(t.quantity)}  ·  Inv ₹{fmtd(t.invested_capital || Number(t.entry_price) * Number(t.quantity))}</Text>
+                                : <Text style={s.tradeMeta}>Exit ₹{fmtd(t.exit_price)}  ·  Qty {fmt0(t.quantity)}</Text>
+                              }
                             </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={s.tradeDir}>{t.direction}</Text>
-                              <Text style={s.tradeStatus}>{t.status}</Text>
-                              {pnl !== null && (
-                                <Text style={[s.tradePnl, { color: pnl >= 0 ? colors.green : colors.red }]}>
-                                  {pnl >= 0 ? '+' : '−'}₹{fmt0(Math.abs(pnl))}
-                                </Text>
-                              )}
-                            </View>
+                            {pnl !== null && (
+                              <Text style={[s.tradePnl, { color: pnl >= 0 ? colors.green : colors.red }]}>
+                                {pnl >= 0 ? '+' : '−'}₹{fmtd(Math.abs(pnl))}
+                              </Text>
+                            )}
                           </View>
                         )
                       })
@@ -255,16 +314,16 @@ export default function AccountsScreen() {
           <>
             <Text style={s.sectionLabel}>MIRRORED SUBSCRIBER ACCOUNTS</Text>
             {mirroredAccounts.map((m: any) => {
-              const subId = m.subscriber_id
+              const subId   = m.subscriber_id
               const subName = (m.subscriber_name || m.subscriber_email || 'Subscriber').split(' ')[0]
-              const st = mirroredStatsFor(subId)
-              const key = `mirror-${subId}`
-              const isSel = selected === key
+              const st      = mirroredStatsFor(subId)
+              const key     = `mirror-${subId}`
+              const isExp   = expandedAccount === key
               return (
                 <View key={key}>
                   <TouchableOpacity
-                    style={[s.tile, s.tileMirrored, isSel && s.tileActive]}
-                    onPress={() => setSelected(isSel ? null : key)}
+                    style={[s.tile, s.tileMirrored, isExp && s.tileActive]}
+                    onPress={() => setExpandedAccount(isExp ? null : key)}
                     activeOpacity={0.8}
                   >
                     <View style={s.tileHead}>
@@ -285,9 +344,9 @@ export default function AccountsScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Text style={s.expandHint}>{isSel ? '▲ Hide trades' : '▼ Show trades'}</Text>
+                    <Text style={s.expandHint}>{isExp ? '▲ Hide trades' : '▼ Show trades'}</Text>
                   </TouchableOpacity>
-                  {isSel && (
+                  {isExp && (
                     <View style={s.tradeList}>
                       {st.trades.length === 0 ? (
                         <Text style={s.noTrades}>No trades found</Text>
@@ -322,20 +381,20 @@ export default function AccountsScreen() {
             <Text style={s.sectionLabel}>SHARED BY ADMIN</Text>
             {sharedAccountNames.map(accName => {
               const accTrades = sharedTrades.filter(t => t.account === accName)
-              const open    = accTrades.filter(t => t.status === 'OPEN')
-              const closed  = accTrades.filter(t => t.status === 'CLOSED')
-              const invested = open.reduce((sum: number, t: any) => sum + Number(t.invested_capital || 0), 0)
-              const realised = closed.reduce((sum: number, t: any) => {
+              const open      = accTrades.filter(t => t.status === 'OPEN')
+              const closed    = accTrades.filter(t => t.status === 'CLOSED')
+              const invested  = open.reduce((sum: number, t: any) => sum + Number(t.invested_capital || 0), 0)
+              const realised  = closed.reduce((sum: number, t: any) => {
                 const sign = t.direction === 'LONG' ? 1 : -1
                 return sum + sign * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
               }, 0)
-              const key = `shared-${accName}`
-              const isSel = selected === key
+              const key   = `shared-${accName}`
+              const isExp = expandedAccount === key
               return (
                 <View key={key}>
                   <TouchableOpacity
-                    style={[s.tile, s.tileShared, isSel && s.tileActive]}
-                    onPress={() => setSelected(isSel ? null : key)}
+                    style={[s.tile, s.tileShared, isExp && s.tileActive]}
+                    onPress={() => setExpandedAccount(isExp ? null : key)}
                     activeOpacity={0.8}
                   >
                     <View style={s.tileHead}>
@@ -353,9 +412,9 @@ export default function AccountsScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Text style={s.expandHint}>{isSel ? '▲ Hide trades' : '▼ Show trades'}</Text>
+                    <Text style={s.expandHint}>{isExp ? '▲ Hide trades' : '▼ Show trades'}</Text>
                   </TouchableOpacity>
-                  {isSel && (
+                  {isExp && (
                     <View style={s.tradeList}>
                       {accTrades.length === 0 ? <Text style={s.noTrades}>No trades</Text> : accTrades.slice(0, 30).map((t: any) => (
                         <View key={t.id} style={[s.tradeRow, t.status === 'OPEN' ? s.tradeOpen : s.tradeClosed]}>
@@ -406,68 +465,126 @@ export default function AccountsScreen() {
       {/* Add Trade Modal */}
       <Modal visible={addTradeModal} transparent animationType="slide" onRequestClose={() => setAddTradeModal(false)}>
         <View style={s.modalOverlay}>
-          <View style={s.modalBox}>
+          <View style={[s.modalBox, { maxHeight: '88%' }]}>
             <Text style={s.modalTitle}>New Trade — {tradeAcct}</Text>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-            <Text style={s.fieldLabel}>TICKER</Text>
-            <TextInput
-              style={s.input}
-              value={tradeForm.ticker}
-              onChangeText={v => setTradeForm(f => ({ ...f, ticker: v.toUpperCase() }))}
-              placeholder="e.g. RELIANCE"
-              placeholderTextColor={colors.muted}
-              autoCapitalize="characters"
-            />
+              <Text style={s.fieldLabel}>TICKER</Text>
+              <TextInput
+                style={s.input}
+                value={tradeForm.ticker}
+                onChangeText={v => setTradeForm(f => ({ ...f, ticker: v.toUpperCase() }))}
+                placeholder="e.g. RELIANCE"
+                placeholderTextColor={colors.muted}
+                autoCapitalize="characters"
+              />
 
-            <Text style={s.fieldLabel}>DIRECTION</Text>
-            <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
-              {(['LONG', 'SHORT'] as const).map(d => (
-                <TouchableOpacity
-                  key={d}
-                  style={[s.dirBtn, tradeForm.direction === d && s.dirBtnActive]}
-                  onPress={() => setTradeForm(f => ({ ...f, direction: d }))}
-                >
-                  <Text style={[s.dirBtnText, tradeForm.direction === d && s.dirBtnTextActive]}>
-                    {d === 'LONG' ? '▲ LONG' : '▼ SHORT'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={s.fieldLabel}>ENTRY DATE</Text>
-            <TextInput
-              style={s.input}
-              value={tradeForm.entry_date}
-              onChangeText={v => setTradeForm(f => ({ ...f, entry_date: v }))}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.muted}
-            />
-
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.fieldLabel}>ENTRY PRICE ₹</Text>
-                <TextInput
-                  style={s.input}
-                  value={tradeForm.entry_price}
-                  onChangeText={v => setTradeForm(f => ({ ...f, entry_price: v }))}
-                  placeholder="0.00"
-                  placeholderTextColor={colors.muted}
-                  keyboardType="numeric"
-                />
+              <Text style={s.fieldLabel}>DIRECTION</Text>
+              <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
+                {(['LONG', 'SHORT'] as const).map(d => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[s.dirBtn, tradeForm.direction === d && s.dirBtnActive]}
+                    onPress={() => setTradeForm(f => ({ ...f, direction: d }))}
+                  >
+                    <Text style={[s.dirBtnText, tradeForm.direction === d && s.dirBtnTextActive]}>
+                      {d === 'LONG' ? '▲ LONG' : '▼ SHORT'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.fieldLabel}>QUANTITY</Text>
-                <TextInput
-                  style={s.input}
-                  value={tradeForm.quantity}
-                  onChangeText={v => setTradeForm(f => ({ ...f, quantity: v }))}
-                  placeholder="100"
-                  placeholderTextColor={colors.muted}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
 
+              <Text style={s.fieldLabel}>ENTRY DATE</Text>
+              <TextInput
+                style={s.input}
+                value={tradeForm.entry_date}
+                onChangeText={v => setTradeForm(f => ({ ...f, entry_date: v }))}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={colors.muted}
+              />
+
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.fieldLabel}>ENTRY PRICE ₹</Text>
+                  <TextInput
+                    style={s.input}
+                    value={tradeForm.entry_price}
+                    onChangeText={v => {
+                      const price = parseFloat(v) || 0
+                      const qty   = parseFloat(tradeForm.quantity) || 0
+                      setTradeForm(f => ({
+                        ...f,
+                        entry_price: v,
+                        invested_capital: price && qty ? (price * qty).toFixed(2) : f.invested_capital,
+                      }))
+                    }}
+                    placeholder="0.00"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.fieldLabel}>QUANTITY</Text>
+                  <TextInput
+                    style={s.input}
+                    value={tradeForm.quantity}
+                    onChangeText={v => {
+                      const qty   = parseFloat(v) || 0
+                      const price = parseFloat(tradeForm.entry_price) || 0
+                      setTradeForm(f => ({
+                        ...f,
+                        quantity: v,
+                        invested_capital: price && qty ? (price * qty).toFixed(2) : f.invested_capital,
+                      }))
+                    }}
+                    placeholder="100"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
+              <Text style={s.fieldLabel}>INVESTED CAPITAL ₹  <Text style={{ fontWeight: '400', color: colors.muted }}>(auto-calculated)</Text></Text>
+              <TextInput
+                style={s.input}
+                value={tradeForm.invested_capital}
+                onChangeText={v => setTradeForm(f => ({ ...f, invested_capital: v }))}
+                placeholder="Entry × Qty"
+                placeholderTextColor={colors.muted}
+                keyboardType="numeric"
+              />
+
+              <Text style={s.fieldLabel}>ACTUAL INVESTMENT ₹  <Text style={{ fontWeight: '400', color: colors.muted }}>(your margin — MTF)</Text></Text>
+              <TextInput
+                style={s.input}
+                value={tradeForm.actual_investment}
+                onChangeText={v => setTradeForm(f => ({ ...f, actual_investment: v }))}
+                placeholder="Amount from your pocket"
+                placeholderTextColor={colors.muted}
+                keyboardType="numeric"
+              />
+
+              <Text style={s.fieldLabel}>MTF INTEREST RATE %  <Text style={{ fontWeight: '400', color: colors.muted }}>(annual, 0 if none)</Text></Text>
+              <TextInput
+                style={s.input}
+                value={tradeForm.mtf_interest_rate}
+                onChangeText={v => setTradeForm(f => ({ ...f, mtf_interest_rate: v }))}
+                placeholder="e.g. 18"
+                placeholderTextColor={colors.muted}
+                keyboardType="numeric"
+              />
+
+              <Text style={s.fieldLabel}>NOTES  <Text style={{ fontWeight: '400', color: colors.muted }}>(optional)</Text></Text>
+              <TextInput
+                style={[s.input, { minHeight: 60, textAlignVertical: 'top' }]}
+                value={tradeForm.notes}
+                onChangeText={v => setTradeForm(f => ({ ...f, notes: v }))}
+                placeholder="Strategy, setup, notes..."
+                placeholderTextColor={colors.muted}
+                multiline
+              />
+
+            </ScrollView>
             <View style={s.modalBtns}>
               <TouchableOpacity style={s.cancelBtn} onPress={() => setAddTradeModal(false)}>
                 <Text style={s.cancelText}>Cancel</Text>
@@ -508,13 +625,20 @@ const s = StyleSheet.create({
   addTradeBtnText: { fontSize: font.size.xs, color: colors.white, fontWeight: '700' },
   delText:         { fontSize: font.size.sm, color: colors.red, fontWeight: '600' },
 
-  mirrorBadge: { backgroundColor: 'rgba(245,158,11,0.1)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
-  mirrorText:  { fontSize: font.size.xs, color: colors.gold, fontWeight: '700' },
+  mirrorBadge:   { backgroundColor: 'rgba(245,158,11,0.1)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
+  mirrorText:    { fontSize: font.size.xs, color: colors.gold, fontWeight: '700' },
   readOnlyBadge: { backgroundColor: colors.accentDim, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, borderColor: '#bae6fd' },
   readOnlyText:  { fontSize: font.size.xs, color: colors.accent2, fontWeight: '700' },
 
-  statRow: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.sm },
-  stat:    { flex: 1, backgroundColor: colors.surface2, borderRadius: radius.sm, padding: spacing.sm, alignItems: 'center' },
+  filterRow:             { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  filterTile:            { flex: 1, backgroundColor: colors.surface2, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  filterTileOpenActive:  { backgroundColor: 'rgba(22,163,74,0.08)', borderColor: 'rgba(22,163,74,0.4)' },
+  filterTileClosedActive:{ backgroundColor: 'rgba(100,116,139,0.1)', borderColor: 'rgba(100,116,139,0.35)' },
+  filterCount:           { fontSize: font.size.h2, fontWeight: '800', marginBottom: 2 },
+  filterLabel:           { fontSize: font.size.xs, color: colors.muted, textAlign: 'center', lineHeight: 14 },
+
+  statRow:   { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.sm },
+  stat:      { flex: 1, backgroundColor: colors.surface2, borderRadius: radius.sm, padding: spacing.sm, alignItems: 'center' },
   statLabel: { fontSize: 9, color: colors.muted, fontWeight: '700', letterSpacing: 0.4, marginBottom: 3 },
   statVal:   { fontSize: font.size.sm, fontWeight: '800', color: colors.text },
 
@@ -534,18 +658,23 @@ const s = StyleSheet.create({
   tradeStatus: { fontSize: font.size.xs, color: colors.muted },
   tradePnl:    { fontSize: font.size.sm, fontWeight: '700', marginTop: 2 },
 
+  dirBadge:     { paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, borderWidth: 1 },
+  dirLong:      { backgroundColor: 'rgba(14,165,233,0.1)', borderColor: 'rgba(14,165,233,0.3)' },
+  dirShort:     { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)' },
+  dirBadgeText: { fontSize: 9, fontWeight: '700' },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: spacing.xl },
-  modalBox: { backgroundColor: colors.bg, borderRadius: radius.xl, padding: spacing.xl, gap: spacing.sm },
-  modalTitle: { fontSize: font.size.xl, fontWeight: '800', color: colors.text, marginBottom: spacing.xs },
-  fieldLabel: { fontSize: font.size.xs, color: colors.muted, fontWeight: '700', letterSpacing: 0.5 },
+  modalBox:     { backgroundColor: colors.bg, borderRadius: radius.xl, padding: spacing.xl, gap: spacing.sm },
+  modalTitle:   { fontSize: font.size.xl, fontWeight: '800', color: colors.text, marginBottom: spacing.xs },
+  fieldLabel:   { fontSize: font.size.xs, color: colors.muted, fontWeight: '700', letterSpacing: 0.5 },
   input: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
     borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md,
     fontSize: font.size.md, color: colors.text, marginBottom: spacing.xs,
   },
-  dirBtn:         { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, alignItems: 'center' },
-  dirBtnActive:   { borderColor: colors.accent, backgroundColor: colors.accentDim },
-  dirBtnText:     { fontSize: font.size.sm, fontWeight: '700', color: colors.muted },
+  dirBtn:          { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, alignItems: 'center' },
+  dirBtnActive:    { borderColor: colors.accent, backgroundColor: colors.accentDim },
+  dirBtnText:      { fontSize: font.size.sm, fontWeight: '700', color: colors.muted },
   dirBtnTextActive:{ color: colors.accent },
   modalBtns:  { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   cancelBtn:  { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, alignItems: 'center' },
