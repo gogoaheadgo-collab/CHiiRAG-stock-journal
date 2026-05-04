@@ -316,7 +316,7 @@ export default function AllTradesPage() {
 
   return (
     <>
-      <Head><title>All Trades — CHiiRAG Stock Journal</title></Head>
+      <Head><title>All Trades — SMK Stock Journal</title></Head>
       <div className="tricolor-bar" />
 
       <Sidebar active="All Trades" isAdmin={isAdmin} user={session?.user} onSignOut={signOut} />

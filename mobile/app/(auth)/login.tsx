@@ -30,7 +30,7 @@ export default function LoginScreen() {
 
         {/* Logo */}
         <View style={styles.header}>
-          <Text style={styles.logo}>CHiiRAG</Text>
+          <Text style={styles.logo}>SMK</Text>
           <Text style={styles.subtitle}>STOCK JOURNAL</Text>
           <View style={styles.divider} />
           <Text style={styles.tagline}>Track · Analyse · Grow</Text>

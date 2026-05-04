@@ -60,7 +60,7 @@ export default function Home() {
   if (approvalStatus === 'pending') return (
     <>
       <div className="tricolor-bar" />
-      <Head><title>Awaiting Approval — CHiiRAG Stock Journal</title></Head>
+      <Head><title>Awaiting Approval — SMK Stock Journal</title></Head>
       <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
         <div style={{ textAlign:'center', maxWidth:'440px', padding:'40px 24px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'16px', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
           <div style={{ fontSize:'56px', marginBottom:'16px' }}>⏳</div>
@@ -90,7 +90,7 @@ export default function Home() {
   if (approvalStatus === 'requeued') return (
     <>
       <div className="tricolor-bar" />
-      <Head><title>Re-Requested Access — CHiiRAG Stock Journal</title></Head>
+      <Head><title>Re-Requested Access — SMK Stock Journal</title></Head>
       <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
         <div style={{ textAlign:'center', maxWidth:'440px', padding:'40px 24px', background:'var(--surface)', border:'2px solid var(--gold)', borderRadius:'16px', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
           <div style={{ fontSize:'56px', marginBottom:'16px' }}>🔄</div>
@@ -121,7 +121,7 @@ export default function Home() {
   return (
     <>
       <div className="tricolor-bar" />
-      <Head><title>CHiiRAG Stock Journal</title></Head>
+      <Head><title>SMK Stock Journal</title></Head>
       <div className="auth-bg" style={{ display:'flex', alignItems:'center', justifyContent:'center' }}>
         <div className="auth-grid" /><div className="auth-glow" />
         <div style={{ position:'relative', zIndex:10, textAlign:'center', maxWidth:'420px', padding:'24px' }}>
@@ -131,7 +131,7 @@ export default function Home() {
             </div>
           </div>
           <h1 style={{ fontFamily:'Bookman Old Style, Libre Baskerville, serif', fontSize:'36px', fontWeight:800, color:'var(--text)', lineHeight:1.15, marginBottom:'10px' }}>
-            CHiiRAG<br /><span style={{ color:'var(--accent)' }}>Stock Journal</span>
+            SMK<br /><span style={{ color:'var(--accent)' }}>Stock Journal</span>
           </h1>
           <p style={{ color:'var(--muted)', fontSize:'12px', lineHeight:1.7, marginBottom:'32px' }}>
             Personal trade journal with live NSE/BSE prices,<br />MTF interest tracking, and full P&amp;L analytics.

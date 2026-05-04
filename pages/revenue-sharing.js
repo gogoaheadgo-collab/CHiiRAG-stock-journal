@@ -593,7 +593,7 @@ export default function RevenueSharingPage() {
 
   return (
     <>
-      <Head><title>Revenue Sharing — CHiiRAG Stock Journal</title></Head>
+      <Head><title>Revenue Sharing — SMK Stock Journal</title></Head>
       <div className="tricolor-bar" />
       <Sidebar active="Revenue Sharing" isAdmin={isAdmin} user={session?.user} onSignOut={signOut} />
 

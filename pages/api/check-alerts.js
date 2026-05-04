@@ -29,7 +29,7 @@ function emailHTML(alert, cmp, triggered) {
   return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0f0f0f;font-family:monospace;">
   <div style="max-width:520px;margin:0 auto;padding:32px 16px;">
     <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:16px;font-weight:800;color:#e2e8f0;">CHiiRAG STOCK Journal</div>
+      <div style="font-size:16px;font-weight:800;color:#e2e8f0;">SMK STOCK Journal</div>
       <div style="font-size:11px;color:#64748b;letter-spacing:0.15em;margin-top:4px;">PRICE ALERT TRIGGERED</div>
     </div>
     <div style="background:#1a1a2e;border:2px solid #0ea5e9;border-radius:12px;padding:24px;margin-bottom:16px;">
@@ -59,7 +59,7 @@ function emailHTML(alert, cmp, triggered) {
 
 async function sendEmail(to, subject, html) {
   const t = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } })
-  await t.sendMail({ from: `"CHiiRAG Stock Journal" <${process.env.GMAIL_USER}>`, to, subject, html })
+  await t.sendMail({ from: `"SMK Stock Journal" <${process.env.GMAIL_USER}>`, to, subject, html })
 }
 
 export default async function handler(req, res) {
@@ -109,7 +109,7 @@ export default async function handler(req, res) {
         triggered_price: cmp,
       }).eq('id', alert.id)
 
-      const subject = `🔔 ${alert.ticker} — ${newTriggered.length} target(s) hit — CHiiRAG Alert`
+      const subject = `🔔 ${alert.ticker} — ${newTriggered.length} target(s) hit — SMK Alert`
       try { await sendEmail(alert.user_email, subject, emailHTML(alert, cmp, newTriggered)) } catch (e) { console.error(e.message) }
       triggered++
     }
@@ -133,11 +133,11 @@ export default async function handler(req, res) {
       if (!email) continue
       const slPct = ((trade.stop_loss - trade.entry_price) / trade.entry_price * 100).toFixed(2)
       const fmt = n => Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
-      const subject = `🚨 STOP LOSS HIT: ${trade.ticker} at Rs${fmt(cmp)} — CHiiRAG Alert`
+      const subject = `🚨 STOP LOSS HIT: ${trade.ticker} at Rs${fmt(cmp)} — SMK Alert`
       const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0f0f0f;font-family:monospace;">
         <div style="max-width:520px;margin:0 auto;padding:32px 16px;">
           <div style="text-align:center;margin-bottom:24px;">
-            <div style="font-size:16px;font-weight:800;color:#e2e8f0;">CHiiRAG STOCK Journal</div>
+            <div style="font-size:16px;font-weight:800;color:#e2e8f0;">SMK STOCK Journal</div>
             <div style="font-size:11px;color:#ef4444;letter-spacing:0.15em;margin-top:4px;">🚨 STOP LOSS TRIGGERED</div>
           </div>
           <div style="background:#1a1a2e;border:2px solid #ef4444;border-radius:12px;padding:24px;margin-bottom:16px;text-align:center;">

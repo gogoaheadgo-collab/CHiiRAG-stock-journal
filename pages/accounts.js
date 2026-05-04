@@ -788,7 +788,7 @@ export default function AccountsPage() {
   return (
     <>
       <div className="tricolor-bar" />
-      <Head><title>Accounts — CHiiRAG Stock Journal</title></Head>
+      <Head><title>Accounts — SMK Stock Journal</title></Head>
       <Sidebar active="Accounts" isAdmin={isAdmin} user={session?.user} onSignOut={signOut} onDeleteAccount={!isAdmin ? handleDeleteMyAccount : undefined} />
 
       <main className="sidebar-offset" style={{ padding:'28px 32px 40px' }}>

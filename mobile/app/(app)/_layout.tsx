@@ -39,7 +39,7 @@ function Header({ isAdmin }: { isAdmin: boolean }) {
           </View>
           <View>
             <Text style={s.appName}>
-              <Text style={{ color: colors.text }}>CHiiRAG </Text>
+              <Text style={{ color: colors.text }}>SMK </Text>
               <Text style={{ color: colors.accent }}>STOCK</Text>
             </Text>
             <Text style={s.appSub}>Journal</Text>
@@ -80,7 +80,7 @@ function Header({ isAdmin }: { isAdmin: boolean }) {
           <View style={s.drawer}>
             <View style={s.drawerHead}>
               <Text style={s.drawerBrand}>
-                CHiiRAG <Text style={{ color: colors.accent }}>STOCK</Text>
+                SMK <Text style={{ color: colors.accent }}>STOCK</Text>
               </Text>
               <Text style={s.drawerBrandSub}>Journal</Text>
             </View>

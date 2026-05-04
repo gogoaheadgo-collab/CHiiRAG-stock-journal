@@ -625,7 +625,7 @@ export default function BankPage() {
   return (
     <>
       <div className="tricolor-bar" />
-      <Head><title>Bank Transfer — CHiiRAG Stock Journal</title></Head>
+      <Head><title>Bank Transfer — SMK Stock Journal</title></Head>
       <Sidebar active="Bank" isAdmin={bankIsAdmin} user={bankSession?.user} onSignOut={signOut} />
 
       <main className="sidebar-offset" style={{ padding: '28px 32px 40px' }}>

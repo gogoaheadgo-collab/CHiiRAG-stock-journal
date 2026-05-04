@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, ActivityIndicator, TextInput,
@@ -9,6 +9,7 @@ import {
 } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { colors, font, spacing, radius } from '../../lib/theme'
+import ExecutionPanel from '../../components/ExecutionPanel'
 
 const fmtd = (n: number) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmt  = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
@@ -53,7 +54,10 @@ export default function TradesScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [filter,     setFilter]     = useState<Filter>('ALL')
   const [search,     setSearch]     = useState('')
-  const [livePrices, setLivePrices] = useState<Record<string, number>>({})
+  const [livePrices,         setLivePrices]         = useState<Record<string, number>>({})
+  const [tickerStatusFilter, setTickerStatusFilter]  = useState<Filter>('ALL')
+  const [expandedTicker,     setExpandedTicker]      = useState<string | null>(null)
+  const [expandedExecId,     setExpandedExecId]      = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -122,6 +126,39 @@ export default function TradesScreen() {
       (i.trade.account || '').toUpperCase().includes(search.toUpperCase())
     )
 
+  const tickerSummary = useMemo(() => {
+    type TG = { ticker: string; rows: TradeItem[]; open: number; closed: number; invested: number; unrealised: number; realised: number; hasLive: boolean }
+    const map: Record<string, TG> = {}
+    items
+      .filter(i => tickerStatusFilter === 'ALL' || i.trade.status === tickerStatusFilter)
+      .filter(i => !search || (i.trade.ticker || '').toUpperCase().includes(search.toUpperCase()))
+      .forEach(i => {
+        const ticker = i.trade.ticker
+        if (!map[ticker]) map[ticker] = { ticker, rows: [], open: 0, closed: 0, invested: 0, unrealised: 0, realised: 0, hasLive: false }
+        map[ticker].rows.push(i)
+        if (i.trade.status === 'OPEN') {
+          map[ticker].open++
+          map[ticker].invested += Number(i.trade.invested_capital || 0)
+          const cmp = livePrices[ticker]
+          if (cmp) {
+            const sign = i.trade.direction === 'LONG' ? 1 : -1
+            map[ticker].unrealised += sign * (cmp - Number(i.trade.entry_price)) * Number(i.trade.quantity)
+            map[ticker].hasLive = true
+          }
+        } else {
+          map[ticker].closed++
+          if (i.execs.length > 0) {
+            map[ticker].realised += i.execs.reduce((s: number, e: any) =>
+              s + (Number(e.price) - Number(i.trade.entry_price)) * Number(e.quantity), 0)
+          } else {
+            const sign = i.trade.direction === 'LONG' ? 1 : -1
+            map[ticker].realised += sign * (Number(i.trade.exit_price || 0) - Number(i.trade.entry_price)) * Number(i.trade.quantity)
+          }
+        }
+      })
+    return Object.values(map).sort((a, b) => b.open - a.open || a.ticker.localeCompare(b.ticker))
+  }, [items, tickerStatusFilter, search, livePrices])
+
   if (loading) return <View style={s.center}><ActivityIndicator color={colors.accent} size="large" /></View>
 
   return (
@@ -157,11 +194,107 @@ export default function TradesScreen() {
             tintColor={colors.accent}
           />
         }
+        ListHeaderComponent={
+          <View style={s.summarySection}>
+            <View style={s.summaryHead}>
+              <Text style={s.summaryTitle}>TICKER SUMMARY</Text>
+              <View style={s.summaryFilters}>
+                {(['ALL', 'OPEN', 'CLOSED'] as Filter[]).map(f => (
+                  <TouchableOpacity
+                    key={f}
+                    style={[s.summaryTab, tickerStatusFilter === f && s.summaryTabActive]}
+                    onPress={() => setTickerStatusFilter(f)}
+                  >
+                    <Text style={[s.summaryTabText, tickerStatusFilter === f && s.summaryTabTextActive]}>{f}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            {tickerSummary.length === 0 ? (
+              <Text style={s.summaryEmpty}>No tickers</Text>
+            ) : (
+              tickerSummary.map(tg => {
+                const isExp  = expandedTicker === tg.ticker
+                const expRows = isExp
+                  ? tg.rows.filter(r => tickerStatusFilter === 'ALL' || r.trade.status === tickerStatusFilter)
+                  : []
+                return (
+                  <View key={tg.ticker}>
+                    <TouchableOpacity
+                      style={[s.tickerRow, isExp && s.tickerRowActive]}
+                      onPress={() => setExpandedTicker(isExp ? null : tg.ticker)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.tickerName}>{tg.ticker}</Text>
+                        <Text style={s.tickerMeta}>
+                          {tg.open > 0 ? `${tg.open} Open` : ''}{tg.open > 0 && tg.closed > 0 ? '  ·  ' : ''}{tg.closed > 0 ? `${tg.closed} Closed` : ''}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        {tg.invested > 0 && <Text style={s.tickerInv}>Inv ₹{fmtd(tg.invested)}</Text>}
+                        {tg.hasLive && (
+                          <Text style={[s.tickerPnl, { color: tg.unrealised >= 0 ? colors.green : colors.red }]}>
+                            {tg.unrealised >= 0 ? '+' : '−'}₹{fmt(Math.abs(tg.unrealised))} U
+                          </Text>
+                        )}
+                        {tg.closed > 0 && tg.realised !== 0 && (
+                          <Text style={[s.tickerPnl, { color: tg.realised >= 0 ? colors.green : colors.red }]}>
+                            {tg.realised >= 0 ? '+' : '−'}₹{fmt(Math.abs(tg.realised))} R
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                    {isExp && expRows.map(item => {
+                      const t      = item.trade
+                      const isOpen = t.status === 'OPEN'
+                      const cmp    = livePrices[t.ticker]
+                      const uPnl   = (cmp && isOpen)
+                        ? (t.direction === 'LONG' ? 1 : -1) * (cmp - Number(t.entry_price)) * Number(t.quantity)
+                        : null
+                      const rPnl   = !isOpen
+                        ? (item.execs.length > 0
+                            ? item.execs.reduce((s: number, e: any) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+                            : (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity))
+                        : null
+                      return (
+                        <View key={t.id} style={[s.subRow, isOpen ? s.subRowOpen : s.subRowClosed]}>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center', marginBottom: 2 }}>
+                              <Text style={s.subAcct}>{t.account}</Text>
+                              <View style={[s.badge, t.direction === 'LONG' ? s.badgeLong : s.badgeShort]}>
+                                <Text style={[s.badgeText, { color: t.direction === 'LONG' ? colors.green : colors.red }]}>{t.direction}</Text>
+                              </View>
+                            </View>
+                            <Text style={s.subMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}  ·  Qty {fmt(t.quantity)}</Text>
+                            {isOpen && cmp ? <Text style={s.subMeta}>CMP ₹{fmtd(cmp)}</Text> : null}
+                          </View>
+                          {uPnl !== null && (
+                            <Text style={[s.subPnl, { color: uPnl >= 0 ? colors.green : colors.red }]}>
+                              {uPnl >= 0 ? '+' : '−'}₹{fmt(Math.abs(uPnl))}
+                            </Text>
+                          )}
+                          {rPnl !== null && (
+                            <Text style={[s.subPnl, { color: rPnl >= 0 ? colors.green : colors.red }]}>
+                              {rPnl >= 0 ? '+' : '−'}₹{fmt(Math.abs(rPnl))}
+                            </Text>
+                          )}
+                        </View>
+                      )
+                    })}
+                  </View>
+                )
+              })
+            )}
+            <View style={s.summarySep} />
+          </View>
+        }
         renderItem={({ item }) => {
           const t       = item.trade
           const execs   = item.execs
           const isOpen  = t.status === 'OPEN'
           const cmp     = livePrices[t.ticker]
+          const showExec = expandedExecId === t.id
 
           const soldQty    = execs.reduce((s: number, e: any) => s + Number(e.quantity), 0)
           const currentQty = Math.max(0, Number(t.quantity) - soldQty)
@@ -175,94 +308,112 @@ export default function TradesScreen() {
           const mtfInt = calcMTFForTrade(t)
 
           return (
-            <View style={[s.card, isOpen ? s.cardOpen : s.cardClosed]}>
-              {/* Header */}
-              <View style={s.cardHead}>
-                <View>
-                  <Text style={s.ticker}>{t.ticker}</Text>
-                  <Text style={s.account}>{t.account}</Text>
-                </View>
-                <View style={s.badges}>
-                  <View style={[s.badge, isOpen ? s.badgeOpen : s.badgeClosed]}>
-                    <Text style={[s.badgeText, { color: isOpen ? colors.accent2 : colors.muted }]}>{t.status}</Text>
+            <View style={s.cardWrap}>
+              <View style={[s.card, isOpen ? s.cardOpen : s.cardClosed]}>
+                {/* Header */}
+                <View style={s.cardHead}>
+                  <View>
+                    <Text style={s.ticker}>{t.ticker}</Text>
+                    <Text style={s.account}>{t.account}</Text>
                   </View>
-                  <View style={[s.badge, t.direction === 'LONG' ? s.badgeLong : s.badgeShort]}>
-                    <Text style={[s.badgeText, { color: t.direction === 'LONG' ? colors.green : colors.red }]}>{t.direction}</Text>
+                  <View style={s.badges}>
+                    <View style={[s.badge, isOpen ? s.badgeOpen : s.badgeClosed]}>
+                      <Text style={[s.badgeText, { color: isOpen ? colors.accent2 : colors.muted }]}>{t.status}</Text>
+                    </View>
+                    <View style={[s.badge, t.direction === 'LONG' ? s.badgeLong : s.badgeShort]}>
+                      <Text style={[s.badgeText, { color: t.direction === 'LONG' ? colors.green : colors.red }]}>{t.direction}</Text>
+                    </View>
+                    {item.source === 'mirrored' && (
+                      <View style={s.badgeMirrored}>
+                        <Text style={[s.badgeText, { color: colors.gold }]}>MIRRORED</Text>
+                      </View>
+                    )}
+                    {item.source === 'shared' && (
+                      <View style={s.badgeShared}>
+                        <Text style={[s.badgeText, { color: colors.accent }]}>SHARED</Text>
+                      </View>
+                    )}
                   </View>
-                  {item.source === 'mirrored' && (
-                    <View style={s.badgeMirrored}>
-                      <Text style={[s.badgeText, { color: colors.gold }]}>MIRRORED</Text>
-                    </View>
-                  )}
-                  {item.source === 'shared' && (
-                    <View style={s.badgeShared}>
-                      <Text style={[s.badgeText, { color: colors.accent }]}>SHARED</Text>
-                    </View>
-                  )}
                 </View>
-              </View>
 
-              {/* Row 1: Entry Date, Entry ₹, Qty, Curr Qty */}
-              <View style={s.dataRow}>
-                <DataCell label="ENTRY DATE" value={t.entry_date?.slice(0, 10) || '—'} />
-                <DataCell label="ENTRY ₹"   value={`₹${fmtd(t.entry_price)}`} />
-                <DataCell label="QTY"        value={fmt(t.quantity)} />
-                <DataCell
-                  label="CURR QTY"
-                  value={fmt(currentQty)}
-                  color={currentQty < Number(t.quantity) ? colors.gold : undefined}
-                />
-              </View>
-
-              {/* Row 2: CMP, Exit ₹, Unrealised, Realised */}
-              <View style={s.dataRow}>
-                <DataCell
-                  label="CMP"
-                  value={cmp ? `₹${fmtd(cmp)}` : '—'}
-                  color={cmp ? colors.text : colors.muted}
-                />
-                <DataCell label="EXIT ₹" value={t.exit_price ? `₹${fmtd(t.exit_price)}` : '—'} />
-                <DataCell
-                  label="UNREALISED"
-                  value={unrealisedPnL != null
-                    ? `${unrealisedPnL >= 0 ? '+' : '−'}₹${fmt(Math.abs(unrealisedPnL))}`
-                    : '—'}
-                  color={unrealisedPnL != null
-                    ? (unrealisedPnL >= 0 ? colors.green : colors.red)
-                    : colors.muted}
-                />
-                <DataCell
-                  label="REALISED"
-                  value={execs.length > 0
-                    ? `${realisedPnL >= 0 ? '+' : '−'}₹${fmt(Math.abs(realisedPnL))}`
-                    : '—'}
-                  color={execs.length > 0
-                    ? (realisedPnL >= 0 ? colors.green : colors.red)
-                    : colors.muted}
-                />
-              </View>
-
-              {/* Row 3: MTF Interest + Strategy (conditional) */}
-              {(mtfInt > 0 || t.strategy) && (
+                {/* Row 1: Entry Date, Entry ₹, Qty, Curr Qty */}
                 <View style={s.dataRow}>
-                  {mtfInt > 0 && (
-                    <DataCell label="MTF INT" value={`₹${fmtd(mtfInt)}`} color={colors.gold} />
-                  )}
-                  {t.strategy && (
-                    <DataCell label="STRATEGY" value={t.strategy} />
-                  )}
+                  <DataCell label="ENTRY DATE" value={t.entry_date?.slice(0, 10) || '—'} />
+                  <DataCell label="ENTRY ₹"   value={`₹${fmtd(t.entry_price)}`} />
+                  <DataCell label="QTY"        value={fmt(t.quantity)} />
+                  <DataCell
+                    label="CURR QTY"
+                    value={fmt(currentQty)}
+                    color={currentQty < Number(t.quantity) ? colors.gold : undefined}
+                  />
                 </View>
-              )}
 
-              {/* Entry date footer */}
-              <View style={s.cardFoot}>
-                <Text style={s.dateText}>{t.entry_date?.slice(0, 10)}</Text>
-                {t.trade_type && t.trade_type !== 'NORMAL' && (
-                  <View style={s.typeBadge}>
-                    <Text style={s.typeText}>{t.trade_type}</Text>
+                {/* Row 2: CMP, Exit ₹, Unrealised, Realised */}
+                <View style={s.dataRow}>
+                  <DataCell
+                    label="CMP"
+                    value={cmp ? `₹${fmtd(cmp)}` : '—'}
+                    color={cmp ? colors.text : colors.muted}
+                  />
+                  <DataCell label="EXIT ₹" value={t.exit_price ? `₹${fmtd(t.exit_price)}` : '—'} />
+                  <DataCell
+                    label="UNREALISED"
+                    value={unrealisedPnL != null
+                      ? `${unrealisedPnL >= 0 ? '+' : '−'}₹${fmt(Math.abs(unrealisedPnL))}`
+                      : '—'}
+                    color={unrealisedPnL != null
+                      ? (unrealisedPnL >= 0 ? colors.green : colors.red)
+                      : colors.muted}
+                  />
+                  <DataCell
+                    label="REALISED"
+                    value={execs.length > 0
+                      ? `${realisedPnL >= 0 ? '+' : '−'}₹${fmt(Math.abs(realisedPnL))}`
+                      : '—'}
+                    color={execs.length > 0
+                      ? (realisedPnL >= 0 ? colors.green : colors.red)
+                      : colors.muted}
+                  />
+                </View>
+
+                {/* Row 3: MTF Interest + Strategy (conditional) */}
+                {(mtfInt > 0 || t.strategy) && (
+                  <View style={s.dataRow}>
+                    {mtfInt > 0 && (
+                      <DataCell label="MTF INT" value={`₹${fmtd(mtfInt)}`} color={colors.gold} />
+                    )}
+                    {t.strategy && (
+                      <DataCell label="STRATEGY" value={t.strategy} />
+                    )}
                   </View>
                 )}
+
+                {/* Footer: date + exec toggle */}
+                <View style={s.cardFoot}>
+                  <Text style={s.dateText}>{t.entry_date?.slice(0, 10)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    {t.trade_type && t.trade_type !== 'NORMAL' && (
+                      <View style={s.typeBadge}>
+                        <Text style={s.typeText}>{t.trade_type}</Text>
+                      </View>
+                    )}
+                    <TouchableOpacity onPress={() => setExpandedExecId(showExec ? null : t.id)}>
+                      <Text style={s.execToggle}>
+                        {showExec ? '▲ Hide Executions' : `▼ Executions${execs.length > 0 ? ` (${execs.length})` : ''}`}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
+
+              {showExec && (
+                <ExecutionPanel
+                  trade={t}
+                  initialExecs={execs}
+                  onUpdate={load}
+                  isReadOnly={item.source !== 'own'}
+                />
+              )}
             </View>
           )
         }}
@@ -293,7 +444,8 @@ const s = StyleSheet.create({
     fontSize: font.size.md, color: colors.text,
   },
 
-  card:       { borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, backgroundColor: colors.surface },
+  cardWrap:   { marginBottom: spacing.md },
+  card:       { borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.surface },
   cardOpen:   { borderLeftWidth: 4, borderLeftColor: colors.accent },
   cardClosed: { borderLeftWidth: 4, borderLeftColor: colors.border2 },
 
@@ -315,11 +467,37 @@ const s = StyleSheet.create({
   dataLabel: { fontSize: 9, color: colors.muted, fontWeight: '600', letterSpacing: 0.3, marginBottom: 3 },
   dataValue: { fontSize: font.size.sm, fontWeight: '700', color: colors.text },
 
-  cardFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs },
-  dateText: { fontSize: font.size.xs, color: colors.muted },
-  typeBadge:{ backgroundColor: '#ede9fe', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  typeText: { fontSize: font.size.xs, color: '#7c3aed', fontWeight: '700' },
+  cardFoot:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs },
+  dateText:   { fontSize: font.size.xs, color: colors.muted },
+  typeBadge:  { backgroundColor: '#ede9fe', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  typeText:   { fontSize: font.size.xs, color: '#7c3aed', fontWeight: '700' },
+  execToggle: { fontSize: font.size.xs, color: colors.accent, fontWeight: '600' },
 
   empty:     { alignItems: 'center', paddingTop: 80 },
   emptyText: { fontSize: font.size.xl, color: colors.border2, fontWeight: '700' },
+
+  summarySection:       { marginBottom: spacing.xs },
+  summaryHead:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
+  summaryTitle:         { fontSize: font.size.xs, fontWeight: '700', color: colors.muted, letterSpacing: 1 },
+  summaryFilters:       { flexDirection: 'row', gap: 3, backgroundColor: colors.surface, borderRadius: 8, padding: 3, borderWidth: 1, borderColor: colors.border },
+  summaryTab:           { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: 6 },
+  summaryTabActive:     { backgroundColor: colors.accent },
+  summaryTabText:       { fontSize: font.size.xs, fontWeight: '600', color: colors.muted },
+  summaryTabTextActive: { color: colors.white },
+  summaryEmpty:         { fontSize: font.size.sm, color: colors.muted, paddingVertical: spacing.sm },
+  summarySep:           { height: 1, backgroundColor: colors.border, marginTop: spacing.md, marginBottom: spacing.md },
+
+  tickerRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: colors.surface, borderRadius: radius.md, marginBottom: 4, borderWidth: 1, borderColor: colors.border },
+  tickerRowActive: { borderColor: colors.accent },
+  tickerName:      { fontSize: font.size.md, fontWeight: '800', color: colors.text },
+  tickerMeta:      { fontSize: font.size.xs, color: colors.muted, marginTop: 1 },
+  tickerInv:       { fontSize: font.size.xs, color: colors.muted },
+  tickerPnl:       { fontSize: font.size.sm, fontWeight: '700' },
+
+  subRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.md, backgroundColor: colors.surface2, borderLeftWidth: 3, borderLeftColor: colors.border, marginBottom: 2, borderRadius: radius.sm },
+  subRowOpen:   { borderLeftColor: colors.accent },
+  subRowClosed: { borderLeftColor: colors.border2 },
+  subAcct:      { fontSize: font.size.sm, fontWeight: '700', color: colors.text },
+  subMeta:      { fontSize: font.size.xs, color: colors.muted, marginTop: 1 },
+  subPnl:       { fontSize: font.size.sm, fontWeight: '700' },
 })

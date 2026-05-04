@@ -30,12 +30,12 @@ export default async function handler(req, res) {
       })
       const isApproved = status === 'approved'
       await transporter.sendMail({
-        from: `"CHiiRAG Stock Journal" <${process.env.GMAIL_USER}>`,
+        from: `"SMK Stock Journal" <${process.env.GMAIL_USER}>`,
         to: profile.email,
-        subject: isApproved ? '✅ Access Approved — CHiiRAG Stock Journal' : '❌ Access Request Declined',
+        subject: isApproved ? '✅ Access Approved — SMK Stock Journal' : '❌ Access Request Declined',
         html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0f0f0f;font-family:monospace;">
           <div style="max-width:480px;margin:0 auto;padding:32px 16px;text-align:center;">
-            <div style="font-size:16px;font-weight:800;color:#e2e8f0;margin-bottom:8px;">CHiiRAG STOCK Journal</div>
+            <div style="font-size:16px;font-weight:800;color:#e2e8f0;margin-bottom:8px;">SMK STOCK Journal</div>
             <div style="font-size:40px;margin:20px 0;">${isApproved ? '✅' : '❌'}</div>
             <div style="font-size:20px;font-weight:700;color:${isApproved ? '#22c55e' : '#ef4444'};margin-bottom:12px;">
               ${isApproved ? 'Access Approved!' : 'Access Declined'}
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
             <div style="color:#94a3b8;font-size:13px;margin-bottom:24px;">
               Hi ${profile.full_name || 'there'},<br/><br/>
               ${isApproved
-                ? 'Your access to CHiiRAG Stock Journal has been approved. You can now log in and start using the portal.'
+                ? 'Your access to SMK Stock Journal has been approved. You can now log in and start using the portal.'
                 : 'Your access request has been declined. Please contact the admin for more information.'}
             </div>
             ${isApproved ? `<a href="https://smk-stock-journal.vercel.app" style="display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:13px;font-weight:700;">Login Now →</a>` : ''}

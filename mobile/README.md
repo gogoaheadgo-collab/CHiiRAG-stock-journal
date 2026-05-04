@@ -1,6 +1,6 @@
 # SMK Stock Journal — Mobile App
 
-React Native / Expo app for CHiiRAG Stock Journal. Connects to your existing Vercel API.
+React Native / Expo app for SMK Stock Journal. Connects to your existing Vercel API.
 
 ## Setup
 

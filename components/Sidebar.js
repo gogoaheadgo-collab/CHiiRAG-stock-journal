@@ -58,7 +58,7 @@ export default function Sidebar({ active, isAdmin, user, onSignOut, onDeleteAcco
             <div style={{ flex: 1, background: '#138808' }} />
           </div>
           <div>
-            <div style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '14px', color: 'var(--text)', lineHeight: 1.1 }}>CHiiRAG</div>
+            <div style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontWeight: 800, fontSize: '14px', color: 'var(--text)', lineHeight: 1.1 }}>SMK</div>
             <div style={{ fontFamily: 'Bookman Old Style, Libre Baskerville, Georgia, serif', fontSize: '10px', color: 'var(--accent)', fontWeight: 700, letterSpacing: '0.05em' }}>STOCK Journal</div>
           </div>
         </div>
@@ -120,7 +120,7 @@ export default function Sidebar({ active, isAdmin, user, onSignOut, onDeleteAcco
         alignItems: 'center', padding: '0 16px', justifyContent: 'space-between',
       }}>
         <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>
-          CHiiRAG <span style={{ color: 'var(--accent)' }}>STOCK</span>
+          SMK <span style={{ color: 'var(--accent)' }}>STOCK</span>
         </div>
         <button onClick={() => setMobileOpen(o => !o)} style={{
           background: 'none', border: '1px solid var(--border)', borderRadius: '6px',

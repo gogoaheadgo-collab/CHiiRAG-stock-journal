@@ -323,7 +323,7 @@ function NotesPage() {
   return (
     <>
       <Head>
-        <title>Notes — CHiiRAG Stock Journal</title>
+        <title>Notes — SMK Stock Journal</title>
         <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap" rel="stylesheet" />
       </Head>
       <div className="tricolor-bar" />
@@ -337,7 +337,7 @@ function NotesPage() {
             <div style={{ flex:1, background:'#138808' }} />
           </div>
           <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'15px', color:'var(--text)' }}>
-            CHiiRAG <span style={{ color:'var(--accent)' }}>STOCK Journal</span>
+            SMK <span style={{ color:'var(--accent)' }}>STOCK Journal</span>
           </div>
         </div>
         <NavPill active="Notes" isAdmin={isAdmin} />

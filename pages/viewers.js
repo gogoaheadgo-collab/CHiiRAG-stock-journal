@@ -135,7 +135,7 @@ export default function ViewersPage() {
 
   return (
     <>
-      <Head><title>Viewers — Chiirag Stock Journal</title></Head>
+      <Head><title>Viewers — SMK Stock Journal</title></Head>
 
       <div style={{ height: '4px', background: 'linear-gradient(90deg, #FF9933 33.33%, #e8e8e8 33.33%, #e8e8e8 66.66%, #138808 66.66%)', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 }} />
 
@@ -150,7 +150,7 @@ export default function ViewersPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <IndiaFlagLogo size={32} />
           <span style={{ fontSize: '15px', fontWeight: 700, color: '#1a1f36', fontFamily: 'Libre Baskerville, Georgia, serif' }}>
-            Chiirag <span style={{ color: '#0ea5e9' }}>· Viewer Access</span>
+            SMK <span style={{ color: '#0ea5e9' }}>· Viewer Access</span>
           </span>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>

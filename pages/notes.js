@@ -283,7 +283,7 @@ export default function NotesPage() {
   return (
     <>
       <Head>
-        <title>Notes — CHiiRAG Stock Journal</title>
+        <title>Notes — SMK Stock Journal</title>
         <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap" rel="stylesheet" />
       </Head>
       <div className="tricolor-bar" />

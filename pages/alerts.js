@@ -300,7 +300,7 @@ export default function AlertsPage() {
 
   return (
     <>
-      <Head><title>Price Alerts — CHiiRAG Stock Journal</title></Head>
+      <Head><title>Price Alerts — SMK Stock Journal</title></Head>
       <div className="tricolor-bar" />
       <Sidebar active="Alerts" isAdmin={isAdmin} user={session?.user} onSignOut={signOut} />
 

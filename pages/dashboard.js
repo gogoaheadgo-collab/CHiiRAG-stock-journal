@@ -422,7 +422,7 @@ export default function Dashboard() {
   return (
     <>
       <div className="tricolor-bar" />
-      <Head><title>Dashboard — CHiiRAG Stock Journal</title></Head>
+      <Head><title>Dashboard — SMK Stock Journal</title></Head>
       <Sidebar
         active="Dashboard"
         isAdmin={isAdmin}

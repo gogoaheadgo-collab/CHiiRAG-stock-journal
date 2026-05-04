@@ -223,7 +223,7 @@ export default function SubscribersPage() {
 
   return (
     <>
-      <Head><title>Subscribers — CHiiRAG Journal</title></Head>
+      <Head><title>Subscribers — SMK Journal</title></Head>
       <div className="tricolor-bar" />
 
       <Sidebar active="Subscribers" isAdmin={true} user={session?.user} onSignOut={signOut} />

@@ -353,7 +353,7 @@ export default function DashboardScreen() {
     })
     .slice(0, 8)
 
-  const userName = session?.user?.user_metadata?.full_name?.split(' ')[0] || 'CHiiRAG'
+  const userName = session?.user?.user_metadata?.full_name?.split(' ')[0] || 'SMK'
   const today = new Date().toLocaleDateString('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long',
   })
@@ -432,6 +432,19 @@ export default function DashboardScreen() {
               const bRel    = b.trades.reduce((sum: number, t: any) =>
                 sum + calcRealisedForTrade(t, b.execs[t.id] || []), 0)
               const bMtf = calcMTF(b.trades)
+              let bUnreal    = 0
+              let bHasPrices = false
+              bOpen.forEach((t: any) => {
+                const cmp = livePrices[t.ticker]
+                if (!cmp) return
+                const execs   = b.execs[t.id] || []
+                const soldQty = execs.reduce((s: number, e: any) => s + Number(e.quantity), 0)
+                const currQty = Math.max(0, Number(t.quantity) - soldQty)
+                bUnreal += t.direction === 'SHORT'
+                  ? (Number(t.entry_price) - cmp) * currQty
+                  : (cmp - Number(t.entry_price)) * currQty
+                bHasPrices = true
+              })
               return (
                 <View key={b.name} style={s.bCard}>
                   <View style={s.bCardHead}>
@@ -444,12 +457,18 @@ export default function DashboardScreen() {
                   </View>
                   <View style={s.bStats}>
                     <View style={s.bStat}>
-                      <Text style={s.bStatLabel}>OPEN</Text>
-                      <Text style={[s.bStatVal, { color: colors.accent }]}>{bOpen.length}</Text>
+                      <Text style={s.bStatLabel}>OPEN / CLOSE</Text>
+                      <Text style={s.bStatVal}>
+                        <Text style={{ color: colors.accent }}>{bOpen.length}</Text>
+                        <Text style={{ color: colors.muted }}> / </Text>
+                        <Text style={{ color: colors.red }}>{bClosed.length}</Text>
+                      </Text>
                     </View>
                     <View style={s.bStat}>
-                      <Text style={s.bStatLabel}>CLOSED</Text>
-                      <Text style={s.bStatVal}>{bClosed.length}</Text>
+                      <Text style={s.bStatLabel}>UNREAL.</Text>
+                      <Text style={[s.bStatVal, { color: !bHasPrices ? colors.muted : bUnreal >= 0 ? colors.green : colors.red }]}>
+                        {!bHasPrices ? '—' : `${bUnreal >= 0 ? '+' : '−'}₹${fmt0(Math.abs(bUnreal))}`}
+                      </Text>
                     </View>
                     <View style={s.bStat}>
                       <Text style={s.bStatLabel}>REALISED</Text>

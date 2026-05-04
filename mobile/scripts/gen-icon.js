@@ -1,4 +1,4 @@
-// Generates a 1024x1024 CHiiRAG Stock Journal app icon using pngjs
+// Generates a 1024x1024 SMK Stock Journal app icon using pngjs
 const { PNG } = require('pngjs')
 const fs = require('fs')
 const path = require('path')

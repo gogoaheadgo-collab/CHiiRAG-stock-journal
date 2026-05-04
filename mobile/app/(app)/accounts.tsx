@@ -5,10 +5,11 @@ import {
 } from 'react-native'
 import {
   getAccounts, createAccount, deleteAccount, getTrades,
-  getAdminMirror, getSubscriberTrades, getSharedAccountTrades, createTrade,
+  getAdminMirror, getSubscriberTrades, getSharedAccountTrades, createTrade, getStockPrice,
 } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { colors, font, spacing, radius } from '../../lib/theme'
+import ExecutionPanel from '../../components/ExecutionPanel'
 
 const fmtd = (n: number) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmt0 = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
@@ -53,6 +54,8 @@ export default function AccountsScreen() {
   const [tradeAcct,     setTradeAcct]     = useState('')
   const [tradeForm,     setTradeForm]     = useState({ ...EMPTY_TRADE })
   const [savingTrade,   setSavingTrade]   = useState(false)
+  const [livePrices,    setLivePrices]    = useState<Record<string, number>>({})
+  const [expandedExecId, setExpandedExecId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -81,6 +84,16 @@ export default function AccountsScreen() {
   }, [isAdmin])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const openTickers = [...new Set(ownTrades.filter(t => t.status === 'OPEN').map(t => t.ticker as string))]
+    openTickers.forEach(async ticker => {
+      try {
+        const d = await getStockPrice(ticker)
+        if (d?.price) setLivePrices(prev => ({ ...prev, [ticker]: d.price }))
+      } catch {}
+    })
+  }, [ownTrades])
 
   const handleAddAccount = async () => {
     if (!newName.trim()) return
@@ -165,8 +178,18 @@ export default function AccountsScreen() {
       const sign = t.direction === 'LONG' ? 1 : -1
       return s + sign * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
     }, 0)
+    let unrealised = 0
+    let hasLive    = false
+    open.forEach(t => {
+      const cmp = livePrices[t.ticker]
+      if (cmp) {
+        const sign = t.direction === 'LONG' ? 1 : -1
+        unrealised += sign * (cmp - Number(t.entry_price)) * Number(t.quantity)
+        hasLive = true
+      }
+    })
     const mtf = ts.filter(t => t.trade_type === 'MTF' && t.status === 'OPEN')
-    return { open: open.length, closed: closed.length, invested, realised, mtfCount: mtf.length, trades: ts }
+    return { open: open.length, closed: closed.length, invested, realised, unrealised, hasLive, mtfCount: mtf.length, trades: ts }
   }
 
   const mirroredStatsFor = (subId: string) => {
@@ -240,6 +263,14 @@ export default function AccountsScreen() {
                     >
                       <Text style={[s.filterCount, { color: isOpenActive ? colors.green : colors.accent }]}>{st.open}</Text>
                       <Text style={[s.filterLabel, isOpenActive && { color: colors.green }]}>{'Open\nTrades'}</Text>
+                      {st.hasLive
+                        ? <Text style={[s.filterPnl, { color: st.unrealised >= 0 ? colors.green : colors.red }]}>
+                            {st.unrealised >= 0 ? '+' : '−'}₹{fmtd(Math.abs(st.unrealised))}
+                          </Text>
+                        : st.open > 0
+                          ? <Text style={s.filterPnlMuted}>CMP…</Text>
+                          : null
+                      }
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[s.filterTile, isClosedActive && s.filterTileClosedActive]}
@@ -248,6 +279,11 @@ export default function AccountsScreen() {
                     >
                       <Text style={[s.filterCount, { color: isClosedActive ? colors.muted : colors.text }]}>{st.closed}</Text>
                       <Text style={[s.filterLabel, isClosedActive && { color: colors.muted }]}>{'Closed\nTrades'}</Text>
+                      {st.closed > 0 && (
+                        <Text style={[s.filterPnl, { color: st.realised >= 0 ? colors.green : colors.red }]}>
+                          {st.realised >= 0 ? '+' : '−'}₹{fmtd(Math.abs(st.realised))}
+                        </Text>
+                      )}
                     </TouchableOpacity>
                   </View>
 
@@ -272,31 +308,61 @@ export default function AccountsScreen() {
                       <Text style={s.noTrades}>No {tradeFilter.toLowerCase()} trades</Text>
                     ) : (
                       visibleTrades.map(t => {
-                        const isOpen = t.status === 'OPEN'
-                        const pnl = !isOpen
+                        const isOpen  = t.status === 'OPEN'
+                        const pnl     = !isOpen
                           ? (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
                           : null
+                        const cmpRow  = isOpen ? livePrices[t.ticker] : null
+                        const uPnl    = cmpRow
+                          ? (t.direction === 'LONG' ? 1 : -1) * (cmpRow - Number(t.entry_price)) * Number(t.quantity)
+                          : null
+                        const showExec = expandedExecId === t.id
                         return (
-                          <View key={t.id} style={[s.tradeRow, isOpen ? s.tradeOpen : s.tradeClosed]}>
-                            <View style={{ flex: 1 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                <Text style={s.tradeTicker}>{t.ticker}</Text>
-                                <View style={[s.dirBadge, t.direction === 'LONG' ? s.dirLong : s.dirShort]}>
-                                  <Text style={[s.dirBadgeText, { color: t.direction === 'LONG' ? colors.accent : colors.red }]}>
-                                    {t.direction === 'LONG' ? '▲' : '▼'} {t.direction}
-                                  </Text>
+                          <View key={t.id}>
+                            <View style={[s.tradeRow, isOpen ? s.tradeOpen : s.tradeClosed]}>
+                              <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                  <Text style={s.tradeTicker}>{t.ticker}</Text>
+                                  <View style={[s.dirBadge, t.direction === 'LONG' ? s.dirLong : s.dirShort]}>
+                                    <Text style={[s.dirBadgeText, { color: t.direction === 'LONG' ? colors.accent : colors.red }]}>
+                                      {t.direction === 'LONG' ? '▲' : '▼'} {t.direction}
+                                    </Text>
+                                  </View>
                                 </View>
+                                <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}</Text>
+                                {isOpen ? (
+                                  <>
+                                    <Text style={s.tradeMeta}>Qty {fmt0(t.quantity)}  ·  Inv ₹{fmtd(t.invested_capital || Number(t.entry_price) * Number(t.quantity))}</Text>
+                                    {cmpRow != null && (
+                                      <Text style={s.tradeMeta}>
+                                        {'CMP ₹'}{fmtd(cmpRow)}{'  ·  '}
+                                        <Text style={{ color: (uPnl ?? 0) >= 0 ? colors.green : colors.red, fontWeight: '700' }}>
+                                          {(uPnl ?? 0) >= 0 ? '+' : '−'}₹{fmtd(Math.abs(uPnl ?? 0))}
+                                        </Text>
+                                      </Text>
+                                    )}
+                                  </>
+                                ) : (
+                                  <Text style={s.tradeMeta}>Exit ₹{fmtd(t.exit_price)}  ·  Qty {fmt0(t.quantity)}</Text>
+                                )}
+                                <TouchableOpacity onPress={() => setExpandedExecId(showExec ? null : t.id)} style={{ marginTop: 4 }}>
+                                  <Text style={s.execToggle}>
+                                    {showExec ? '▲ Hide Executions' : '▼ Executions'}
+                                  </Text>
+                                </TouchableOpacity>
                               </View>
-                              <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}</Text>
-                              {isOpen
-                                ? <Text style={s.tradeMeta}>Qty {fmt0(t.quantity)}  ·  Inv ₹{fmtd(t.invested_capital || Number(t.entry_price) * Number(t.quantity))}</Text>
-                                : <Text style={s.tradeMeta}>Exit ₹{fmtd(t.exit_price)}  ·  Qty {fmt0(t.quantity)}</Text>
-                              }
+                              {pnl !== null && (
+                                <Text style={[s.tradePnl, { color: pnl >= 0 ? colors.green : colors.red }]}>
+                                  {pnl >= 0 ? '+' : '−'}₹{fmtd(Math.abs(pnl))}
+                                </Text>
+                              )}
                             </View>
-                            {pnl !== null && (
-                              <Text style={[s.tradePnl, { color: pnl >= 0 ? colors.green : colors.red }]}>
-                                {pnl >= 0 ? '+' : '−'}₹{fmtd(Math.abs(pnl))}
-                              </Text>
+                            {showExec && (
+                              <ExecutionPanel
+                                trade={t}
+                                onUpdate={load}
+                                isReadOnly={false}
+                              />
                             )}
                           </View>
                         )
@@ -314,18 +380,18 @@ export default function AccountsScreen() {
           <>
             <Text style={s.sectionLabel}>MIRRORED SUBSCRIBER ACCOUNTS</Text>
             {mirroredAccounts.map((m: any) => {
-              const subId   = m.subscriber_id
-              const subName = (m.subscriber_name || m.subscriber_email || 'Subscriber').split(' ')[0]
-              const st      = mirroredStatsFor(subId)
-              const key     = `mirror-${subId}`
-              const isExp   = expandedAccount === key
+              const subId          = m.subscriber_id
+              const subName        = (m.subscriber_name || m.subscriber_email || 'Subscriber').split(' ')[0]
+              const st             = mirroredStatsFor(subId)
+              const key            = `mirror-${subId}`
+              const isOpenActive   = expandedAccount === key && tradeFilter === 'OPEN'
+              const isClosedActive = expandedAccount === key && tradeFilter === 'CLOSED'
+              const visibleTrades  = (expandedAccount === key)
+                ? st.trades.filter((t: any) => (t.status || '').toUpperCase() === tradeFilter)
+                : []
               return (
                 <View key={key}>
-                  <TouchableOpacity
-                    style={[s.tile, s.tileMirrored, isExp && s.tileActive]}
-                    onPress={() => setExpandedAccount(isExp ? null : key)}
-                    activeOpacity={0.8}
-                  >
+                  <View style={[s.tile, s.tileMirrored, (isOpenActive || isClosedActive) && s.tileActive]}>
                     <View style={s.tileHead}>
                       <View>
                         <Text style={s.tileName}>{subName}'s Accounts</Text>
@@ -333,9 +399,32 @@ export default function AccountsScreen() {
                       </View>
                       <View style={s.mirrorBadge}><Text style={s.mirrorText}>MIRRORED</Text></View>
                     </View>
+
+                    <View style={s.filterRow}>
+                      <TouchableOpacity
+                        style={[s.filterTile, isOpenActive && s.filterTileOpenActive]}
+                        onPress={() => handleOpenTap(key)}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[s.filterCount, { color: isOpenActive ? colors.green : colors.accent }]}>{st.open}</Text>
+                        <Text style={[s.filterLabel, isOpenActive && { color: colors.green }]}>{'Open\nTrades'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[s.filterTile, isClosedActive && s.filterTileClosedActive]}
+                        onPress={() => handleClosedTap(key)}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[s.filterCount, { color: isClosedActive ? colors.muted : colors.text }]}>{st.closed}</Text>
+                        <Text style={[s.filterLabel, isClosedActive && { color: colors.muted }]}>{'Closed\nTrades'}</Text>
+                        {st.closed > 0 && (
+                          <Text style={[s.filterPnl, { color: st.realised >= 0 ? colors.green : colors.red }]}>
+                            {st.realised >= 0 ? '+' : '−'}₹{fmtd(Math.abs(st.realised))}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+
                     <View style={s.statRow}>
-                      <View style={s.stat}><Text style={s.statLabel}>OPEN</Text><Text style={[s.statVal, { color: colors.accent }]}>{st.open}</Text></View>
-                      <View style={s.stat}><Text style={s.statLabel}>CLOSED</Text><Text style={s.statVal}>{st.closed}</Text></View>
                       <View style={s.stat}><Text style={s.statLabel}>INVESTED</Text><Text style={s.statVal}>{fmtM(st.invested)}</Text></View>
                       <View style={s.stat}>
                         <Text style={s.statLabel}>REALISED</Text>
@@ -344,25 +433,56 @@ export default function AccountsScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Text style={s.expandHint}>{isExp ? '▲ Hide trades' : '▼ Show trades'}</Text>
-                  </TouchableOpacity>
-                  {isExp && (
+                  </View>
+
+                  {(isOpenActive || isClosedActive) && (
                     <View style={s.tradeList}>
-                      {st.trades.length === 0 ? (
-                        <Text style={s.noTrades}>No trades found</Text>
+                      {visibleTrades.length === 0 ? (
+                        <Text style={s.noTrades}>No {tradeFilter.toLowerCase()} trades</Text>
                       ) : (
-                        st.trades.slice(0, 30).map((t: any) => {
-                          const isOpen = t.status === 'OPEN'
+                        visibleTrades.map((t: any) => {
+                          const isOpen   = t.status === 'OPEN'
+                          const pnl      = !isOpen
+                            ? (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
+                            : null
+                          const showExec = expandedExecId === t.id
                           return (
-                            <View key={t.id} style={[s.tradeRow, isOpen ? s.tradeOpen : s.tradeClosed]}>
-                              <View>
-                                <Text style={s.tradeTicker}>{t.ticker}</Text>
-                                <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)} · {t.account || ''}</Text>
+                            <View key={t.id}>
+                              <View style={[s.tradeRow, isOpen ? s.tradeOpen : s.tradeClosed]}>
+                                <View style={{ flex: 1 }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                    <Text style={s.tradeTicker}>{t.ticker}</Text>
+                                    <View style={[s.dirBadge, t.direction === 'LONG' ? s.dirLong : s.dirShort]}>
+                                      <Text style={[s.dirBadgeText, { color: t.direction === 'LONG' ? colors.accent : colors.red }]}>
+                                        {t.direction === 'LONG' ? '▲' : '▼'} {t.direction}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                  <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}</Text>
+                                  {isOpen ? (
+                                    <Text style={s.tradeMeta}>Qty {fmt0(t.quantity)}  ·  {t.account || ''}</Text>
+                                  ) : (
+                                    <Text style={s.tradeMeta}>Exit ₹{fmtd(t.exit_price)}  ·  Qty {fmt0(t.quantity)}</Text>
+                                  )}
+                                  <TouchableOpacity onPress={() => setExpandedExecId(showExec ? null : t.id)} style={{ marginTop: 4 }}>
+                                    <Text style={s.execToggle}>
+                                      {showExec ? '▲ Hide Executions' : '▼ Executions'}
+                                    </Text>
+                                  </TouchableOpacity>
+                                </View>
+                                {pnl !== null && (
+                                  <Text style={[s.tradePnl, { color: pnl >= 0 ? colors.green : colors.red }]}>
+                                    {pnl >= 0 ? '+' : '−'}₹{fmtd(Math.abs(pnl))}
+                                  </Text>
+                                )}
                               </View>
-                              <View style={{ alignItems: 'flex-end' }}>
-                                <Text style={s.tradeDir}>{t.direction}</Text>
-                                <Text style={s.tradeStatus}>{t.status}</Text>
-                              </View>
+                              {showExec && (
+                                <ExecutionPanel
+                                  trade={t}
+                                  onUpdate={load}
+                                  isReadOnly={true}
+                                />
+                              )}
                             </View>
                           )
                         })
@@ -636,6 +756,8 @@ const s = StyleSheet.create({
   filterTileClosedActive:{ backgroundColor: 'rgba(100,116,139,0.1)', borderColor: 'rgba(100,116,139,0.35)' },
   filterCount:           { fontSize: font.size.h2, fontWeight: '800', marginBottom: 2 },
   filterLabel:           { fontSize: font.size.xs, color: colors.muted, textAlign: 'center', lineHeight: 14 },
+  filterPnl:             { fontSize: font.size.xs, fontWeight: '700', marginTop: 3 },
+  filterPnlMuted:        { fontSize: font.size.xs, color: colors.muted, marginTop: 3 },
 
   statRow:   { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.sm },
   stat:      { flex: 1, backgroundColor: colors.surface2, borderRadius: radius.sm, padding: spacing.sm, alignItems: 'center' },
@@ -652,16 +774,17 @@ const s = StyleSheet.create({
   tradeRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   tradeOpen:   { borderLeftWidth: 3, borderLeftColor: colors.accent },
   tradeClosed: { borderLeftWidth: 3, borderLeftColor: colors.border2 },
-  tradeTicker: { fontSize: font.size.md, fontWeight: '800', color: colors.text },
-  tradeMeta:   { fontSize: font.size.xs, color: colors.muted, marginTop: 2 },
+  tradeTicker: { fontSize: 15, fontWeight: '800', color: colors.text },
+  tradeMeta:   { fontSize: 13, color: colors.muted, marginTop: 2 },
   tradeDir:    { fontSize: font.size.xs, color: colors.muted, fontWeight: '700' },
   tradeStatus: { fontSize: font.size.xs, color: colors.muted },
-  tradePnl:    { fontSize: font.size.sm, fontWeight: '700', marginTop: 2 },
+  tradePnl:    { fontSize: 14, fontWeight: '700', marginTop: 2 },
 
   dirBadge:     { paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, borderWidth: 1 },
   dirLong:      { backgroundColor: 'rgba(14,165,233,0.1)', borderColor: 'rgba(14,165,233,0.3)' },
   dirShort:     { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)' },
-  dirBadgeText: { fontSize: 9, fontWeight: '700' },
+  dirBadgeText: { fontSize: 11, fontWeight: '700' },
+  execToggle:   { fontSize: font.size.xs, color: colors.accent, fontWeight: '600' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: spacing.xl },
   modalBox:     { backgroundColor: colors.bg, borderRadius: radius.xl, padding: spacing.xl, gap: spacing.sm },
