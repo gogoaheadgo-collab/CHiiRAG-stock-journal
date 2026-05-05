@@ -363,11 +363,13 @@ export default function AccountsScreen() {
                       <Text style={s.noTrades}>No {tradeFilter.toLowerCase()} trades</Text>
                     ) : (
                       visibleTrades.map(t => {
-                        const isOpen  = t.status === 'OPEN'
-                        const pnl    = !isOpen ? (getRealisedPnl(t, ownExecsMap[t.id] || []) || null) : null
-                        const cmpRow = isOpen ? livePrices[t.ticker] : null
-                        const uPnl   = (cmpRow && isOpen)
-                          ? (t.direction === 'LONG' ? 1 : -1) * (cmpRow - Number(t.entry_price)) * getCurrentQty(t, ownExecsMap[t.id] || [])
+                        const isOpen   = t.status === 'OPEN'
+                        const execList = ownExecsMap[t.id] || []
+                        const pnl      = !isOpen ? (getRealisedPnl(t, execList) || null) : null
+                        const rPnlOpen = isOpen ? getRealisedPnl(t, execList) : 0
+                        const cmpRow   = isOpen ? livePrices[t.ticker] : null
+                        const uPnl     = (cmpRow && isOpen)
+                          ? (t.direction === 'LONG' ? 1 : -1) * (cmpRow - Number(t.entry_price)) * getCurrentQty(t, execList)
                           : null
                         const showExec = expandedExecId === t.id
                         return (
@@ -385,13 +387,18 @@ export default function AccountsScreen() {
                                 <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}</Text>
                                 {isOpen ? (
                                   <>
-                                    <Text style={s.tradeMeta}>Qty {fmt0(t.quantity)}  ·  Inv ₹{fmtd(t.invested_capital || Number(t.entry_price) * Number(t.quantity))}</Text>
+                                    <Text style={s.tradeMeta}>Qty {fmt0(getCurrentQty(t, execList))}  ·  Inv ₹{fmtd(t.invested_capital || Number(t.entry_price) * Number(t.quantity))}</Text>
                                     {cmpRow != null && (
                                       <Text style={s.tradeMeta}>
                                         {'CMP ₹'}{fmtd(cmpRow)}{'  ·  '}
                                         <Text style={{ color: (uPnl ?? 0) >= 0 ? colors.green : colors.red, fontWeight: '700' }}>
                                           {(uPnl ?? 0) >= 0 ? '+' : '−'}₹{fmtd(Math.abs(uPnl ?? 0))}
                                         </Text>
+                                      </Text>
+                                    )}
+                                    {rPnlOpen !== 0 && (
+                                      <Text style={[s.tradeMeta, { color: rPnlOpen >= 0 ? colors.green : colors.red, fontWeight: '700' }]}>
+                                        Realised: {rPnlOpen >= 0 ? '+' : '−'}₹{fmtd(Math.abs(rPnlOpen))}
                                       </Text>
                                     )}
                                   </>
@@ -502,9 +509,15 @@ export default function AccountsScreen() {
                         <Text style={s.noTrades}>No {tradeFilter.toLowerCase()} trades</Text>
                       ) : (
                         visibleTrades.map((t: any) => {
-                          const isOpen   = t.status === 'OPEN'
-                          const pnl = !isOpen ? (getRealisedPnl(t, mirroredExecsMap[t.id] || []) || null) : null
-                          const showExec = expandedExecId === t.id
+                          const isOpen    = t.status === 'OPEN'
+                          const mExecList = mirroredExecsMap[t.id] || []
+                          const pnl       = !isOpen ? (getRealisedPnl(t, mExecList) || null) : null
+                          const rPnlOpen  = isOpen ? getRealisedPnl(t, mExecList) : 0
+                          const mCmpRow   = isOpen ? livePrices[t.ticker] : null
+                          const mUPnl     = (mCmpRow && isOpen)
+                            ? (t.direction === 'LONG' ? 1 : -1) * (mCmpRow - Number(t.entry_price)) * getCurrentQty(t, mExecList)
+                            : null
+                          const showExec  = expandedExecId === t.id
                           return (
                             <View key={t.id}>
                               <View style={[s.tradeRow, isOpen ? s.tradeOpen : s.tradeClosed]}>
@@ -519,7 +532,22 @@ export default function AccountsScreen() {
                                   </View>
                                   <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}</Text>
                                   {isOpen ? (
-                                    <Text style={s.tradeMeta}>Qty {fmt0(t.quantity)}  ·  {t.account || ''}</Text>
+                                    <>
+                                      <Text style={s.tradeMeta}>Qty {fmt0(getCurrentQty(t, mExecList))}  ·  {t.account || ''}</Text>
+                                      {mCmpRow != null && (
+                                        <Text style={s.tradeMeta}>
+                                          {'CMP ₹'}{fmtd(mCmpRow)}{'  ·  '}
+                                          <Text style={{ color: (mUPnl ?? 0) >= 0 ? colors.green : colors.red, fontWeight: '700' }}>
+                                            {(mUPnl ?? 0) >= 0 ? '+' : '−'}₹{fmtd(Math.abs(mUPnl ?? 0))}
+                                          </Text>
+                                        </Text>
+                                      )}
+                                      {rPnlOpen !== 0 && (
+                                        <Text style={[s.tradeMeta, { color: rPnlOpen >= 0 ? colors.green : colors.red, fontWeight: '700' }]}>
+                                          Realised: {rPnlOpen >= 0 ? '+' : '−'}₹{fmtd(Math.abs(rPnlOpen))}
+                                        </Text>
+                                      )}
+                                    </>
                                   ) : (
                                     <Text style={s.tradeMeta}>Exit ₹{fmtd(t.exit_price)}  ·  Qty {fmt0(t.quantity)}</Text>
                                   )}
@@ -623,13 +651,15 @@ export default function AccountsScreen() {
                         <Text style={s.noTrades}>No {tradeFilter.toLowerCase()} trades</Text>
                       ) : (
                         visibleTrades.map((t: any) => {
-                          const isOpen   = t.status === 'OPEN'
-                          const pnl      = !isOpen ? (getRealisedPnl(t, sharedExecsMap[t.id] || []) || null) : null
-                          const cmpRow   = isOpen ? livePrices[t.ticker] : null
-                          const uPnl     = (cmpRow && isOpen)
-                            ? (t.direction === 'LONG' ? 1 : -1) * (cmpRow - Number(t.entry_price)) * getCurrentQty(t, sharedExecsMap[t.id] || [])
+                          const isOpen    = t.status === 'OPEN'
+                          const sExecList = sharedExecsMap[t.id] || []
+                          const pnl       = !isOpen ? (getRealisedPnl(t, sExecList) || null) : null
+                          const rPnlOpen  = isOpen ? getRealisedPnl(t, sExecList) : 0
+                          const cmpRow    = isOpen ? livePrices[t.ticker] : null
+                          const uPnl      = (cmpRow && isOpen)
+                            ? (t.direction === 'LONG' ? 1 : -1) * (cmpRow - Number(t.entry_price)) * getCurrentQty(t, sExecList)
                             : null
-                          const showExec = expandedExecId === t.id
+                          const showExec  = expandedExecId === t.id
                           return (
                             <View key={t.id}>
                               <View style={[s.tradeRow, isOpen ? s.tradeOpen : s.tradeClosed]}>
@@ -645,13 +675,18 @@ export default function AccountsScreen() {
                                   <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}</Text>
                                   {isOpen ? (
                                     <>
-                                      <Text style={s.tradeMeta}>Qty {fmt0(t.quantity)}  ·  {t.account || ''}</Text>
+                                      <Text style={s.tradeMeta}>Qty {fmt0(getCurrentQty(t, sExecList))}  ·  {t.account || ''}</Text>
                                       {cmpRow != null && uPnl != null && (
                                         <Text style={s.tradeMeta}>
                                           {'CMP ₹'}{fmtd(cmpRow)}{'  ·  '}
                                           <Text style={{ color: uPnl >= 0 ? colors.green : colors.red, fontWeight: '700' }}>
                                             {uPnl >= 0 ? '+' : '−'}₹{fmtd(Math.abs(uPnl))}
                                           </Text>
+                                        </Text>
+                                      )}
+                                      {rPnlOpen !== 0 && (
+                                        <Text style={[s.tradeMeta, { color: rPnlOpen >= 0 ? colors.green : colors.red, fontWeight: '700' }]}>
+                                          Realised: {rPnlOpen >= 0 ? '+' : '−'}₹{fmtd(Math.abs(rPnlOpen))}
                                         </Text>
                                       )}
                                     </>

@@ -261,19 +261,27 @@ export default function TradesScreen() {
                                 <Text style={[s.badgeText, { color: t.direction === 'LONG' ? colors.green : colors.red }]}>{t.direction}</Text>
                               </View>
                             </View>
-                            <Text style={s.subMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}  ·  Qty {fmt(t.quantity)}</Text>
+                            <Text style={s.subMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}  ·  Qty {fmt(getCurrentQty(t, item.execs))}</Text>
                             {isOpen && cmp ? <Text style={s.subMeta}>CMP ₹{fmtd(cmp)}</Text> : null}
                           </View>
-                          {uPnl !== null && (
-                            <Text style={[s.subPnl, { color: uPnl >= 0 ? colors.green : colors.red }]}>
-                              {uPnl >= 0 ? '+' : '−'}₹{fmt(Math.abs(uPnl))}
-                            </Text>
-                          )}
-                          {rPnl !== null && (
-                            <Text style={[s.subPnl, { color: rPnl >= 0 ? colors.green : colors.red }]}>
-                              {rPnl >= 0 ? '+' : '−'}₹{fmt(Math.abs(rPnl))}
-                            </Text>
-                          )}
+                          <View style={{ alignItems: 'flex-end' }}>
+                            {uPnl !== null && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                <Text style={{ fontSize: 9, color: colors.muted }}>U</Text>
+                                <Text style={[s.subPnl, { color: uPnl >= 0 ? colors.green : colors.red }]}>
+                                  {uPnl >= 0 ? '+' : '−'}₹{fmt(Math.abs(uPnl))}
+                                </Text>
+                              </View>
+                            )}
+                            {rPnl !== null && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                <Text style={{ fontSize: 9, color: colors.muted }}>R</Text>
+                                <Text style={[s.subPnl, { color: rPnl >= 0 ? colors.green : colors.red }]}>
+                                  {rPnl >= 0 ? '+' : '−'}₹{fmt(Math.abs(rPnl))}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
                         </View>
                       )
                     })}

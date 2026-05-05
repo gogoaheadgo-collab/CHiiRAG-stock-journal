@@ -64,7 +64,8 @@ export const checkApproval = () => apiFetch('check-approval', { method: 'POST' }
 export const getStrategies = () => apiFetch('strategies')
 
 // ── Bank Accounts ────────────────────────────────────────────────────────────
-export const getBankAccounts   = ()          => apiFetch('bank-accounts')
+export const getBankAccounts          = ()                  => apiFetch('bank-accounts')
+export const getBankAccountsForUser   = (user_id: string)  => apiFetch(`bank-accounts?user_id=${user_id}`)
 export const createBankAccount = (body: any) => apiFetch('bank-accounts', { method: 'POST', body: JSON.stringify(body) })
 export const deleteBankAccount = (id: string) => apiFetch('bank-accounts', { method: 'DELETE', body: JSON.stringify({ id }) })
 

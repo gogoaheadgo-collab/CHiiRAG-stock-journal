@@ -4,9 +4,10 @@ import {
   StyleSheet, RefreshControl, ActivityIndicator, Alert, Modal, TextInput,
 } from 'react-native'
 import {
-  getBankAccounts, getBankTransactions,
-  createBankTransaction, deleteBankTransaction,
+  getBankAccounts, getBankAccountsForUser, getBankTransactions,
+  createBankTransaction, deleteBankTransaction, getAdminMirror,
 } from '../../lib/api'
+import { useAuth } from '../../context/AuthContext'
 import { colors, font, spacing, radius } from '../../lib/theme'
 
 const fmtd = (n: number) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -21,7 +22,11 @@ const TX_LABELS: Record<TxType, string> = {
 }
 
 export default function BankScreen() {
+  const { role } = useAuth()
+  const isAdmin = role === 'admin'
+
   const [accounts,    setAccounts]    = useState<any[]>([])
+  const [subscriberBankData, setSubscriberBankData] = useState<{ subName: string; subId: string; accounts: any[] }[]>([])
   const [txMap,       setTxMap]       = useState<Record<string, any[]>>({})
   const [expanded,    setExpanded]    = useState<string | null>(null)
   const [loading,     setLoading]     = useState(true)
@@ -38,9 +43,28 @@ export default function BankScreen() {
     try {
       const acc = await getBankAccounts()
       setAccounts(Array.isArray(acc) ? acc : [])
+
+      if (isAdmin) {
+        const mirror = await getAdminMirror().catch(() => [])
+        const mirrorList = Array.isArray(mirror) ? mirror : []
+        const subData: { subName: string; subId: string; accounts: any[] }[] = []
+        await Promise.all(mirrorList.map(async (m: any) => {
+          try {
+            const subAccs = await getBankAccountsForUser(m.subscriber_id)
+            if (Array.isArray(subAccs) && subAccs.length > 0) {
+              subData.push({
+                subName: (m.subscriber_name || m.subscriber_email || 'Subscriber').split(' ')[0],
+                subId: m.subscriber_id,
+                accounts: subAccs,
+              })
+            }
+          } catch { /* skip subscriber */ }
+        }))
+        setSubscriberBankData(subData)
+      }
     } catch { /* empty */ }
     finally { setLoading(false); setRefreshing(false) }
-  }, [])
+  }, [isAdmin])
 
   useEffect(() => { load() }, [load])
 
@@ -99,7 +123,8 @@ export default function BankScreen() {
       }},
     ])
 
-  const total = accounts.reduce((s, a) => s + Number(a.balance || 0), 0)
+  const allAccounts = [...accounts, ...subscriberBankData.flatMap(s => s.accounts)]
+  const total = allAccounts.reduce((s, a) => s + Number(a.balance || 0), 0)
 
   if (loading)
     return <View style={s.center}><ActivityIndicator color={colors.accent} size="large" /></View>
@@ -115,7 +140,7 @@ export default function BankScreen() {
         <View style={s.totalCard}>
           <Text style={s.totalLabel}>TOTAL BANK BALANCE</Text>
           <Text style={s.totalVal}>₹{fmtd(total)}</Text>
-          <Text style={s.totalSub}>{accounts.length} account{accounts.length !== 1 ? 's' : ''}</Text>
+          <Text style={s.totalSub}>{allAccounts.length} account{allAccounts.length !== 1 ? 's' : ''}</Text>
         </View>
 
         {accounts.length === 0 ? (
@@ -137,8 +162,8 @@ export default function BankScreen() {
                 <View style={[s.card, { borderLeftColor: isGain ? colors.bull : colors.bear }]}>
                   <View style={s.cardHead}>
                     <View>
-                      <Text style={s.bankName}>{acc.bank_name}</Text>
                       <Text style={s.holderName}>{acc.holder_name}</Text>
+                      <Text style={s.bankName}>{acc.bank_name}</Text>
                     </View>
                     <View style={s.right}>
                       <Text style={s.balance}>₹{fmtd(acc.balance)}</Text>
@@ -204,6 +229,76 @@ export default function BankScreen() {
             )
           })
         )}
+
+        {/* ── Subscriber bank accounts (admin only) ── */}
+        {isAdmin && subscriberBankData.length > 0 && subscriberBankData.map(sub => (
+          <View key={sub.subId}>
+            <Text style={s.subSection}>{sub.subName.toUpperCase()}'S ACCOUNTS</Text>
+            {sub.accounts.map(acc => {
+              const gain   = Number(acc.balance) - Number(acc.initial_balance)
+              const isGain = gain >= 0
+              const pct    = Number(acc.initial_balance) > 0 ? (gain / Number(acc.initial_balance) * 100) : 0
+              const isExp  = expanded === acc.id
+              const txList = txMap[acc.id] || []
+              return (
+                <View key={acc.id} style={s.accBlock}>
+                  <View style={[s.card, { borderLeftColor: isGain ? colors.bull : colors.bear }]}>
+                    <View style={s.cardHead}>
+                      <View>
+                        <Text style={s.holderName}>{acc.holder_name}</Text>
+                        <Text style={s.bankName}>{acc.bank_name}</Text>
+                      </View>
+                      <View style={s.right}>
+                        <Text style={s.balance}>₹{fmtd(acc.balance)}</Text>
+                        <Text style={[s.gain, { color: isGain ? colors.bull : colors.bear }]}>
+                          {isGain ? '+' : '−'}₹{fmtd(Math.abs(gain))} ({isGain ? '+' : ''}{pct.toFixed(2)}%)
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={s.barBg}>
+                      <View style={[s.barFill, {
+                        backgroundColor: isGain ? colors.bull : colors.bear,
+                        width: `${Math.min(100, Math.max(5, (Number(acc.balance) / Math.max(Number(acc.initial_balance), Number(acc.balance))) * 100))}%` as any,
+                      }]} />
+                    </View>
+                    <View style={s.cardFoot}>
+                      <Text style={s.footText}>Initial: ₹{fmtd(acc.initial_balance)}</Text>
+                      <TouchableOpacity onPress={() => toggleExpand(acc.id)}>
+                        <Text style={s.histText}>{isExp ? '▲ Hide' : '▼ History'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  {isExp && (
+                    <View style={s.txList}>
+                      {txList.length === 0 ? (
+                        <Text style={s.noTx}>No transactions yet</Text>
+                      ) : (
+                        txList.map(tx => {
+                          const isDeposit  = tx.transaction_type === 'CASH_DEPOSIT'
+                          const isWithdraw = tx.transaction_type === 'CASH_WITHDRAWAL'
+                          return (
+                            <View key={tx.id} style={s.txRow}>
+                              <View style={s.txLeft}>
+                                <Text style={s.txType}>{TX_LABELS[tx.transaction_type as TxType] || tx.transaction_type}</Text>
+                                <Text style={s.txDate}>{tx.created_at?.slice(0, 10)}</Text>
+                                {tx.description ? <Text style={s.txDesc}>{tx.description}</Text> : null}
+                              </View>
+                              <View style={s.txRight}>
+                                <Text style={[s.txAmt, { color: isDeposit ? colors.green : isWithdraw ? colors.red : colors.accent }]}>
+                                  {isDeposit ? '+' : isWithdraw ? '−' : '↔'}₹{fmt0(Math.abs(tx.amount))}
+                                </Text>
+                              </View>
+                            </View>
+                          )
+                        })
+                      )}
+                    </View>
+                  )}
+                </View>
+              )
+            })}
+          </View>
+        ))}
       </ScrollView>
 
       {/* Record Transaction Modal */}
@@ -297,11 +392,12 @@ const s = StyleSheet.create({
   emptyText: { fontSize: font.size.xl, fontWeight: '700', color: colors.border2 },
   emptySub:  { fontSize: font.size.md, color: colors.muted, marginTop: spacing.sm },
 
+  subSection: { fontSize: font.size.xs, fontWeight: '700', color: colors.muted, letterSpacing: 1, marginTop: spacing.lg, marginBottom: spacing.sm },
   accBlock: { marginBottom: spacing.sm },
   card:     { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, borderLeftWidth: 4 },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md },
-  bankName:   { fontSize: font.size.xl, fontWeight: '800', color: colors.text },
-  holderName: { fontSize: font.size.sm, color: colors.muted, marginTop: 3 },
+  holderName: { fontSize: 17, fontWeight: '700', color: '#0F172A' },
+  bankName:   { fontSize: 12, color: '#94A3B8', marginTop: 2 },
   right:      { alignItems: 'flex-end' },
   balance:    { fontSize: font.size.xl, fontWeight: '800', color: colors.text },
   gain:       { fontSize: font.size.sm, marginTop: 3 },
