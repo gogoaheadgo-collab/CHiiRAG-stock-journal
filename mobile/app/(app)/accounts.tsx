@@ -4,12 +4,13 @@ import {
   StyleSheet, RefreshControl, ActivityIndicator, Alert, Modal, TextInput,
 } from 'react-native'
 import {
-  getAccounts, createAccount, deleteAccount, getTrades,
+  getAccounts, createAccount, deleteAccount, getTrades, getExecutions,
   getAdminMirror, getSubscriberTrades, getSharedAccountTrades, createTrade, getStockPrice,
 } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { colors, font, spacing, radius } from '../../lib/theme'
 import ExecutionPanel from '../../components/ExecutionPanel'
+import { getCurrentQty, getUnrealisedPnl, getRealisedPnl } from '../../lib/calculations'
 
 const fmtd = (n: number) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmt0 = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
@@ -54,46 +55,72 @@ export default function AccountsScreen() {
   const [tradeAcct,     setTradeAcct]     = useState('')
   const [tradeForm,     setTradeForm]     = useState({ ...EMPTY_TRADE })
   const [savingTrade,   setSavingTrade]   = useState(false)
-  const [livePrices,    setLivePrices]    = useState<Record<string, number>>({})
+  const [livePrices,     setLivePrices]     = useState<Record<string, number>>({})
+  const [ownExecsMap,    setOwnExecsMap]    = useState<Record<string, any[]>>({})
+  const [mirroredExecsMap, setMirroredExecsMap] = useState<Record<string, any[]>>({})
   const [expandedExecId, setExpandedExecId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
       const [acc, tr] = await Promise.all([getAccounts(), getTrades()])
+      const own: any[] = Array.isArray(tr) ? tr : []
       setAccounts(Array.isArray(acc) ? acc : [])
-      setOwnTrades(Array.isArray(tr) ? tr : [])
+      setOwnTrades(own)
+
+      // Fetch own executions per trade
+      const ownExMap: Record<string, any[]> = {}
+      await Promise.all(own.map(async t => {
+        try {
+          const exs = await getExecutions(t.id)
+          ownExMap[t.id] = Array.isArray(exs) ? exs : []
+        } catch { ownExMap[t.id] = [] }
+      }))
+      setOwnExecsMap(ownExMap)
+
+      let allOpenTrades: any[] = own.filter(t => t.status === 'OPEN')
 
       if (isAdmin) {
         const mirror = await getAdminMirror().catch(() => [])
-        const accounts = Array.isArray(mirror) ? mirror : []
-        setMirroredAccounts(accounts)
-        const map: Record<string, any[]> = {}
-        await Promise.all(accounts.map(async (m: any) => {
+        const mirrorList = Array.isArray(mirror) ? mirror : []
+        setMirroredAccounts(mirrorList)
+        const tradesMap: Record<string, any[]> = {}
+        const mExMap: Record<string, any[]> = {}
+        await Promise.all(mirrorList.map(async (m: any) => {
           try {
             const d = await getSubscriberTrades(m.subscriber_id)
-            map[m.subscriber_id] = Array.isArray(d?.trades) ? d.trades : (Array.isArray(d) ? d : [])
-          } catch { map[m.subscriber_id] = [] }
+            const trades: any[] = Array.isArray(d?.trades) ? d.trades : (Array.isArray(d) ? d : [])
+            tradesMap[m.subscriber_id] = trades
+            // Extract + index executions by trade_id
+            const exsList: any[] = Array.isArray(d?.executions) ? d.executions : []
+            exsList.forEach((e: any) => {
+              if (mExMap[e.trade_id]) mExMap[e.trade_id].push(e)
+              else mExMap[e.trade_id] = [e]
+            })
+            allOpenTrades = allOpenTrades.concat(trades.filter((t: any) => t.status === 'OPEN'))
+          } catch { tradesMap[m.subscriber_id] = [] }
         }))
-        setMirroredTradesMap(map)
+        setMirroredTradesMap(tradesMap)
+        setMirroredExecsMap(mExMap)
       } else {
         const shared = await getSharedAccountTrades().catch(() => ({ trades: [] }))
-        setSharedTrades(Array.isArray(shared?.trades) ? shared.trades : [])
+        const sharedList: any[] = Array.isArray(shared?.trades) ? shared.trades : []
+        setSharedTrades(sharedList)
+        allOpenTrades = allOpenTrades.concat(sharedList.filter((t: any) => t.status === 'OPEN'))
       }
+
+      // Fetch live prices for ALL open trades (own + mirrored/shared)
+      const openTickers = [...new Set(allOpenTrades.map((t: any) => t.ticker as string))]
+      openTickers.forEach(async ticker => {
+        try {
+          const d = await getStockPrice(ticker)
+          if (d?.price) setLivePrices(prev => ({ ...prev, [ticker]: d.price }))
+        } catch {}
+      })
     } catch { /* empty */ }
     finally { setLoading(false); setRefreshing(false) }
   }, [isAdmin])
 
   useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const openTickers = [...new Set(ownTrades.filter(t => t.status === 'OPEN').map(t => t.ticker as string))]
-    openTickers.forEach(async ticker => {
-      try {
-        const d = await getStockPrice(ticker)
-        if (d?.price) setLivePrices(prev => ({ ...prev, [ticker]: d.price }))
-      } catch {}
-    })
-  }, [ownTrades])
 
   const handleAddAccount = async () => {
     if (!newName.trim()) return
@@ -172,36 +199,30 @@ export default function AccountsScreen() {
   const ownStatsFor = (name: string) => {
     const ts      = ownTrades.filter(t => t.account === name)
     const open    = ts.filter(t => t.status === 'OPEN')
-    const closed  = ts.filter(t => t.status === 'CLOSED')
     const invested = open.reduce((s, t) => s + Number(t.invested_capital || 0), 0)
-    const realised = closed.reduce((s, t) => {
-      const sign = t.direction === 'LONG' ? 1 : -1
-      return s + sign * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-    }, 0)
+    // Exec-based realised across ALL trades (includes partial exits from OPEN)
+    const realised = ts.reduce((s, t) => s + getRealisedPnl(t, ownExecsMap[t.id] || []), 0)
+    // Unrealised: uses currentQty (total qty minus sold qty)
     let unrealised = 0
     let hasLive    = false
     open.forEach(t => {
       const cmp = livePrices[t.ticker]
       if (cmp) {
-        const sign = t.direction === 'LONG' ? 1 : -1
-        unrealised += sign * (cmp - Number(t.entry_price)) * Number(t.quantity)
+        unrealised += getUnrealisedPnl(t, ownExecsMap[t.id] || [], cmp)
         hasLive = true
       }
     })
     const mtf = ts.filter(t => t.trade_type === 'MTF' && t.status === 'OPEN')
-    return { open: open.length, closed: closed.length, invested, realised, unrealised, hasLive, mtfCount: mtf.length, trades: ts }
+    return { open: open.length, closed: ts.filter(t => t.status === 'CLOSED').length, invested, realised, unrealised, hasLive, mtfCount: mtf.length, trades: ts }
   }
 
   const mirroredStatsFor = (subId: string) => {
     const ts      = mirroredTradesMap[subId] || []
-    const open    = ts.filter(t => t.status === 'OPEN')
-    const closed  = ts.filter(t => t.status === 'CLOSED')
+    const open    = ts.filter((t: any) => t.status === 'OPEN')
     const invested = open.reduce((s: number, t: any) => s + Number(t.invested_capital || 0), 0)
-    const realised = closed.reduce((s: number, t: any) => {
-      const sign = t.direction === 'LONG' ? 1 : -1
-      return s + sign * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-    }, 0)
-    return { open: open.length, closed: closed.length, invested, realised, trades: ts }
+    // Exec-based realised across ALL trades
+    const realised = ts.reduce((s: number, t: any) => s + getRealisedPnl(t, mirroredExecsMap[t.id] || []), 0)
+    return { open: open.length, closed: ts.filter((t: any) => t.status === 'CLOSED').length, invested, realised, trades: ts }
   }
 
   const sharedAccountNames = [...new Set(sharedTrades.map(t => t.account).filter(Boolean))]

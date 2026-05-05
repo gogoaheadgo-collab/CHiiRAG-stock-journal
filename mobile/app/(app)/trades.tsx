@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { colors, font, spacing, radius } from '../../lib/theme'
 import ExecutionPanel from '../../components/ExecutionPanel'
+import { getCurrentQty, getRealisedPnl } from '../../lib/calculations'
 
 const fmtd = (n: number) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmt  = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
@@ -141,19 +142,17 @@ export default function TradesScreen() {
           map[ticker].invested += Number(i.trade.invested_capital || 0)
           const cmp = livePrices[ticker]
           if (cmp) {
+            // Use currentQty (total minus sold) for accurate unrealised P&L
+            const currQty = getCurrentQty(i.trade, i.execs)
             const sign = i.trade.direction === 'LONG' ? 1 : -1
-            map[ticker].unrealised += sign * (cmp - Number(i.trade.entry_price)) * Number(i.trade.quantity)
+            map[ticker].unrealised += sign * (cmp - Number(i.trade.entry_price)) * currQty
             map[ticker].hasLive = true
           }
+          // Include realised from partial exits of OPEN trades
+          map[ticker].realised += getRealisedPnl(i.trade, i.execs)
         } else {
           map[ticker].closed++
-          if (i.execs.length > 0) {
-            map[ticker].realised += i.execs.reduce((s: number, e: any) =>
-              s + (Number(e.price) - Number(i.trade.entry_price)) * Number(e.quantity), 0)
-          } else {
-            const sign = i.trade.direction === 'LONG' ? 1 : -1
-            map[ticker].realised += sign * (Number(i.trade.exit_price || 0) - Number(i.trade.entry_price)) * Number(i.trade.quantity)
-          }
+          map[ticker].realised += getRealisedPnl(i.trade, i.execs)
         }
       })
     return Object.values(map).sort((a, b) => b.open - a.open || a.ticker.localeCompare(b.ticker))
@@ -250,13 +249,9 @@ export default function TradesScreen() {
                       const isOpen = t.status === 'OPEN'
                       const cmp    = livePrices[t.ticker]
                       const uPnl   = (cmp && isOpen)
-                        ? (t.direction === 'LONG' ? 1 : -1) * (cmp - Number(t.entry_price)) * Number(t.quantity)
+                        ? (t.direction === 'LONG' ? 1 : -1) * (cmp - Number(t.entry_price)) * getCurrentQty(t, item.execs)
                         : null
-                      const rPnl   = !isOpen
-                        ? (item.execs.length > 0
-                            ? item.execs.reduce((s: number, e: any) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
-                            : (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity))
-                        : null
+                      const rPnl   = getRealisedPnl(t, item.execs) || null
                       return (
                         <View key={t.id} style={[s.subRow, isOpen ? s.subRowOpen : s.subRowClosed]}>
                           <View style={{ flex: 1 }}>
