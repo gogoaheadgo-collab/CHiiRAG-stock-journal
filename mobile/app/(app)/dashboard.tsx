@@ -327,22 +327,38 @@ export default function DashboardScreen() {
   // MTF interest
   const mtfInterest = calcMTF(allTrades)
 
-  // Account breakdown (admin only) — per own account name + each mirrored subscriber
+  // Account breakdown — own accounts + mirrored (admin) or shared (subscriber)
   const ownAccountNames = [...new Set(ownTrades.map(t => t.account).filter(Boolean))]
-  const breakdown = isAdmin ? [
-    ...ownAccountNames.map(name => ({
-      name,
-      trades: ownTrades.filter(t => t.account === name),
-      execs:  ownExecsMap,
-      isOwn:  true,
-    })),
-    ...mirroredAccounts.map((m: any) => ({
-      name:   ((m.subscriber_name || m.subscriber_email || '').split(' ')[0] || 'Sub') + "'s",
-      trades: mirroredMap[m.subscriber_id]?.trades || [],
-      execs:  mirroredMap[m.subscriber_id]?.execs  || {},
-      isOwn:  false,
-    })),
-  ] : []
+  const sharedAccNames  = [...new Set(sharedTrades.map((t: any) => t.account).filter(Boolean))]
+  const breakdown = isAdmin
+    ? [
+        ...ownAccountNames.map(name => ({
+          name,
+          trades: ownTrades.filter(t => t.account === name),
+          execs:  ownExecsMap,
+          badge:  'MINE' as const,
+        })),
+        ...mirroredAccounts.map((m: any) => ({
+          name:   ((m.subscriber_name || m.subscriber_email || '').split(' ')[0] || 'Sub') + "'s",
+          trades: mirroredMap[m.subscriber_id]?.trades || [],
+          execs:  mirroredMap[m.subscriber_id]?.execs  || {},
+          badge:  'MIRRORED' as const,
+        })),
+      ]
+    : [
+        ...ownAccountNames.map(name => ({
+          name,
+          trades: ownTrades.filter(t => t.account === name),
+          execs:  ownExecsMap,
+          badge:  'MINE' as const,
+        })),
+        ...sharedAccNames.map(name => ({
+          name,
+          trades: sharedTrades.filter((t: any) => t.account === name),
+          execs:  sharedExecsMap,
+          badge:  'SHARED' as const,
+        })),
+      ]
 
   // Recent exits (last 8)
   const recentExits = [...closedTrades]
@@ -421,8 +437,8 @@ export default function DashboardScreen() {
       <Text style={s.sectionTitle}>P&L CALENDAR</Text>
       <PnLCalendar trades={allTrades} execsMap={allExecsMap} />
 
-      {/* ── Account Breakdown (admin) ── */}
-      {isAdmin && breakdown.length > 1 && (
+      {/* ── Account Breakdown ── */}
+      {breakdown.length > 0 && (
         <>
           <Text style={s.sectionTitle}>ACCOUNT BREAKDOWN</Text>
           <View style={s.breakdownWrap}>
@@ -449,9 +465,9 @@ export default function DashboardScreen() {
                 <View key={b.name} style={s.bCard}>
                   <View style={s.bCardHead}>
                     <Text style={s.bName}>{b.name}</Text>
-                    <View style={[s.bBadge, b.isOwn ? s.bBadgeMine : s.bBadgeMirror]}>
-                      <Text style={[s.bBadgeText, { color: b.isOwn ? colors.accent : colors.gold }]}>
-                        {b.isOwn ? 'MINE' : 'MIRRORED'}
+                    <View style={[s.bBadge, b.badge === 'MINE' ? s.bBadgeMine : b.badge === 'MIRRORED' ? s.bBadgeMirror : s.bBadgeShared]}>
+                      <Text style={[s.bBadgeText, { color: b.badge === 'MINE' ? colors.accent : b.badge === 'MIRRORED' ? colors.gold : colors.accent2 }]}>
+                        {b.badge}
                       </Text>
                     </View>
                   </View>
@@ -589,6 +605,7 @@ const s = StyleSheet.create({
   bBadge:    { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, borderWidth: 1 },
   bBadgeMine:   { backgroundColor: colors.accentDim, borderColor: '#bae6fd' },
   bBadgeMirror: { backgroundColor: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.3)' },
+  bBadgeShared: { backgroundColor: colors.accentDim, borderColor: '#bae6fd' },
   bBadgeText:   { fontSize: font.size.xs, fontWeight: '700' },
   bStats:    { flexDirection: 'row', gap: spacing.xs },
   bStat:     { flex: 1, backgroundColor: colors.surface2, borderRadius: radius.sm, padding: spacing.sm, alignItems: 'center' },

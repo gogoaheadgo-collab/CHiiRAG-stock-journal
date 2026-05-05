@@ -58,6 +58,7 @@ export default function AccountsScreen() {
   const [livePrices,     setLivePrices]     = useState<Record<string, number>>({})
   const [ownExecsMap,    setOwnExecsMap]    = useState<Record<string, any[]>>({})
   const [mirroredExecsMap, setMirroredExecsMap] = useState<Record<string, any[]>>({})
+  const [sharedExecsMap,   setSharedExecsMap]   = useState<Record<string, any[]>>({})
   const [expandedExecId, setExpandedExecId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -102,9 +103,17 @@ export default function AccountsScreen() {
         setMirroredTradesMap(tradesMap)
         setMirroredExecsMap(mExMap)
       } else {
-        const shared = await getSharedAccountTrades().catch(() => ({ trades: [] }))
+        const shared = await getSharedAccountTrades().catch(() => ({ trades: [], executions: [] }))
         const sharedList: any[] = Array.isArray(shared?.trades) ? shared.trades : []
+        const sharedExsList: any[] = Array.isArray(shared?.executions) ? shared.executions : []
+        const sExMap: Record<string, any[]> = {}
+        sharedList.forEach(t => { sExMap[t.id] = [] })
+        sharedExsList.forEach((e: any) => {
+          if (sExMap[e.trade_id]) sExMap[e.trade_id].push(e)
+          else sExMap[e.trade_id] = [e]
+        })
         setSharedTrades(sharedList)
+        setSharedExecsMap(sExMap)
         allOpenTrades = allOpenTrades.concat(sharedList.filter((t: any) => t.status === 'OPEN'))
       }
 
@@ -220,9 +229,34 @@ export default function AccountsScreen() {
     const ts      = mirroredTradesMap[subId] || []
     const open    = ts.filter((t: any) => t.status === 'OPEN')
     const invested = open.reduce((s: number, t: any) => s + Number(t.invested_capital || 0), 0)
-    // Exec-based realised across ALL trades
     const realised = ts.reduce((s: number, t: any) => s + getRealisedPnl(t, mirroredExecsMap[t.id] || []), 0)
-    return { open: open.length, closed: ts.filter((t: any) => t.status === 'CLOSED').length, invested, realised, trades: ts }
+    let unrealised = 0
+    let hasLive    = false
+    open.forEach((t: any) => {
+      const cmp = livePrices[t.ticker]
+      if (cmp) {
+        unrealised += getUnrealisedPnl(t, mirroredExecsMap[t.id] || [], cmp)
+        hasLive = true
+      }
+    })
+    return { open: open.length, closed: ts.filter((t: any) => t.status === 'CLOSED').length, invested, realised, unrealised, hasLive, trades: ts }
+  }
+
+  const sharedStatsFor = (accName: string) => {
+    const ts      = sharedTrades.filter(t => t.account === accName)
+    const open    = ts.filter(t => t.status === 'OPEN')
+    const invested = open.reduce((s: number, t: any) => s + Number(t.invested_capital || 0), 0)
+    const realised = ts.reduce((s: number, t: any) => s + getRealisedPnl(t, sharedExecsMap[t.id] || []), 0)
+    let unrealised = 0
+    let hasLive    = false
+    open.forEach(t => {
+      const cmp = livePrices[t.ticker]
+      if (cmp) {
+        unrealised += getUnrealisedPnl(t, sharedExecsMap[t.id] || [], cmp)
+        hasLive = true
+      }
+    })
+    return { open: open.length, closed: ts.filter(t => t.status === 'CLOSED').length, invested, realised, unrealised, hasLive, trades: ts }
   }
 
   const sharedAccountNames = [...new Set(sharedTrades.map(t => t.account).filter(Boolean))]
@@ -330,12 +364,10 @@ export default function AccountsScreen() {
                     ) : (
                       visibleTrades.map(t => {
                         const isOpen  = t.status === 'OPEN'
-                        const pnl     = !isOpen
-                          ? (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-                          : null
-                        const cmpRow  = isOpen ? livePrices[t.ticker] : null
-                        const uPnl    = cmpRow
-                          ? (t.direction === 'LONG' ? 1 : -1) * (cmpRow - Number(t.entry_price)) * Number(t.quantity)
+                        const pnl    = !isOpen ? (getRealisedPnl(t, ownExecsMap[t.id] || []) || null) : null
+                        const cmpRow = isOpen ? livePrices[t.ticker] : null
+                        const uPnl   = (cmpRow && isOpen)
+                          ? (t.direction === 'LONG' ? 1 : -1) * (cmpRow - Number(t.entry_price)) * getCurrentQty(t, ownExecsMap[t.id] || [])
                           : null
                         const showExec = expandedExecId === t.id
                         return (
@@ -429,6 +461,14 @@ export default function AccountsScreen() {
                       >
                         <Text style={[s.filterCount, { color: isOpenActive ? colors.green : colors.accent }]}>{st.open}</Text>
                         <Text style={[s.filterLabel, isOpenActive && { color: colors.green }]}>{'Open\nTrades'}</Text>
+                        {st.hasLive
+                          ? <Text style={[s.filterPnl, { color: st.unrealised >= 0 ? colors.green : colors.red }]}>
+                              {st.unrealised >= 0 ? '+' : '−'}₹{fmtd(Math.abs(st.unrealised))}
+                            </Text>
+                          : st.open > 0
+                            ? <Text style={s.filterPnlMuted}>CMP…</Text>
+                            : null
+                        }
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[s.filterTile, isClosedActive && s.filterTileClosedActive]}
@@ -463,9 +503,7 @@ export default function AccountsScreen() {
                       ) : (
                         visibleTrades.map((t: any) => {
                           const isOpen   = t.status === 'OPEN'
-                          const pnl      = !isOpen
-                            ? (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-                            : null
+                          const pnl = !isOpen ? (getRealisedPnl(t, mirroredExecsMap[t.id] || []) || null) : null
                           const showExec = expandedExecId === t.id
                           return (
                             <View key={t.id}>
@@ -521,54 +559,128 @@ export default function AccountsScreen() {
           <>
             <Text style={s.sectionLabel}>SHARED BY ADMIN</Text>
             {sharedAccountNames.map(accName => {
-              const accTrades = sharedTrades.filter(t => t.account === accName)
-              const open      = accTrades.filter(t => t.status === 'OPEN')
-              const closed    = accTrades.filter(t => t.status === 'CLOSED')
-              const invested  = open.reduce((sum: number, t: any) => sum + Number(t.invested_capital || 0), 0)
-              const realised  = closed.reduce((sum: number, t: any) => {
-                const sign = t.direction === 'LONG' ? 1 : -1
-                return sum + sign * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-              }, 0)
-              const key   = `shared-${accName}`
-              const isExp = expandedAccount === key
+              const st             = sharedStatsFor(accName)
+              const key            = `shared-${accName}`
+              const isOpenActive   = expandedAccount === key && tradeFilter === 'OPEN'
+              const isClosedActive = expandedAccount === key && tradeFilter === 'CLOSED'
+              const visibleTrades  = expandedAccount === key
+                ? st.trades.filter((t: any) => (t.status || '').toUpperCase() === tradeFilter)
+                : []
               return (
                 <View key={key}>
-                  <TouchableOpacity
-                    style={[s.tile, s.tileShared, isExp && s.tileActive]}
-                    onPress={() => setExpandedAccount(isExp ? null : key)}
-                    activeOpacity={0.8}
-                  >
+                  <View style={[s.tile, s.tileShared, (isOpenActive || isClosedActive) && s.tileActive]}>
                     <View style={s.tileHead}>
                       <Text style={s.tileName}>{accName}</Text>
                       <View style={s.readOnlyBadge}><Text style={s.readOnlyText}>READ ONLY</Text></View>
                     </View>
+
+                    <View style={s.filterRow}>
+                      <TouchableOpacity
+                        style={[s.filterTile, isOpenActive && s.filterTileOpenActive]}
+                        onPress={() => handleOpenTap(key)}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[s.filterCount, { color: isOpenActive ? colors.green : colors.accent }]}>{st.open}</Text>
+                        <Text style={[s.filterLabel, isOpenActive && { color: colors.green }]}>{'Open\nTrades'}</Text>
+                        {st.hasLive
+                          ? <Text style={[s.filterPnl, { color: st.unrealised >= 0 ? colors.green : colors.red }]}>
+                              {st.unrealised >= 0 ? '+' : '−'}₹{fmtd(Math.abs(st.unrealised))}
+                            </Text>
+                          : st.open > 0
+                            ? <Text style={s.filterPnlMuted}>CMP…</Text>
+                            : null
+                        }
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[s.filterTile, isClosedActive && s.filterTileClosedActive]}
+                        onPress={() => handleClosedTap(key)}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[s.filterCount, { color: isClosedActive ? colors.muted : colors.text }]}>{st.closed}</Text>
+                        <Text style={[s.filterLabel, isClosedActive && { color: colors.muted }]}>{'Closed\nTrades'}</Text>
+                        {st.closed > 0 && (
+                          <Text style={[s.filterPnl, { color: st.realised >= 0 ? colors.green : colors.red }]}>
+                            {st.realised >= 0 ? '+' : '−'}₹{fmtd(Math.abs(st.realised))}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+
                     <View style={s.statRow}>
-                      <View style={s.stat}><Text style={s.statLabel}>OPEN</Text><Text style={[s.statVal, { color: colors.accent }]}>{open.length}</Text></View>
-                      <View style={s.stat}><Text style={s.statLabel}>CLOSED</Text><Text style={s.statVal}>{closed.length}</Text></View>
-                      <View style={s.stat}><Text style={s.statLabel}>INVESTED</Text><Text style={s.statVal}>{fmtM(invested)}</Text></View>
+                      <View style={s.stat}><Text style={s.statLabel}>INVESTED</Text><Text style={s.statVal}>{fmtM(st.invested)}</Text></View>
                       <View style={s.stat}>
                         <Text style={s.statLabel}>REALISED</Text>
-                        <Text style={[s.statVal, { color: realised >= 0 ? colors.green : colors.red }]}>
-                          {realised >= 0 ? '+' : '−'}{fmtM(Math.abs(realised))}
+                        <Text style={[s.statVal, { color: st.realised >= 0 ? colors.green : colors.red }]}>
+                          {st.realised >= 0 ? '+' : '−'}{fmtM(Math.abs(st.realised))}
                         </Text>
                       </View>
                     </View>
-                    <Text style={s.expandHint}>{isExp ? '▲ Hide trades' : '▼ Show trades'}</Text>
-                  </TouchableOpacity>
-                  {isExp && (
+                  </View>
+
+                  {(isOpenActive || isClosedActive) && (
                     <View style={s.tradeList}>
-                      {accTrades.length === 0 ? <Text style={s.noTrades}>No trades</Text> : accTrades.slice(0, 30).map((t: any) => (
-                        <View key={t.id} style={[s.tradeRow, t.status === 'OPEN' ? s.tradeOpen : s.tradeClosed]}>
-                          <View>
-                            <Text style={s.tradeTicker}>{t.ticker}</Text>
-                            <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)}</Text>
-                          </View>
-                          <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={s.tradeDir}>{t.direction}</Text>
-                            <Text style={s.tradeStatus}>{t.status}</Text>
-                          </View>
-                        </View>
-                      ))}
+                      {visibleTrades.length === 0 ? (
+                        <Text style={s.noTrades}>No {tradeFilter.toLowerCase()} trades</Text>
+                      ) : (
+                        visibleTrades.map((t: any) => {
+                          const isOpen   = t.status === 'OPEN'
+                          const pnl      = !isOpen ? (getRealisedPnl(t, sharedExecsMap[t.id] || []) || null) : null
+                          const cmpRow   = isOpen ? livePrices[t.ticker] : null
+                          const uPnl     = (cmpRow && isOpen)
+                            ? (t.direction === 'LONG' ? 1 : -1) * (cmpRow - Number(t.entry_price)) * getCurrentQty(t, sharedExecsMap[t.id] || [])
+                            : null
+                          const showExec = expandedExecId === t.id
+                          return (
+                            <View key={t.id}>
+                              <View style={[s.tradeRow, isOpen ? s.tradeOpen : s.tradeClosed]}>
+                                <View style={{ flex: 1 }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                    <Text style={s.tradeTicker}>{t.ticker}</Text>
+                                    <View style={[s.dirBadge, t.direction === 'LONG' ? s.dirLong : s.dirShort]}>
+                                      <Text style={[s.dirBadgeText, { color: t.direction === 'LONG' ? colors.accent : colors.red }]}>
+                                        {t.direction === 'LONG' ? '▲' : '▼'} {t.direction}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                  <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)}  ·  Entry ₹{fmtd(t.entry_price)}</Text>
+                                  {isOpen ? (
+                                    <>
+                                      <Text style={s.tradeMeta}>Qty {fmt0(t.quantity)}  ·  {t.account || ''}</Text>
+                                      {cmpRow != null && uPnl != null && (
+                                        <Text style={s.tradeMeta}>
+                                          {'CMP ₹'}{fmtd(cmpRow)}{'  ·  '}
+                                          <Text style={{ color: uPnl >= 0 ? colors.green : colors.red, fontWeight: '700' }}>
+                                            {uPnl >= 0 ? '+' : '−'}₹{fmtd(Math.abs(uPnl))}
+                                          </Text>
+                                        </Text>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <Text style={s.tradeMeta}>Exit ₹{fmtd(t.exit_price)}  ·  Qty {fmt0(t.quantity)}</Text>
+                                  )}
+                                  <TouchableOpacity onPress={() => setExpandedExecId(showExec ? null : t.id)} style={{ marginTop: 4 }}>
+                                    <Text style={s.execToggle}>
+                                      {showExec ? '▲ Hide Executions' : '▼ Executions'}
+                                    </Text>
+                                  </TouchableOpacity>
+                                </View>
+                                {pnl !== null && (
+                                  <Text style={[s.tradePnl, { color: pnl >= 0 ? colors.green : colors.red }]}>
+                                    {pnl >= 0 ? '+' : '−'}₹{fmtd(Math.abs(pnl))}
+                                  </Text>
+                                )}
+                              </View>
+                              {showExec && (
+                                <ExecutionPanel
+                                  trade={t}
+                                  onUpdate={load}
+                                  isReadOnly={true}
+                                />
+                              )}
+                            </View>
+                          )
+                        })
+                      )}
                     </View>
                   )}
                 </View>
