@@ -5,7 +5,7 @@ import {
 } from 'react-native'
 import {
   getSubscribers, getPendingUsers, approveUser,
-  deleteSubscriber, getSubscriberTrades,
+  deleteSubscriber, getSubscriberTrades, getStockPrice,
 } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { colors, font, spacing, radius } from '../../lib/theme'
@@ -23,6 +23,8 @@ export default function SubscribersScreen() {
   const [refreshing,   setRefreshing]   = useState(false)
   const [detailUser,   setDetailUser]   = useState<any | null>(null)
   const [detailTrades, setDetailTrades] = useState<any[]>([])
+  const [detailExecs,  setDetailExecs]  = useState<any[]>([])
+  const [detailPrices, setDetailPrices] = useState<Record<string, number>>({})
   const [detailLoad,   setDetailLoad]   = useState(false)
 
   if (!authLoading && role !== 'admin') return <Redirect href="/(app)/dashboard" />
@@ -59,22 +61,54 @@ export default function SubscribersScreen() {
   const openDetail = async (sub: any) => {
     setDetailUser(sub)
     setDetailLoad(true)
+    setDetailTrades([])
+    setDetailExecs([])
+    setDetailPrices({})
     try {
-      const trades = await getSubscriberTrades(sub.user_id)
-      setDetailTrades(Array.isArray(trades) ? trades : [])
-    } catch { setDetailTrades([]) }
+      const data = await getSubscriberTrades(sub.user_id)
+      const trades: any[] = Array.isArray(data) ? data : (Array.isArray(data?.trades) ? data.trades : [])
+      const execs: any[]  = Array.isArray(data?.executions) ? data.executions : []
+      setDetailTrades(trades)
+      setDetailExecs(execs)
+      const openTickers = [...new Set(
+        trades.filter((t: any) => t.status === 'OPEN').map((t: any) => t.ticker as string)
+      )]
+      const prices: Record<string, number> = {}
+      await Promise.all(openTickers.map(async ticker => {
+        try {
+          const d = await getStockPrice(ticker)
+          if (d?.price) prices[ticker] = d.price
+        } catch {}
+      }))
+      setDetailPrices(prices)
+    } catch { setDetailTrades([]); setDetailExecs([]) }
     finally { setDetailLoad(false) }
   }
 
-  const statsFromTrades = (trades: any[]) => {
+  const statsFromTrades = (trades: any[], execs: any[], prices: Record<string, number>) => {
     const open   = trades.filter(t => t.status === 'OPEN')
     const closed = trades.filter(t => t.status === 'CLOSED')
     const invested = open.reduce((s, t) => s + Number(t.invested_capital || 0), 0)
-    const realised = closed.reduce((s, t) => {
-      const sign = t.direction === 'LONG' ? 1 : -1
-      return s + sign * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-    }, 0)
-    return { open: open.length, closed: closed.length, invested, realised }
+    let realised = 0
+    trades.forEach(t => {
+      const tExecs = execs.filter((e: any) => e.trade_id === t.id)
+      realised += tExecs.reduce((s: number, e: any) =>
+        s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+    })
+    let unrealised = 0
+    let hasLive = false
+    open.forEach(t => {
+      const cmp = prices[t.ticker]
+      if (!cmp) return
+      hasLive = true
+      const tExecs = execs.filter((e: any) => e.trade_id === t.id)
+      const soldQty = tExecs.reduce((s: number, e: any) => s + Number(e.quantity || 0), 0)
+      const currQty = Math.max(0, Number(t.quantity) - soldQty)
+      unrealised += t.direction === 'SHORT'
+        ? (Number(t.entry_price) - cmp) * currQty
+        : (cmp - Number(t.entry_price)) * currQty
+    })
+    return { open: open.length, closed: closed.length, invested, realised, unrealised, hasLive }
   }
 
   if (loading)
@@ -162,47 +196,86 @@ export default function SubscribersScreen() {
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
                 {(() => {
-                  const st = statsFromTrades(detailTrades)
+                  const st = statsFromTrades(detailTrades, detailExecs, detailPrices)
                   return (
-                    <View style={s.statsRow}>
-                      <View style={s.statBox}>
-                        <Text style={s.statLabel}>OPEN</Text>
-                        <Text style={[s.statVal, { color: colors.accent }]}>{st.open}</Text>
+                    <>
+                      <View style={s.statsRow}>
+                        <View style={s.statBox}>
+                          <Text style={s.statLabel}>OPEN</Text>
+                          <Text style={[s.statVal, { color: colors.accent }]}>{st.open}</Text>
+                        </View>
+                        <View style={s.statBox}>
+                          <Text style={s.statLabel}>CLOSED</Text>
+                          <Text style={s.statVal}>{st.closed}</Text>
+                        </View>
+                        <View style={s.statBox}>
+                          <Text style={s.statLabel}>INVESTED</Text>
+                          <Text style={s.statVal}>₹{fmt0(st.invested)}</Text>
+                        </View>
+                        <View style={s.statBox}>
+                          <Text style={s.statLabel}>REALISED</Text>
+                          <Text style={[s.statVal, { color: st.realised >= 0 ? colors.green : colors.red }]}>
+                            {st.realised >= 0 ? '+' : '−'}₹{fmt0(Math.abs(st.realised))}
+                          </Text>
+                        </View>
                       </View>
-                      <View style={s.statBox}>
-                        <Text style={s.statLabel}>CLOSED</Text>
-                        <Text style={s.statVal}>{st.closed}</Text>
-                      </View>
-                      <View style={s.statBox}>
-                        <Text style={s.statLabel}>INVESTED</Text>
-                        <Text style={s.statVal}>₹{fmt0(st.invested)}</Text>
-                      </View>
-                      <View style={s.statBox}>
-                        <Text style={s.statLabel}>REALISED</Text>
-                        <Text style={[s.statVal, { color: st.realised >= 0 ? colors.green : colors.red }]}>
-                          {st.realised >= 0 ? '+' : '−'}₹{fmt0(Math.abs(st.realised))}
-                        </Text>
-                      </View>
-                    </View>
+                      {st.hasLive && (
+                        <View style={[s.statsRow, { marginTop: -spacing.sm }]}>
+                          <View style={[s.statBox, { flex: 1 }]}>
+                            <Text style={s.statLabel}>UNREALISED</Text>
+                            <Text style={[s.statVal, { color: st.unrealised >= 0 ? colors.green : colors.red }]}>
+                              {st.unrealised >= 0 ? '+' : '−'}₹{fmt0(Math.abs(st.unrealised))}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </>
                   )
                 })()}
 
                 {detailTrades.length === 0 ? (
                   <Text style={s.noTrades}>No trades found</Text>
                 ) : (
-                  detailTrades.slice(0, 30).map(t => (
-                    <View key={t.id} style={[s.tradeRow, t.status === 'OPEN' ? s.tradeOpen : s.tradeClosed]}>
-                      <View>
-                        <Text style={s.tradeTicker}>{t.ticker}</Text>
-                        <Text style={s.tradeMeta}>{t.entry_date?.slice(0, 10)} · {t.account || ''}</Text>
+                  detailTrades.slice(0, 30).map(t => {
+                    const tExecs  = detailExecs.filter((e: any) => e.trade_id === t.id)
+                    const soldQty = tExecs.reduce((s: number, e: any) => s + Number(e.quantity || 0), 0)
+                    const currQty = Math.max(0, Number(t.quantity) - soldQty)
+                    const cmp     = t.status === 'OPEN' ? detailPrices[t.ticker] : null
+                    const uPnl    = (cmp && currQty > 0)
+                      ? (t.direction === 'SHORT'
+                          ? (Number(t.entry_price) - cmp) * currQty
+                          : (cmp - Number(t.entry_price)) * currQty)
+                      : null
+                    const rPnl = tExecs.reduce((s: number, e: any) =>
+                      s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+                    return (
+                      <View key={t.id} style={[s.tradeRow, t.status === 'OPEN' ? s.tradeOpen : s.tradeClosed]}>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={s.tradeTicker}>{t.ticker}</Text>
+                            <Text style={[s.tradeDir, { color: t.direction === 'LONG' ? colors.green : colors.red }]}>{t.direction}</Text>
+                          </View>
+                          <Text style={s.tradeMeta}>
+                            {t.entry_date?.slice(0, 10)} · {t.account || ''} · Qty {currQty}/{t.quantity}
+                          </Text>
+                          {uPnl !== null && (
+                            <Text style={[s.tradeMeta, { color: uPnl >= 0 ? colors.green : colors.red, fontWeight: '700' }]}>
+                              {uPnl >= 0 ? '+' : '−'}₹{fmt0(Math.abs(uPnl))} Unreal
+                            </Text>
+                          )}
+                          {rPnl !== 0 && (
+                            <Text style={[s.tradeMeta, { color: rPnl >= 0 ? colors.green : colors.red, fontWeight: '700' }]}>
+                              {rPnl >= 0 ? '+' : '−'}₹{fmt0(Math.abs(rPnl))} Real
+                            </Text>
+                          )}
+                        </View>
+                        <View style={s.tradeRight}>
+                          <Text style={[s.tradeStatus, { color: t.status === 'OPEN' ? colors.accent : colors.muted }]}>{t.status}</Text>
+                          <Text style={s.tradeInvested}>₹{fmt0(t.invested_capital || 0)}</Text>
+                        </View>
                       </View>
-                      <View style={s.tradeRight}>
-                        <Text style={s.tradeDir}>{t.direction}</Text>
-                        <Text style={[s.tradeStatus, { color: t.status === 'OPEN' ? colors.accent : colors.muted }]}>{t.status}</Text>
-                        <Text style={s.tradeInvested}>₹{fmt0(t.invested_capital || 0)}</Text>
-                      </View>
-                    </View>
-                  ))
+                    )
+                  })
                 )}
               </ScrollView>
             )}

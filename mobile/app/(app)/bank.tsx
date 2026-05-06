@@ -37,6 +37,7 @@ export default function BankScreen() {
   const [txAmount,    setTxAmount]    = useState('')
   const [txDesc,      setTxDesc]      = useState('')
   const [txToId,      setTxToId]      = useState('')
+  const [txDate,      setTxDate]      = useState(new Date().toISOString().slice(0, 10))
   const [saving,      setSaving]      = useState(false)
 
   const load = useCallback(async () => {
@@ -87,6 +88,7 @@ export default function BankScreen() {
     setTxAmount('')
     setTxDesc('')
     setTxToId('')
+    setTxDate(new Date().toISOString().slice(0, 10))
     setTxModal(true)
   }
 
@@ -97,13 +99,16 @@ export default function BankScreen() {
     }
     setSaving(true)
     try {
+      const isTransfer = txType === 'ACCOUNT_TRANSFER'
       const body: any = {
         account_id:       txAccount.id,
-        transaction_type: txType,
+        transaction_date: txDate || new Date().toISOString().slice(0, 10),
+        transaction_type: txType === 'CASH_DEPOSIT' ? 'CREDIT' : 'DEBIT',
+        source_type:      isTransfer ? 'A2A_TRANSFER' : txType,
         amount:           Number(txAmount),
-        description:      txDesc.trim() || undefined,
+        notes:            txDesc.trim() || undefined,
       }
-      if (txType === 'ACCOUNT_TRANSFER' && txToId) body.to_account_id = txToId
+      if (isTransfer && txToId) body.a2a_partner_account_id = txToId
       await createBankTransaction(body)
       setTxModal(false)
       setTxMap(m => { const n = { ...m }; delete n[txAccount.id]; return n })
@@ -200,14 +205,14 @@ export default function BankScreen() {
                       <Text style={s.noTx}>No transactions yet</Text>
                     ) : (
                       txList.map(tx => {
-                        const isDeposit = tx.transaction_type === 'CASH_DEPOSIT'
-                        const isWithdraw = tx.transaction_type === 'CASH_WITHDRAWAL'
+                        const isDeposit = tx.source_type === 'CASH_DEPOSIT'
+                        const isWithdraw = tx.source_type === 'CASH_WITHDRAWAL'
                         return (
                           <View key={tx.id} style={s.txRow}>
                             <View style={s.txLeft}>
-                              <Text style={s.txType}>{TX_LABELS[tx.transaction_type as TxType] || tx.transaction_type}</Text>
-                              <Text style={s.txDate}>{tx.created_at?.slice(0, 10)}</Text>
-                              {tx.description ? <Text style={s.txDesc}>{tx.description}</Text> : null}
+                              <Text style={s.txType}>{TX_LABELS[tx.source_type as TxType] || tx.source_type}</Text>
+                              <Text style={s.txDate}>{(tx.transaction_date || tx.created_at)?.slice(0, 10)}</Text>
+                              {tx.notes ? <Text style={s.txDesc}>{tx.notes}</Text> : null}
                             </View>
                             <View style={s.txRight}>
                               <Text style={[s.txAmt, {
@@ -274,14 +279,14 @@ export default function BankScreen() {
                         <Text style={s.noTx}>No transactions yet</Text>
                       ) : (
                         txList.map(tx => {
-                          const isDeposit  = tx.transaction_type === 'CASH_DEPOSIT'
-                          const isWithdraw = tx.transaction_type === 'CASH_WITHDRAWAL'
+                          const isDeposit  = tx.source_type === 'CASH_DEPOSIT'
+                          const isWithdraw = tx.source_type === 'CASH_WITHDRAWAL'
                           return (
                             <View key={tx.id} style={s.txRow}>
                               <View style={s.txLeft}>
-                                <Text style={s.txType}>{TX_LABELS[tx.transaction_type as TxType] || tx.transaction_type}</Text>
-                                <Text style={s.txDate}>{tx.created_at?.slice(0, 10)}</Text>
-                                {tx.description ? <Text style={s.txDesc}>{tx.description}</Text> : null}
+                                <Text style={s.txType}>{TX_LABELS[tx.source_type as TxType] || tx.source_type}</Text>
+                                <Text style={s.txDate}>{(tx.transaction_date || tx.created_at)?.slice(0, 10)}</Text>
+                                {tx.notes ? <Text style={s.txDesc}>{tx.notes}</Text> : null}
                               </View>
                               <View style={s.txRight}>
                                 <Text style={[s.txAmt, { color: isDeposit ? colors.green : isWithdraw ? colors.red : colors.accent }]}>
@@ -324,6 +329,14 @@ export default function BankScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+
+            <TextInput
+              style={s.input}
+              value={txDate}
+              onChangeText={setTxDate}
+              placeholder="Date (YYYY-MM-DD)"
+              placeholderTextColor={colors.muted}
+            />
 
             <TextInput
               style={s.input}

@@ -343,7 +343,7 @@ export default function SubscribersPage() {
                       <td style={{ textAlign:'center' }} onClick={e => e.stopPropagation()}>
                         {sub.isAdmin ? <span className="neutral" style={{ fontSize:'11px' }}>—</span> : (
                           <div style={{ display:'flex', gap:'6px', justifyContent:'center' }}>
-                            <button onClick={() => toggleMirror(sub)} className="btn btn-ghost" style={{ fontSize:'11px', padding:'4px 14px', color: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', borderColor: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', fontWeight:700 }}>
+                            <button onClick={() => toggleMirror(sub)} className="btn btn-ghost" style={{ fontSize:'10px', padding:'3px 8px', color: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', borderColor: mirrored[sub.id] ? 'var(--bear)' : 'var(--bull)', fontWeight:700 }}>
                               {mirrored[sub.id] ? '× Unlink' : '+ Fetch'}
                             </button>
                             <button onClick={e => { e.stopPropagation(); handleDeleteSubscriber(sub) }}
@@ -408,8 +408,8 @@ export default function SubscribersPage() {
             ) : filtered.length === 0 ? (
               <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No trades found.</div>
             ) : (
-              <div style={{ borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"8px", overflow:"hidden" }}>
-                <table className="data-table">
+              <div style={{ borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"8px", overflowX:"auto", width:"100%" }}>
+                <table className="data-table" style={{ tableLayout:'fixed', width:'100%' }}>
                   <colgroup>
                     <col style={{ width:'12%' }} />
                     <col style={{ width:'7%' }} />
@@ -440,7 +440,7 @@ export default function SubscribersPage() {
                         { key:'realised', label:'Real. P&L', right:true },
                         { key:'status', label:'Status', filterable:true },
                       ].map(col => (
-                        <th key={col.key} className={col.right ? 'r' : undefined} style={{ cursor:'pointer' }}
+                        <th key={col.key} className={col.right ? 'r' : undefined} style={{ cursor:'pointer', fontSize:'10px' }}
                           onClick={() => subTf.handleSort(col.key)}>
                           <div className="col-header" style={col.right ? { justifyContent:'flex-end' } : undefined}>
                             <span>{col.label}</span>
@@ -491,7 +491,7 @@ export default function SubscribersPage() {
 
                       return (
                         <tr key={trade.id}>
-                          <td>
+                          <td style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontSize:'11px' }}>
                             <div className="tk-cell">
                               <span className="tk-name">{trade.ticker}</span>
                               <div className="tk-badges">
@@ -499,26 +499,26 @@ export default function SubscribersPage() {
                               </div>
                             </div>
                           </td>
-                          <td style={{ fontSize:'11px', color:'var(--muted)' }}>{trade.account || '—'}</td>
+                          <td style={{ fontSize:'11px', color:'var(--muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{trade.account || '—'}</td>
                           <td style={{ fontSize:'11px', color:'var(--muted)' }}>{trade.entry_date?.slice(0,10)}</td>
-                          <td className="num">Rs.{toINRd(entryPrice)}</td>
-                          <td className="num">
+                          <td className="num" style={{ fontSize:'11px' }}>Rs.{toINRd(entryPrice)}</td>
+                          <td className="num" style={{ fontSize:'11px' }}>
                             {cmp ? <div className="sc"><span className="sc1">Rs.{toINRd(cmp)}</span><span className="sc2" style={{ color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</span></div> : <span style={{ color:'var(--muted)' }}>—</span>}
                           </td>
-                          <td className="num">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                          <td className="num">
+                          <td className="num" style={{ fontSize:'11px' }}>{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                          <td className="num" style={{ fontSize:'11px' }}>
                             <div className="sc">
                               <span className="sc1">{toINR(originalQty)}</span>
                               <span className="sc2" style={{ color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--muted)' }}>{toINR(currentQty)}</span>
                             </div>
                           </td>
-                          <td className="num">
+                          <td className="num" style={{ fontSize:'11px' }}>
                             {investment ? <div className="sc"><span className="sc1">Rs.{toINRd(investment)}</span><span className="sc2">{actualInv ? `Rs.${toINRd(actualInv)}` : '—'}</span></div> : <span style={{ color:'var(--muted)' }}>—</span>}
                           </td>
-                          <td className="num">{mtfInt ? <span className="mtf-val">Rs.{toINRd(mtfInt)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                          <td className="num">{unrealisedPnL !== null ? <span className={unrealisedPnL>=0?'pnl-pos':'pnl-neg'}>{pnlSign(unrealisedPnL)}{toINRd(Math.abs(unrealisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                          <td className="num">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span className={realisedPnL>=0?'pnl-pos':'pnl-neg'}>{pnlSign(realisedPnL)}{toINRd(Math.abs(realisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                          <td>{trade.status==='OPEN' ? <span className="st-open">OPEN</span> : <span className="st-closed">CLOSED</span>}</td>
+                          <td className="num" style={{ fontSize:'11px' }}>{mtfInt ? <span className="mtf-val">Rs.{toINRd(mtfInt)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                          <td className="num" style={{ fontSize:'11px' }}>{unrealisedPnL !== null ? <span className={unrealisedPnL>=0?'pnl-pos':'pnl-neg'}>{pnlSign(unrealisedPnL)}{toINRd(Math.abs(unrealisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                          <td className="num" style={{ fontSize:'11px' }}>{realisedPnL !== 0 || trade.status==='CLOSED' ? <span className={realisedPnL>=0?'pnl-pos':'pnl-neg'}>{pnlSign(realisedPnL)}{toINRd(Math.abs(realisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                          <td style={{ fontSize:'11px' }}>{trade.status==='OPEN' ? <span className="st-open">OPEN</span> : <span className="st-closed">CLOSED</span>}</td>
                         </tr>
                       )
                     })}
