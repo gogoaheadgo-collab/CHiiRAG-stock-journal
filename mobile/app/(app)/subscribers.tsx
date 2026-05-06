@@ -65,7 +65,7 @@ export default function SubscribersScreen() {
     setDetailExecs([])
     setDetailPrices({})
     try {
-      const data = await getSubscriberTrades(sub.user_id)
+      const data = await getSubscriberTrades(sub.id || sub.user_id)
       const trades: any[] = Array.isArray(data) ? data : (Array.isArray(data?.trades) ? data.trades : [])
       const execs: any[]  = Array.isArray(data?.executions) ? data.executions : []
       setDetailTrades(trades)
