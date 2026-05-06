@@ -198,18 +198,19 @@ export default function AlertsPage() {
   }, []) // eslint-disable-line
 
   const loadAlerts = useCallback(async (silent = false) => {
+    if (!session) return
     const token = await getToken()
     if (!token) return
     setLoading(true)
-    const res = await fetch('/api/price-alerts', { headers: { Authorization: `Bearer ${token}` } })
-    const data = await res.json()
-    if (Array.isArray(data)) setAlerts(data)
-    // Also load open trades with stop loss
-    const slRes = await fetch('/api/trades', { headers: { Authorization: `Bearer ${token}` } })
-    const slData = await slRes.json()
-    if (Array.isArray(slData)) setSlTrades(slData.filter(t => t.stop_loss && t.status === 'OPEN'))
+    const [alertsRes, { data: tradesData }] = await Promise.all([
+      fetch('/api/price-alerts', { headers: { Authorization: `Bearer ${token}` } }),
+      supabase.from('trades').select('*').eq('user_id', session.user.id).order('entry_date', { ascending: false }),
+    ])
+    const alertsData = await alertsRes.json()
+    if (Array.isArray(alertsData)) setAlerts(alertsData)
+    if (Array.isArray(tradesData)) setSlTrades(tradesData.filter(t => t.stop_loss && t.status === 'OPEN'))
     setLoading(false)
-  }, [getToken])
+  }, [getToken, session])
 
   useEffect(() => { if (session) loadAlerts() }, [session, loadAlerts])
 

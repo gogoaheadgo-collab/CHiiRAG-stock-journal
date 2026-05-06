@@ -23,18 +23,36 @@ async function apiFetch(path: string, options: RequestInit = {}) {
 }
 
 // ── Trades ───────────────────────────────────────────────────────────────────
-export const getTrades    = ()          => apiFetch('trades')
+export const getTrades = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not authenticated')
+  const { data, error } = await supabase.from('trades').select('*').eq('user_id', session.user.id).order('entry_date', { ascending: false })
+  if (error) throw new Error(error.message)
+  return data || []
+}
 export const createTrade  = (body: any) => apiFetch('trades', { method: 'POST', body: JSON.stringify(body) })
 export const updateTrade  = (body: any) => apiFetch('trades', { method: 'PUT',  body: JSON.stringify(body) })
 export const deleteTrade  = (id: string) => apiFetch('trades', { method: 'DELETE', body: JSON.stringify({ id }) })
 
 // ── Executions ───────────────────────────────────────────────────────────────
-export const getExecutions   = (trade_id: string) => apiFetch(`executions?trade_id=${trade_id}`)
+export const getExecutions = async (trade_id: string) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not authenticated')
+  const { data, error } = await supabase.from('executions').select('*').eq('trade_id', trade_id).eq('user_id', session.user.id).order('date', { ascending: true })
+  if (error) throw new Error(error.message)
+  return data || []
+}
 export const createExecution = (body: any)        => apiFetch('executions', { method: 'POST', body: JSON.stringify(body) })
 export const deleteExecution = (id: string)       => apiFetch('executions', { method: 'DELETE', body: JSON.stringify({ id }) })
 
 // ── Accounts ─────────────────────────────────────────────────────────────────
-export const getAccounts   = ()          => apiFetch('accounts')
+export const getAccounts = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not authenticated')
+  const { data, error } = await supabase.from('accounts').select('*').eq('user_id', session.user.id).order('name')
+  if (error) throw new Error(error.message)
+  return data || []
+}
 export const createAccount = (name: string) => apiFetch('accounts', { method: 'POST', body: JSON.stringify({ name }) })
 export const deleteAccount = (id: string, name: string) => apiFetch('accounts', { method: 'DELETE', body: JSON.stringify({ id, name }) })
 

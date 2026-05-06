@@ -188,18 +188,17 @@ export default function Dashboard() {
   const loadData = useCallback(async (silent = false) => {
     if (!session) return
     if (!silent) setLoading(prev => trades.length === 0 ? true : prev)
-    const token = await getToken()
-    const res = await fetch('/api/trades', { headers:{ Authorization:`Bearer ${token}` } })
-    const data = await res.json()
-    if (Array.isArray(data)) {
-      setTrades(data)
-      const execResults = await Promise.all(
-        data.map(t => fetch(`/api/executions?trade_id=${t.id}`, { headers:{ Authorization:`Bearer ${token}` } }).then(r=>r.json()).catch(()=>[]))
-      )
+    const [{ data: tradesData }, { data: execsData }] = await Promise.all([
+      supabase.from('trades').select('*').eq('user_id', session.user.id).order('entry_date', { ascending: false }),
+      supabase.from('executions').select('*').eq('user_id', session.user.id).order('date', { ascending: true }),
+    ])
+    if (Array.isArray(tradesData)) {
+      setTrades(tradesData)
       const execMap = {}
-      data.forEach((t,i) => { execMap[t.id] = Array.isArray(execResults[i]) ? execResults[i] : [] })
+      tradesData.forEach(t => { execMap[t.id] = [] })
+      ;(execsData || []).forEach(e => { if (execMap[e.trade_id] !== undefined) execMap[e.trade_id].push(e) })
       setExecutions(execMap)
-      const tickers = [...new Set(data.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
+      const tickers = [...new Set(tradesData.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
       tickers.forEach(async ticker => {
         try { const r = await fetch(`/api/stock/${ticker}`); const d = await r.json(); if (d.price) setLivePrices(prev=>({...prev,[ticker]:d})) } catch {}
       })

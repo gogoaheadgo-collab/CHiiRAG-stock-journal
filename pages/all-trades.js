@@ -63,16 +63,16 @@ export default function AllTradesPage() {
     setLoading(true)
     const token = await getToken()
 
-    // 1. Own trades + executions
-    const tRes = await fetch('/api/trades', { headers:{ Authorization:`Bearer ${token}` } })
-    const tData = await tRes.json()
+    // 1. Own trades + executions (direct Supabase — no Vercel invocation)
+    const [{ data: tData }, { data: execsData }] = await Promise.all([
+      supabase.from('trades').select('*').eq('user_id', session.user.id).order('entry_date', { ascending: false }),
+      supabase.from('executions').select('*').eq('user_id', session.user.id).order('date', { ascending: true }),
+    ])
     if (Array.isArray(tData)) {
       setOwnTrades(tData)
-      const execResults = await Promise.all(
-        tData.map(t => fetch(`/api/executions?trade_id=${t.id}`, { headers:{ Authorization:`Bearer ${token}` } }).then(r=>r.json()).catch(()=>[]))
-      )
       const execMap = {}
-      tData.forEach((t, i) => { if (Array.isArray(execResults[i])) execMap[t.id] = execResults[i] })
+      tData.forEach(t => { execMap[t.id] = [] })
+      ;(execsData || []).forEach(e => { if (execMap[e.trade_id] !== undefined) execMap[e.trade_id].push(e) })
       setOwnExecs(execMap)
       // Fetch prices for own open trades
       const symbols = [...new Set(tData.filter(t=>t.status==='OPEN').map(t=>t.ticker))]

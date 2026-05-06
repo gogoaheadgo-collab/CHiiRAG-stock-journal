@@ -405,13 +405,10 @@ export default function AccountsPage() {
     if (!session) return
     // Only show spinner on first load (no data yet), never on focus/tab-switch refresh
     if (!silent) setLoading(prev => trades.length === 0 ? true : prev)
-    const token = await getToken()
-    const [tRes, aRes] = await Promise.all([
-      fetch('/api/trades', { headers:{ Authorization:`Bearer ${token}` } }),
-      fetch('/api/accounts', { headers:{ Authorization:`Bearer ${token}` } }),
+    const [{ data: tData }, { data: aData }] = await Promise.all([
+      supabase.from('trades').select('*').eq('user_id', session.user.id).order('entry_date', { ascending: false }),
+      supabase.from('accounts').select('*').eq('user_id', session.user.id).order('name'),
     ])
-    const tData = await tRes.json()
-    const aData = await aRes.json()
     if (Array.isArray(tData)) {
       setTrades(tData)
       await fetchAllExecutions(tData)
@@ -485,19 +482,17 @@ export default function AccountsPage() {
   }, [countdown]) // eslint-disable-line
 
   const fetchExecutions = async (tradeId) => {
-    const token = await getToken()
-    const res = await fetch(`/api/executions?trade_id=${tradeId}`, { headers:{ Authorization:`Bearer ${token}` } })
-    const data = await res.json()
-    if (Array.isArray(data)) setExecutions(prev => ({ ...prev, [tradeId]:data }))
+    const { data } = await supabase.from('executions').select('*').eq('trade_id', tradeId).eq('user_id', session.user.id).order('date', { ascending: true })
+    if (Array.isArray(data)) setExecutions(prev => ({ ...prev, [tradeId]: data }))
   }
 
   const fetchAllExecutions = async (tradeList) => {
-    const token = await getToken()
-    const results = await Promise.all(
-      tradeList.map(t => fetch(`/api/executions?trade_id=${t.id}`, { headers:{ Authorization:`Bearer ${token}` } }).then(r=>r.json()))
-    )
+    if (!tradeList.length) { setExecutions({}); return }
+    const tradeIds = tradeList.map(t => t.id)
+    const { data } = await supabase.from('executions').select('*').in('trade_id', tradeIds).eq('user_id', session.user.id).order('date', { ascending: true })
     const map = {}
-    tradeList.forEach((t,i) => { if (Array.isArray(results[i])) map[t.id] = results[i] })
+    tradeList.forEach(t => { map[t.id] = [] })
+    ;(data || []).forEach(e => { if (map[e.trade_id] !== undefined) map[e.trade_id].push(e) })
     setExecutions(map) // full replace — removes orphaned execs from deleted trades
   }
 

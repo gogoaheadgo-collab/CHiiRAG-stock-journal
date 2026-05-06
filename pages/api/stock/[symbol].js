@@ -1,11 +1,20 @@
 import { setCors } from '../../../lib/cors'
 
+const priceCache = {}
+const CACHE_TTL = 60 * 1000
+
 export default async function handler(req, res) {
   setCors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   const { symbol } = req.query
   if (!symbol) return res.status(400).json({ error: 'Symbol required' })
+
+  const cacheKey = symbol.toUpperCase()
+  const cached = priceCache[cacheKey]
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return res.status(200).json(cached.data)
+  }
 
   const tickers = symbol.includes('.') ? [symbol] : [`${symbol}.NS`, `${symbol}.BO`]
   const sources = [fetchYahooQ1, fetchYahooQ2]
@@ -14,7 +23,10 @@ export default async function handler(req, res) {
     for (const source of sources) {
       try {
         const data = await source(ticker)
-        if (data?.price) return res.status(200).json(data)
+        if (data?.price) {
+          priceCache[cacheKey] = { data, timestamp: Date.now() }
+          return res.status(200).json(data)
+        }
       } catch {}
     }
   }
