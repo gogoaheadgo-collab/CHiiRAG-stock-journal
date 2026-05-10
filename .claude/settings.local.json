@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(git checkout *)",
+      "Bash(rm package-lock.json)",
+      "Bash(npm install *)",
+      "Bash(python3 *)",
+      "Bash(npm show *)",
+      "PowerShell(npm show *)",
+      "Bash(npx expo *)",
+      "Bash(npx eas *)",
+      "Bash(npx eas-cli@latest --version)",
+      "Bash(eas --version)",
+      "Bash(where eas *)",
+      "Bash(eas update *)",
+      "Bash(node -e \"require\\('jimp'\\)\")",
+      "Bash(node -e \"require\\('@jimp/core'\\)\")",
+      "Bash(node -e \"require\\('pngjs'\\)\")",
+      "Bash(node scripts/gen-icon.js)",
+      "Bash(eas build *)",
+      "Bash(npx eas-cli *)",
+      "Bash(echo \"EAS build triggered in background PID: $!\")",
+      "Bash(jobs -l)",
+      "Bash(node *)",
+      "Bash(git commit *)",
+      "Bash(grep -n \"Act\\\\|action\\\\|⋮\\\\|\\\\\\\\.\\\\\\\\.\\\\\\\\..*btn\\\\|editTrade\\\\|closeTrade\\\\|exitTrade\\\\|setEditing\\\\|editing\\\\|setClosing\\\\|setExiting\" C:/Users/rajen/OneDrive/Desktop/CHiiRAG-stock-journal/pages/all-trades.js)",
+      "Bash(where python *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(python --version)",
+      "PowerShell(node --version)",
+      "Bash(git rm *)",
+      "Bash(git reset *)",
+      "Bash(npx tsc *)",
+      "Bash(npx --no-install tsc --noEmit)"
+    ]
+  }
+}

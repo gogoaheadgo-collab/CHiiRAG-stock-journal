@@ -286,29 +286,29 @@ export default function SubscribersPage() {
             <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No subscribers yet. Share your URL with family and friends!</div>
           ) : (
             <div style={{ borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"8px", overflow:"hidden" }}>
-              <table className="data-table">
+              <table className="data-table" style={{ width:'100%', tableLayout:'fixed' }}>
                 <colgroup>
-                  <col style={{ width:'20%' }} />
                   <col style={{ width:'22%' }} />
-                  <col style={{ width:'8%' }} />
+                  <col style={{ width:'20%' }} />
                   <col style={{ width:'7%' }} />
-                  <col style={{ width:'7%' }} />
-                  <col style={{ width:'12%' }} />
-                  <col style={{ width:'10%' }} />
-                  <col style={{ width:'8%' }} />
                   <col style={{ width:'6%' }} />
+                  <col style={{ width:'6%' }} />
+                  <col style={{ width:'12%' }} />
+                  <col style={{ width:'11%' }} />
+                  <col style={{ width:'9%' }} />
+                  <col style={{ width:'7%' }} />
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>User</th>
-                    <th>Email</th>
-                    <th className="r">Trades</th>
-                    <th className="r">Open</th>
-                    <th className="r">Closed</th>
-                    <th className="r">Total Inv.</th>
-                    <th className="r">Real. P&L</th>
-                    <th className="r">Joined</th>
-                    <th style={{ textAlign:'center' }}>Mirror</th>
+                    <th style={{ fontSize:'10px', padding:'8px 4px', whiteSpace:'nowrap' }}>User</th>
+                    <th style={{ fontSize:'10px', padding:'8px 4px', whiteSpace:'nowrap' }}>Email</th>
+                    <th className="r" style={{ fontSize:'10px', padding:'8px 4px', whiteSpace:'nowrap' }}>Trades</th>
+                    <th className="r" style={{ fontSize:'10px', padding:'8px 4px', whiteSpace:'nowrap' }}>Open</th>
+                    <th className="r" style={{ fontSize:'10px', padding:'8px 4px', whiteSpace:'nowrap' }}>Closed</th>
+                    <th className="r" style={{ fontSize:'10px', padding:'8px 4px', whiteSpace:'nowrap' }}>Total Inv.</th>
+                    <th className="r" style={{ fontSize:'10px', padding:'8px 4px', whiteSpace:'nowrap' }}>Real. P&L</th>
+                    <th className="r" style={{ fontSize:'10px', padding:'8px 4px', whiteSpace:'nowrap' }}>Joined</th>
+                    <th style={{ fontSize:'10px', padding:'8px 4px', textAlign:'center', whiteSpace:'nowrap' }}>Mirror</th>
                   </tr>
                 </thead>
                 <tbody>
