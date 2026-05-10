@@ -6,6 +6,7 @@ import {
 import {
   getAccounts, createAccount, deleteAccount, getTrades, getExecutions,
   getAdminMirror, getSubscriberTrades, getSharedAccountTrades, createTrade, getStockPrice,
+  searchTicker,
 } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { colors, font, spacing, radius } from '../../lib/theme'
@@ -60,6 +61,8 @@ export default function AccountsScreen() {
   const [mirroredExecsMap, setMirroredExecsMap] = useState<Record<string, any[]>>({})
   const [sharedExecsMap,   setSharedExecsMap]   = useState<Record<string, any[]>>({})
   const [expandedExecId, setExpandedExecId] = useState<string | null>(null)
+  const [tickerSuggestions, setTickerSuggestions] = useState<{ticker: string; shortName: string; exchange: string}[]>([])
+  const [showSuggestions,   setShowSuggestions]   = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -131,6 +134,21 @@ export default function AccountsScreen() {
 
   useEffect(() => { load() }, [load])
 
+  useEffect(() => {
+    if (!addTradeModal) { setTickerSuggestions([]); setShowSuggestions(false); return }
+    const q = tradeForm.ticker
+    if (q.length < 2) { setTickerSuggestions([]); setShowSuggestions(false); return }
+    const timer = setTimeout(async () => {
+      try {
+        const data = await searchTicker(q)
+        const results = Array.isArray(data) ? data.slice(0, 8) : []
+        setTickerSuggestions(results)
+        setShowSuggestions(results.length > 0)
+      } catch { setTickerSuggestions([]); setShowSuggestions(false) }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [tradeForm.ticker, addTradeModal])
+
   const handleAddAccount = async () => {
     if (!newName.trim()) return
     setSavingAcct(true)
@@ -154,6 +172,8 @@ export default function AccountsScreen() {
   const openAddTrade = (accName: string) => {
     setTradeAcct(accName)
     setTradeForm({ ...EMPTY_TRADE })
+    setTickerSuggestions([])
+    setShowSuggestions(false)
     setAddTradeModal(true)
   }
 
@@ -761,11 +781,38 @@ export default function AccountsScreen() {
               <TextInput
                 style={s.input}
                 value={tradeForm.ticker}
-                onChangeText={v => setTradeForm(f => ({ ...f, ticker: v.toUpperCase() }))}
+                onChangeText={v => {
+                  const upper = v.toUpperCase()
+                  setTradeForm(f => ({ ...f, ticker: upper }))
+                  if (!upper) { setShowSuggestions(false); setTickerSuggestions([]) }
+                }}
                 placeholder="e.g. RELIANCE"
                 placeholderTextColor={colors.muted}
                 autoCapitalize="characters"
               />
+              {showSuggestions && tickerSuggestions.length > 0 && (
+                <View style={{ backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.accent, borderRadius: radius.md, marginTop: -spacing.xs, marginBottom: spacing.xs, overflow: 'hidden' }}>
+                  {tickerSuggestions.map((item, idx) => (
+                    <TouchableOpacity
+                      key={item.ticker + idx}
+                      onPress={() => {
+                        setTradeForm(f => ({ ...f, ticker: item.ticker }))
+                        setShowSuggestions(false)
+                        setTickerSuggestions([])
+                      }}
+                      style={{ padding: spacing.md, borderBottomWidth: idx < tickerSuggestions.length - 1 ? 1 : 0, borderBottomColor: colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <View>
+                        <Text style={{ fontSize: font.size.md, fontWeight: '700', color: colors.accent }}>{item.ticker}</Text>
+                        <Text style={{ fontSize: font.size.xs, color: colors.muted, marginTop: 1 }} numberOfLines={1}>{item.shortName}</Text>
+                      </View>
+                      <View style={{ backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3, borderWidth: 1, borderColor: colors.border }}>
+                        <Text style={{ fontSize: 9, color: colors.muted, fontWeight: '700' }}>{item.exchange}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
 
               <Text style={s.fieldLabel}>DIRECTION</Text>
               <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>

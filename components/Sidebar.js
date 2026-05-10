@@ -8,10 +8,10 @@ const ITEMS = [
   { label: 'Bank',            path: '/bank',            icon: '◧' },
   { label: 'Alerts',          path: '/alerts',          icon: '◉' },
   { label: 'Notes',           path: '/notes',           icon: '◱' },
+  { label: 'Revenue Sharing', path: '/revenue-sharing', icon: '◍' },
 ]
 const ADMIN_ITEMS = [
   { label: 'Subscribers',     path: '/subscribers',     icon: '◎' },
-  { label: 'Revenue Sharing', path: '/revenue-sharing', icon: '◍' },
 ]
 
 export default function Sidebar({ active, isAdmin, user, onSignOut, onDeleteAccount }) {
