@@ -408,7 +408,7 @@ export default function SubscribersPage() {
             ) : filtered.length === 0 ? (
               <div style={{ color:'var(--muted)', fontSize:'13px', padding:'20px' }}>No trades found.</div>
             ) : (
-              <div style={{ borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"8px", overflowX:"auto", width:"100%" }}>
+              <div style={{ borderRadius:"8px", border:"1px solid var(--border)", marginBottom:"8px", overflow:"hidden", width:"100%" }}>
                 <table className="data-table" style={{ tableLayout:'fixed', width:'100%' }}>
                   <colgroup>
                     <col style={{ width:'12%' }} />
@@ -440,7 +440,7 @@ export default function SubscribersPage() {
                         { key:'realised', label:'Real. P&L', right:true },
                         { key:'status', label:'Status', filterable:true },
                       ].map(col => (
-                        <th key={col.key} className={col.right ? 'r' : undefined} style={{ cursor:'pointer', fontSize:'10px' }}
+                        <th key={col.key} className={col.right ? 'r' : undefined} style={{ cursor:'pointer', fontSize:'10px', padding:'8px 4px', whiteSpace:'nowrap' }}
                           onClick={() => subTf.handleSort(col.key)}>
                           <div className="col-header" style={col.right ? { justifyContent:'flex-end' } : undefined}>
                             <span>{col.label}</span>

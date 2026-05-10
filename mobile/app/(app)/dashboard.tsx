@@ -167,7 +167,7 @@ function PnLCalendar({ trades, execsMap }: { trades: any[]; execsMap: Record<str
                       </Text>
                     </View>
                   </View>
-                  <Text style={cal.detailMeta}>₹{fmtd(t.entry_price)} → ₹{fmtd(t.exit_price)}  ·  Qty {fmt0(t.quantity)}</Text>
+                  <Text style={cal.detailMeta}>{t.account ? `${t.account} · ` : ''}₹{fmtd(t.entry_price)} → ₹{fmtd(t.exit_price)}  ·  Qty {fmt0(t.quantity)}</Text>
                 </View>
                 <Text style={[cal.detailPnl, { color: pnl >= 0 ? colors.green : colors.red }]}>
                   {pnl >= 0 ? '+' : '−'}₹{fmtd(Math.abs(pnl))}

@@ -268,9 +268,14 @@ export default function BankScreen() {
                     </View>
                     <View style={s.cardFoot}>
                       <Text style={s.footText}>Initial: ₹{fmtd(acc.initial_balance)}</Text>
-                      <TouchableOpacity onPress={() => toggleExpand(acc.id)}>
-                        <Text style={s.histText}>{isExp ? '▲ Hide' : '▼ History'}</Text>
-                      </TouchableOpacity>
+                      <View style={s.footBtns}>
+                        <TouchableOpacity style={s.txBtn} onPress={() => openTxModal(acc)}>
+                          <Text style={s.txBtnText}>+ Transaction</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => toggleExpand(acc.id)}>
+                          <Text style={s.histText}>{isExp ? '▲ Hide' : '▼ History'}</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                   {isExp && (

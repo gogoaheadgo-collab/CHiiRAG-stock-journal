@@ -26,6 +26,7 @@ export default function SubscribersScreen() {
   const [detailExecs,  setDetailExecs]  = useState<any[]>([])
   const [detailPrices, setDetailPrices] = useState<Record<string, number>>({})
   const [detailLoad,   setDetailLoad]   = useState(false)
+  const [portfolioFilter, setPortfolioFilter] = useState<'ALL' | 'OPEN' | 'CLOSED'>('ALL')
 
   if (!authLoading && role !== 'admin') return <Redirect href="/(app)/dashboard" />
 
@@ -64,6 +65,7 @@ export default function SubscribersScreen() {
     setDetailTrades([])
     setDetailExecs([])
     setDetailPrices({})
+    setPortfolioFilter('ALL')
     try {
       const data = await getSubscriberTrades(sub.id || sub.user_id)
       const trades: any[] = Array.isArray(data) ? data : (Array.isArray(data?.trades) ? data.trades : [])
@@ -233,10 +235,26 @@ export default function SubscribersScreen() {
                   )
                 })()}
 
-                {detailTrades.length === 0 ? (
+                {/* Open / Closed filter */}
+                <View style={{ flexDirection: 'row', gap: 4, marginBottom: 12, backgroundColor: '#F1F5F9', borderRadius: 8, padding: 3, alignSelf: 'flex-start' }}>
+                  {(['ALL', 'OPEN', 'CLOSED'] as const).map(f => (
+                    <TouchableOpacity key={f} onPress={() => setPortfolioFilter(f)}
+                      style={{ paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6, backgroundColor: portfolioFilter === f ? colors.accent : 'transparent' }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: portfolioFilter === f ? '#fff' : '#94A3B8' }}>
+                        {f === 'ALL' ? 'All' : f === 'OPEN' ? 'Open' : 'Closed'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {(() => {
+                  const displayTrades = detailTrades.filter((t: any) =>
+                    portfolioFilter === 'ALL' || (t.status || '').toUpperCase() === portfolioFilter
+                  )
+                  return displayTrades.length === 0 ? (
                   <Text style={s.noTrades}>No trades found</Text>
                 ) : (
-                  detailTrades.slice(0, 30).map(t => {
+                  displayTrades.slice(0, 30).map(t => {
                     const tExecs  = detailExecs.filter((e: any) => e.trade_id === t.id)
                     const soldQty = tExecs.reduce((s: number, e: any) => s + Number(e.quantity || 0), 0)
                     const currQty = Math.max(0, Number(t.quantity) - soldQty)
@@ -276,7 +294,8 @@ export default function SubscribersScreen() {
                       </View>
                     )
                   })
-                )}
+                  )
+                })()}
               </ScrollView>
             )}
           </View>
