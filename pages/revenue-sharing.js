@@ -282,7 +282,7 @@ export default function RevenueSharingPage() {
   const [subNetPnL, setSubNetPnL] = useState(0)
 
   const [ownTrades, setOwnTrades] = useState([])
-  const [ownExecs, setOwnExecs] = useState({})
+  const [ownExecs, setOwnExecs] = useState([])
   const [ownNetPnL, setOwnNetPnL] = useState(0)
 
   const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
@@ -317,25 +317,22 @@ export default function RevenueSharingPage() {
 
   const loadOwnTrades = async () => {
     setLoading(true)
-    const token = await getToken()
-    const tRes = await fetch('/api/trades', { headers:{ Authorization:`Bearer ${token}` } })
-    const tData = await tRes.json()
-    if (!Array.isArray(tData)) { setLoading(false); return }
+    const { data: { session: s } } = await supabase.auth.getSession()
+    if (!s) { setLoading(false); return }
+    const { data: tData, error: tErr } = await supabase
+      .from('trades').select('*').eq('user_id', s.user.id).order('entry_date', { ascending: false })
+    if (tErr || !Array.isArray(tData)) { setLoading(false); return }
     setOwnTrades(tData)
-    // ownNetPnL computed after executions load (see useEffect below)
     const mtfTrades = tData.filter(t => Number(t.actual_investment) > 0)
     if (mtfTrades.length > 0) {
-      const results = await Promise.all(mtfTrades.map(t =>
-        fetch(`/api/executions?trade_id=${t.id}`, { headers:{ Authorization:`Bearer ${token}` } }).then(r=>r.json()).catch(()=>[])
-      ))
-      const flat = []; results.forEach(r => { if (Array.isArray(r)) r.forEach(e => flat.push(e)) })
+      const tradeIds = mtfTrades.map(t => t.id)
+      const { data: eData } = await supabase.from('executions').select('*').in('trade_id', tradeIds)
+      const flat = Array.isArray(eData) ? eData : []
       setOwnExecs(flat)
-      // Compute ownNetPnL using buildSummary
-      const ownSum = buildSummary(tData, flat)
-      setOwnNetPnL(ownSum.netPnLAdmin)
+      setOwnNetPnL(buildSummary(tData, flat).netPnLAdmin)
     } else {
-      const ownSum = buildSummary(tData, [])
-      setOwnNetPnL(ownSum.netPnLAdmin)
+      setOwnExecs([])
+      setOwnNetPnL(buildSummary(tData, []).netPnLAdmin)
     }
     setLoading(false)
   }
