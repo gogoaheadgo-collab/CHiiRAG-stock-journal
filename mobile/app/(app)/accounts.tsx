@@ -240,8 +240,7 @@ export default function AccountsScreen() {
         hasLive = true
       }
     })
-    const mtf = ts.filter(t => Number(t.actual_investment) > 0 && t.status === 'OPEN')
-    return { open: open.length, closed: ts.filter(t => t.status === 'CLOSED').length, invested, realised, unrealised, hasLive, mtfCount: mtf.length, trades: ts }
+    return { open: open.length, closed: ts.filter(t => t.status === 'CLOSED').length, invested, realised, unrealised, hasLive, trades: ts }
   }
 
   const mirroredStatsFor = (subId: string) => {
@@ -371,9 +370,6 @@ export default function AccountsScreen() {
                     </View>
                   </View>
 
-                  {st.mtfCount > 0 && (
-                    <View style={s.mtfRow}><Text style={s.mtfText}>MTF: {st.mtfCount} open positions</Text></View>
-                  )}
                 </View>
 
                 {expandedAccount === key && (
@@ -978,8 +974,6 @@ const s = StyleSheet.create({
   statLabel: { fontSize: 9, color: colors.muted, fontWeight: '700', letterSpacing: 0.4, marginBottom: 3 },
   statVal:   { fontSize: font.size.sm, fontWeight: '800', color: colors.text },
 
-  mtfRow:  { backgroundColor: '#fef9c3', borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
-  mtfText: { fontSize: font.size.xs, color: '#92400e', fontWeight: '600' },
 
   expandHint: { fontSize: font.size.xs, color: colors.muted, textAlign: 'center', marginTop: spacing.xs },
 
