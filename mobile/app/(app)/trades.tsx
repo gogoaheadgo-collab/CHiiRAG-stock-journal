@@ -395,11 +395,6 @@ export default function TradesScreen() {
                 <View style={s.cardFoot}>
                   <Text style={s.dateText}>{t.entry_date?.slice(0, 10)}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    {t.trade_type && t.trade_type !== 'NORMAL' && (
-                      <View style={s.typeBadge}>
-                        <Text style={s.typeText}>{t.trade_type}</Text>
-                      </View>
-                    )}
                     <TouchableOpacity onPress={() => setExpandedExecId(showExec ? null : t.id)}>
                       <Text style={s.execToggle}>
                         {showExec ? '▲ Hide Executions' : `▼ Executions${execs.length > 0 ? ` (${execs.length})` : ''}`}

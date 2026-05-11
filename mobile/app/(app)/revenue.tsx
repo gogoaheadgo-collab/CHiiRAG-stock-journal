@@ -74,7 +74,7 @@ export default function RevenueScreen() {
 
   useEffect(() => { load() }, [load])
 
-  const mtfTrades = (trades: any[]) => trades.filter(t => t.trade_type === 'MTF')
+  const mtfTrades = (trades: any[]) => trades.filter(t => Number(t.actual_investment) > 0)
 
   const calcRevenue = (trades: any[]) => {
     const mtf = mtfTrades(trades).filter(t => t.status === 'CLOSED')

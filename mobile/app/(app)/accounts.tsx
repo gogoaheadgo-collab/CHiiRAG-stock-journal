@@ -217,7 +217,6 @@ export default function AccountsScreen() {
         mtf_interest_rate: mtf_interest_rate ? parseFloat(mtf_interest_rate) : null,
         notes: notes || null,
         status: 'OPEN',
-        trade_type: 'NORMAL',
       })
       setAddTradeModal(false)
       load()
@@ -241,7 +240,7 @@ export default function AccountsScreen() {
         hasLive = true
       }
     })
-    const mtf = ts.filter(t => t.trade_type === 'MTF' && t.status === 'OPEN')
+    const mtf = ts.filter(t => Number(t.actual_investment) > 0 && t.status === 'OPEN')
     return { open: open.length, closed: ts.filter(t => t.status === 'CLOSED').length, invested, realised, unrealised, hasLive, mtfCount: mtf.length, trades: ts }
   }
 
