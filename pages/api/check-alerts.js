@@ -118,7 +118,7 @@ export default async function handler(req, res) {
   // ── Also check stop losses from open trades ──
   const { data: slTrades } = await adminSupabase
     .from('trades').select('id,user_id,ticker,entry_price,stop_loss,status,account')
-    .eq('status', 'OPEN').not('stop_loss', 'is', null)
+    .eq('status', 'OPEN').not('stop_loss', 'is', null).eq('sl_notified', false)
 
   let slTriggered = 0
   if (slTrades?.length) {
@@ -164,7 +164,10 @@ export default async function handler(req, res) {
           </div>
           <div style="text-align:center;font-size:10px;color:#374151;">${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</div>
         </div></body></html>`
-      try { await sendEmail(email, subject, html) } catch(e) { console.error(e.message) }
+      try {
+        await sendEmail(email, subject, html)
+        await adminSupabase.from('trades').update({ sl_notified: true }).eq('id', trade.id)
+      } catch(e) { console.error(e.message) }
       slTriggered++
     }
   }
