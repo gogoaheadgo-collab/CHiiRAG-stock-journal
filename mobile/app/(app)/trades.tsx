@@ -55,9 +55,8 @@ export default function TradesScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [filter,     setFilter]     = useState<Filter>('ALL')
   const [search,     setSearch]     = useState('')
-  const [livePrices,         setLivePrices]         = useState<Record<string, number>>({})
-  const [tickerStatusFilter, setTickerStatusFilter]  = useState<Filter>('ALL')
-  const [expandedTicker,     setExpandedTicker]      = useState<string | null>(null)
+  const [livePrices,     setLivePrices]     = useState<Record<string, number>>({})
+  const [expandedTicker, setExpandedTicker] = useState<string | null>(null)
   const [expandedExecId,     setExpandedExecId]      = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -128,27 +127,26 @@ export default function TradesScreen() {
     )
 
   const tickerSummary = useMemo(() => {
-    type TG = { ticker: string; rows: TradeItem[]; open: number; closed: number; invested: number; unrealised: number; realised: number; hasLive: boolean }
+    type TG = { ticker: string; rows: TradeItem[]; open: number; closed: number; invested: number; unrealised: number; realised: number; hasLive: boolean; currQty: number }
     const map: Record<string, TG> = {}
     items
-      .filter(i => tickerStatusFilter === 'ALL' || i.trade.status === tickerStatusFilter)
+      .filter(i => filter === 'ALL' || i.trade.status === filter)
       .filter(i => !search || (i.trade.ticker || '').toUpperCase().includes(search.toUpperCase()))
       .forEach(i => {
         const ticker = i.trade.ticker
-        if (!map[ticker]) map[ticker] = { ticker, rows: [], open: 0, closed: 0, invested: 0, unrealised: 0, realised: 0, hasLive: false }
+        if (!map[ticker]) map[ticker] = { ticker, rows: [], open: 0, closed: 0, invested: 0, unrealised: 0, realised: 0, hasLive: false, currQty: 0 }
         map[ticker].rows.push(i)
         if (i.trade.status === 'OPEN') {
           map[ticker].open++
           map[ticker].invested += Number(i.trade.invested_capital || 0)
+          const cq = getCurrentQty(i.trade, i.execs)
+          map[ticker].currQty += cq
           const cmp = livePrices[ticker]
           if (cmp) {
-            // Use currentQty (total minus sold) for accurate unrealised P&L
-            const currQty = getCurrentQty(i.trade, i.execs)
             const sign = i.trade.direction === 'LONG' ? 1 : -1
-            map[ticker].unrealised += sign * (cmp - Number(i.trade.entry_price)) * currQty
+            map[ticker].unrealised += sign * (cmp - Number(i.trade.entry_price)) * cq
             map[ticker].hasLive = true
           }
-          // Include realised from partial exits of OPEN trades
           map[ticker].realised += getRealisedPnl(i.trade, i.execs)
         } else {
           map[ticker].closed++
@@ -156,7 +154,7 @@ export default function TradesScreen() {
         }
       })
     return Object.values(map).sort((a, b) => b.open - a.open || a.ticker.localeCompare(b.ticker))
-  }, [items, tickerStatusFilter, search, livePrices])
+  }, [items, filter, search, livePrices])
 
   if (loading) return <View style={s.center}><ActivityIndicator color={colors.accent} size="large" /></View>
 
@@ -197,17 +195,6 @@ export default function TradesScreen() {
           <View style={s.summarySection}>
             <View style={s.summaryHead}>
               <Text style={s.summaryTitle}>TICKER SUMMARY</Text>
-              <View style={s.summaryFilters}>
-                {(['ALL', 'OPEN', 'CLOSED'] as Filter[]).map(f => (
-                  <TouchableOpacity
-                    key={f}
-                    style={[s.summaryTab, tickerStatusFilter === f && s.summaryTabActive]}
-                    onPress={() => setTickerStatusFilter(f)}
-                  >
-                    <Text style={[s.summaryTabText, tickerStatusFilter === f && s.summaryTabTextActive]}>{f}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             </View>
             {tickerSummary.length === 0 ? (
               <Text style={s.summaryEmpty}>No tickers</Text>
@@ -215,7 +202,7 @@ export default function TradesScreen() {
               tickerSummary.map(tg => {
                 const isExp  = expandedTicker === tg.ticker
                 const expRows = isExp
-                  ? tg.rows.filter(r => tickerStatusFilter === 'ALL' || r.trade.status === tickerStatusFilter)
+                  ? tg.rows.filter(r => filter === 'ALL' || r.trade.status === filter)
                   : []
                 return (
                   <View key={tg.ticker}>
@@ -229,6 +216,9 @@ export default function TradesScreen() {
                         <Text style={s.tickerMeta}>
                           {tg.open > 0 ? `${tg.open} Open` : ''}{tg.open > 0 && tg.closed > 0 ? '  ·  ' : ''}{tg.closed > 0 ? `${tg.closed} Closed` : ''}
                         </Text>
+                        {tg.currQty > 0 && (
+                          <Text style={s.tickerMeta}>Curr Qty: {fmt(tg.currQty)}</Text>
+                        )}
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
                         {tg.invested > 0 && <Text style={s.tickerInv}>Inv ₹{fmtd(tg.invested)}</Text>}
