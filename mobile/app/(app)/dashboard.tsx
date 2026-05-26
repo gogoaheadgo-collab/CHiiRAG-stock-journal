@@ -4,9 +4,10 @@ import {
   TouchableOpacity,
 } from 'react-native'
 import {
-  getTrades, getExecutions, getStockPrice, getAdminMirror,
+  getTrades, getStockPrice, getAdminMirror,
   getSubscriberTrades, getSharedAccountTrades,
 } from '../../lib/api'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { colors, font, spacing, radius } from '../../lib/theme'
 
@@ -214,12 +215,26 @@ export default function DashboardScreen() {
       setOwnTrades(own)
 
       const ownExMap: Record<string, any[]> = {}
-      await Promise.all(own.map(async t => {
-        try {
-          const exs = await getExecutions(t.id)
-          ownExMap[t.id] = Array.isArray(exs) ? exs : []
-        } catch { ownExMap[t.id] = [] }
-      }))
+      own.forEach(t => { ownExMap[t.id] = [] })
+      if (own.length > 0) {
+        const { data: { session: s } } = await supabase.auth.getSession()
+        if (s) {
+          const ids = own.map(t => t.id)
+          const batchSize = 200
+          for (let i = 0; i < ids.length; i += batchSize) {
+            const { data: execs } = await supabase
+              .from('executions')
+              .select('*')
+              .in('trade_id', ids.slice(i, i + batchSize))
+              .eq('user_id', s.user.id)
+              .order('date', { ascending: true })
+            ;(execs || []).forEach((e: any) => {
+              if (ownExMap[e.trade_id]) ownExMap[e.trade_id].push(e)
+              else ownExMap[e.trade_id] = [e]
+            })
+          }
+        }
+      }
       setOwnExecsMap(ownExMap)
 
       if (isAdmin) {
