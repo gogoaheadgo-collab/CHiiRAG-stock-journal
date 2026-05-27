@@ -591,6 +591,36 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* CALENDAR + RECENT EXITS */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:'16px', marginBottom:'20px' }}>
+              <PnLCalendar trades={tradesWithRealised} allExecs={allExecs} />
+              <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px' }}>
+                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'14px' }}>Recent Exits</div>
+                {closedTrades.length===0 ? (
+                  <div style={{ color:'var(--muted)', fontSize:'11px', textAlign:'center', padding:'20px 0' }}>No closed trades yet</div>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                    {[...tradesWithRealised].filter(t=>t.status==='CLOSED').sort((a,b)=>new Date(b.exit_date||b.updated_at)-new Date(a.exit_date||a.updated_at)).slice(0,8).map(t => (
+                      <div key={t.id} style={{
+                        display:'flex', justifyContent:'space-between', alignItems:'center',
+                        padding:'8px 10px', borderRadius:'5px',
+                        background:t._realised>=0?'rgba(14,165,233,0.06)':'rgba(239,68,68,0.06)',
+                        border:`1px solid ${t._realised>=0?'rgba(14,165,233,0.2)':'rgba(239,68,68,0.2)'}`,
+                      }}>
+                        <div>
+                          <div style={{ fontWeight:700, fontSize:'12px', color:'var(--text)' }}>{t.ticker}</div>
+                          <div style={{ fontSize:'10px', color:'var(--muted)' }}>{t.account} · {t.exit_date?.slice(0,10)}</div>
+                        </div>
+                        <div style={{ fontSize:'12px', fontWeight:700, fontFamily:'DM Mono, monospace', color:t._realised>=0?'var(--bull)':'var(--bear)' }}>
+                          {t._realised>=0?'+':'−'}Rs.{toINR(Math.abs(t._realised))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* OPEN POSITIONS */}
             {openTrades.length>0 && (
               <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginBottom:'20px' }}>
@@ -667,36 +697,6 @@ export default function Dashboard() {
                 )}
               </div>
             )}
-
-            {/* CALENDAR + RECENT EXITS */}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:'16px' }}>
-              <PnLCalendar trades={tradesWithRealised} allExecs={allExecs} />
-              <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px' }}>
-                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'14px' }}>Recent Exits</div>
-                {closedTrades.length===0 ? (
-                  <div style={{ color:'var(--muted)', fontSize:'11px', textAlign:'center', padding:'20px 0' }}>No closed trades yet</div>
-                ) : (
-                  <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-                    {[...tradesWithRealised].filter(t=>t.status==='CLOSED').sort((a,b)=>new Date(b.exit_date||b.updated_at)-new Date(a.exit_date||a.updated_at)).slice(0,8).map(t => (
-                      <div key={t.id} style={{
-                        display:'flex', justifyContent:'space-between', alignItems:'center',
-                        padding:'8px 10px', borderRadius:'5px',
-                        background:t._realised>=0?'rgba(14,165,233,0.06)':'rgba(239,68,68,0.06)',
-                        border:`1px solid ${t._realised>=0?'rgba(14,165,233,0.2)':'rgba(239,68,68,0.2)'}`,
-                      }}>
-                        <div>
-                          <div style={{ fontWeight:700, fontSize:'12px', color:'var(--text)' }}>{t.ticker}</div>
-                          <div style={{ fontSize:'10px', color:'var(--muted)' }}>{t.account} · {t.exit_date?.slice(0,10)}</div>
-                        </div>
-                        <div style={{ fontSize:'12px', fontWeight:700, fontFamily:'DM Mono, monospace', color:t._realised>=0?'var(--bull)':'var(--bear)' }}>
-                          {t._realised>=0?'+':'−'}Rs.{toINR(Math.abs(t._realised))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
           </>
         )}
       </main>

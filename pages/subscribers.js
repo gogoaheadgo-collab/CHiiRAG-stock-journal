@@ -41,6 +41,8 @@ export default function SubscribersPage() {
   const [mirrored, setMirrored] = useState({}) // subscriber_id -> true
   const [accountFilter, setAccountFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [editingUserId, setEditingUserId] = useState(null)
+  const [editName, setEditName] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session } }) => {
@@ -84,6 +86,20 @@ export default function SubscribersPage() {
     if (data.error) { alert('Error: ' + data.error); return }
     if (selected?.id === sub.id) setSelected(null)
     loadSubscribers(session)
+  }
+
+  const handleSaveName = async (sub) => {
+    if (!editName.trim()) return
+    const token = await getToken()
+    const res = await fetch('/api/admin/update-user-name', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+      body: JSON.stringify({ userId: sub.id, name: editName.trim() }),
+    })
+    const data = await res.json()
+    if (data.error) { alert('Error: ' + data.error); return }
+    setSubscribers(prev => prev.map(s => s.id === sub.id ? { ...s, full_name: editName.trim() } : s))
+    setEditingUserId(null)
   }
 
   const downloadCSV = () => {
@@ -325,7 +341,24 @@ export default function SubscribersPage() {
                             ? <img src={sub.avatar_url} alt="" style={{ width:'28px', height:'28px', borderRadius:'50%', border:'1px solid var(--border)' }} />
                             : <div style={{ width:'28px', height:'28px', borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', color:'#fff', fontWeight:700 }}>{(sub.full_name||sub.email||'?')[0].toUpperCase()}</div>
                           }
-                          <span style={{ fontWeight:600, fontSize:'13px' }}>{sub.full_name || '—'}</span>
+                          {editingUserId === sub.id ? (
+                            <span style={{ display:'flex', alignItems:'center', gap:'4px' }} onClick={e => e.stopPropagation()}>
+                              <input
+                                autoFocus
+                                value={editName}
+                                onChange={e => setEditName(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleSaveName(sub); if (e.key === 'Escape') setEditingUserId(null) }}
+                                style={{ padding:'3px 8px', background:'var(--bg)', border:'1px solid var(--accent)', borderRadius:'4px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', outline:'none', width:'160px' }}
+                              />
+                              <button onClick={() => handleSaveName(sub)} style={{ padding:'3px 10px', background:'var(--accent)', border:'none', borderRadius:'4px', color:'#fff', fontSize:'11px', fontWeight:700, cursor:'pointer', fontFamily:'DM Mono, monospace' }}>Save</button>
+                              <button onClick={() => setEditingUserId(null)} style={{ padding:'3px 8px', background:'none', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--muted)', fontSize:'11px', cursor:'pointer', fontFamily:'DM Mono, monospace' }}>✕</button>
+                            </span>
+                          ) : (
+                            <span style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                              <span style={{ fontWeight:600, fontSize:'13px' }}>{sub.full_name || '—'}</span>
+                              <button onClick={e => { e.stopPropagation(); setEditingUserId(sub.id); setEditName(sub.full_name || '') }} style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'11px', padding:'0 2px', lineHeight:1 }} title="Edit name">✎</button>
+                            </span>
+                          )}
                           {sub.isAdmin && <span style={{ fontSize:'9px', background:'var(--gold)', color:'#000', padding:'1px 6px', borderRadius:'4px', fontFamily:'DM Mono, monospace', fontWeight:700, letterSpacing:'0.08em' }}>ADMIN</span>}
                         </div>
                       </td>

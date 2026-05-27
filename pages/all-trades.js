@@ -111,6 +111,8 @@ export default function AllTradesPage() {
   const [tkHiddenTickers, setTkHiddenTickers] = useState(new Set())
   const [tkFilterOpen, setTkFilterOpen] = useState(false)
   const [tkFilterPos, setTkFilterPos] = useState({ top:0, left:0 })
+  const [tickerSearchQuery, setTickerSearchQuery] = useState('')
+  const [tradesSearchQuery, setTradesSearchQuery] = useState('')
   const downloadCSV = () => {
     const list = tf.statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===tf.statusFilter)
     const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Investment','Unrealised P&L','Realised P&L','MTF Interest','Status','Type']
@@ -371,7 +373,7 @@ export default function AllTradesPage() {
 
             {/* ── Ticker Summary ── */}
             <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginBottom:'20px' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'14px' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'10px' }}>
                 <div>
                   <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Ticker Summary</div>
                   <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginTop:'2px' }}>Click any row to see account-wise breakdown</div>
@@ -383,6 +385,15 @@ export default function AllTradesPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div style={{ marginBottom:'12px' }}>
+                <input
+                  type="text"
+                  placeholder="Search ticker..."
+                  value={tickerSearchQuery}
+                  onChange={e => setTickerSearchQuery(e.target.value)}
+                  style={{ padding:'6px 12px', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'6px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', outline:'none', width:'220px' }}
+                />
               </div>
               <table className="data-table">
                 <colgroup>
@@ -425,7 +436,7 @@ export default function AllTradesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tickerSummary.map(tg => (
+                  {tickerSummary.filter(tg => !tickerSearchQuery || tg.ticker.toLowerCase().includes(tickerSearchQuery.toLowerCase())).map(tg => (
                     <React.Fragment key={tg.ticker}>
                       <tr onClick={() => setExpandedTicker(expandedTicker === tg.ticker ? null : tg.ticker)}
                         style={{ cursor:'pointer', borderLeft:`3px solid ${expandedTicker===tg.ticker?'var(--accent)':'transparent'}`, background: expandedTicker===tg.ticker?'rgba(14,165,233,0.04)':'transparent' }}>
@@ -489,13 +500,20 @@ export default function AllTradesPage() {
               <div>
                 <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'14px', color:'var(--text)' }}>All Trades — Detailed View</div>
                 <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginTop:'2px' }}>
-                  {tf.filteredData.length} trades &nbsp;
+                  {tf.filteredData.filter(r => !tradesSearchQuery || r.trade.ticker.toLowerCase().includes(tradesSearchQuery.toLowerCase())).length} trades &nbsp;
                   <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px' }}>
                     ■ gold = subscriber account
                   </span>
                 </div>
               </div>
               <div style={{ display:'flex', gap:'6px', alignItems:'center', flexWrap:'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Search ticker..."
+                  value={tradesSearchQuery}
+                  onChange={e => setTradesSearchQuery(e.target.value)}
+                  style={{ padding:'5px 12px', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', outline:'none', width:'180px' }}
+                />
                 <button onClick={downloadCSV} style={{ padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>⬇ CSV</button>
                 <div className="status-filter-bar" style={{ marginBottom:0 }}>
                   {['ALL','OPEN','CLOSED'].map(f => (
@@ -572,9 +590,9 @@ export default function AllTradesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tf.filteredData.length === 0 ? (
+                  {tf.filteredData.filter(r => !tradesSearchQuery || r.trade.ticker.toLowerCase().includes(tradesSearchQuery.toLowerCase())).length === 0 ? (
                     <tr><td colSpan={10} style={{ textAlign:'center', padding:'40px', color:'var(--muted)' }}>No trades found.</td></tr>
-                  ) : tf.filteredData.map(({ trade, execMap, isSub, subName }) => {
+                  ) : tf.filteredData.filter(r => !tradesSearchQuery || r.trade.ticker.toLowerCase().includes(tradesSearchQuery.toLowerCase())).map(({ trade, execMap, isSub, subName }) => {
                     const r = calcRow(trade, execMap)
                     const accountLabel = isSub
                       ? `${subName} / ${trade.account || '—'}`
