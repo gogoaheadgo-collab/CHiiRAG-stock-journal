@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onAutoClose }) {
+export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onAutoClose, isReadOnly = false }) {
   const [showForm, setShowForm] = useState(false)
   const [qty, setQty] = useState('')
   const [price, setPrice] = useState('')
@@ -80,7 +80,7 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
           <span style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>Entry Rs{entryPrice.toLocaleString('en-IN')} · Qty {fmt(totalQty)} · Remaining <strong style={{ color:remainingQty===0?'var(--bear)':'var(--bull)' }}>{fmt(remainingQty)}</strong></span>
           {mtfRate > 0 && <span style={{ fontSize:'10px', color:'var(--gold)', background:'rgba(245,158,11,0.1)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>MTF {mtfRate}% p.a.</span>}
         </div>
-        {remainingQty > 0 && (
+        {remainingQty > 0 && !isReadOnly && (
           <button onClick={e=>{e.stopPropagation();setShowForm(v=>!v)}} style={{ padding:'5px 16px', background:showForm?'var(--surface)':'var(--bear)', border:'1px solid var(--border)', borderRadius:'5px', color:showForm?'var(--muted)':'#fff', fontSize:'11px', fontFamily:'DM Mono, monospace', cursor:'pointer', fontWeight:600 }}>
             {showForm ? 'Cancel' : '+ Add Sell'}
           </button>
@@ -112,7 +112,7 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
 
       {/* Executions Table */}
       {executions.length === 0 ? (
-        <div style={{ fontSize:'11px', color:'var(--muted)', padding:'8px 0' }}>No sell executions yet. Click "+ Add Sell" to record a sale.</div>
+        <div style={{ fontSize:'11px', color:'var(--muted)', padding:'8px 0' }}>{isReadOnly ? 'No executions recorded.' : 'No sell executions yet. Click "+ Add Sell" to record a sale.'}</div>
       ) : (
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
           <thead>
@@ -137,7 +137,7 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
                   <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:600, color:pnlColor(realised) }}>{pnlSign(realised)}Rs{fmtd(Math.abs(realised))}</td>
                   <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:'DM Mono, monospace', color:'var(--gold)' }}>{mtfInterest>0?`Rs${fmtd(mtfInterest)}`:<span style={{ color:'var(--muted)' }}>—</span>}</td>
                   <td style={{ padding:'8px 10px', textAlign:'center' }}>
-                    <button onClick={e=>{e.stopPropagation(); if(!window.confirm('🗑 Delete this execution?\n\nThis will affect Realised P&L calculations.')) return; if(!window.confirm('⚠️ CONFIRM DELETE\n\nAre you sure? This cannot be undone.')) return; onDelete(exec.id)}} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'16px', lineHeight:1, padding:'0 4px' }}>×</button>
+                    {!isReadOnly && <button onClick={e=>{e.stopPropagation(); if(!window.confirm('🗑 Delete this execution?\n\nThis will affect Realised P&L calculations.')) return; if(!window.confirm('⚠️ CONFIRM DELETE\n\nAre you sure? This cannot be undone.')) return; onDelete(exec.id)}} style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'16px', lineHeight:1, padding:'0 4px' }}>×</button>}
                   </td>
                 </tr>
               )

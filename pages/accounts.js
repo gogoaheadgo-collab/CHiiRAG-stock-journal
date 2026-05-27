@@ -60,6 +60,7 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
 
   const baseFiltered = mirrorFilter === 'ALL' ? mTrades : mTrades.filter(t => t.status === mirrorFilter)
   const mTf = useTableFilter(baseFiltered, mColumns)
+  const [expandedTrade, setExpandedTrade] = useState(null)
   return (
     <div style={{ display:'flex', gap:'16px', alignItems:'flex-start' }}>
       <div style={{ flex:1, minWidth:0 }}>
@@ -167,34 +168,43 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
                     : null
                   const exitPrice = currentQty===0 && execs.length>0 ? execs.reduce((s,e)=>s+Number(e.price)*Number(e.quantity),0)/totalSoldQty : trade.exit_price||null
                   return (
-                    <tr key={trade.id}>
-                      <td>
-                        <div className="tk-cell">
-                          <span className="tk-name">{trade.ticker}</span>
-                          <div className="tk-badges">
-                            <span className={trade.direction==='LONG'?'dir-long':'dir-short'}>{trade.direction}</span>
+                    <React.Fragment key={trade.id}>
+                      <tr onClick={() => setExpandedTrade(prev => prev === trade.id ? null : trade.id)} style={{ cursor:'pointer' }}>
+                        <td>
+                          <div className="tk-cell">
+                            <span className="tk-name">{trade.ticker}</span>
+                            <div className="tk-badges">
+                              <span className={trade.direction==='LONG'?'dir-long':'dir-short'}>{trade.direction}</span>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td style={{ fontSize:'11px', color:'var(--muted)' }}>{trade.account||'—'}</td>
-                      <td style={{ fontSize:'11px', color:'var(--muted)' }}>{trade.entry_date?.slice(0,10)}</td>
-                      <td className="num">Rs.{toINRd(entryPrice)}</td>
-                      <td className="num">{cmp ? <div className="sc"><span className="sc1">Rs.{toINRd(cmp)}</span><span className="sc2" style={{ color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</span></div> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                      <td className="num">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                      <td className="num">
-                        <div className="sc">
-                          <span className="sc1">{toINR(originalQty)}</span>
-                          <span className="sc2" style={{ color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--muted)' }}>{toINR(currentQty)}</span>
-                        </div>
-                      </td>
-                      <td className="num">
-                        {investment ? <div className="sc"><span className="sc1">Rs.{toINRd(investment)}</span><span className="sc2">{actualInv ? `Rs.${toINRd(actualInv)}` : '—'}</span></div> : <span style={{ color:'var(--muted)' }}>—</span>}
-                      </td>
-                      <td className="num">{mtfInt ? <span className="mtf-val">Rs.{toINRd(mtfInt)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                      <td className="num">{unrealisedPnL !== null ? <span className={unrealisedPnL>=0?'pnl-pos':'pnl-neg'}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                      <td className="num">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span className={realisedPnL>=0?'pnl-pos':'pnl-neg'}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
-                      <td>{trade.status==='OPEN' ? <span className="st-open">OPEN</span> : <span className="st-closed">CLOSED</span>}</td>
-                    </tr>
+                        </td>
+                        <td style={{ fontSize:'11px', color:'var(--muted)' }}>{trade.account||'—'}</td>
+                        <td style={{ fontSize:'11px', color:'var(--muted)' }}>{trade.entry_date?.slice(0,10)}</td>
+                        <td className="num">Rs.{toINRd(entryPrice)}</td>
+                        <td className="num">{cmp ? <div className="sc"><span className="sc1">Rs.{toINRd(cmp)}</span><span className="sc2" style={{ color:lp.change>=0?'var(--bull)':'var(--bear)' }}>{lp.change>=0?'+':''}{lp.changePercent?.toFixed(2)}%</span></div> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                        <td className="num">{exitPrice ? `Rs.${toINRd(exitPrice)}` : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                        <td className="num">
+                          <div className="sc">
+                            <span className="sc1">{toINR(originalQty)}</span>
+                            <span className="sc2" style={{ color:currentQty===0?'var(--bear)':currentQty<originalQty?'var(--gold)':'var(--muted)' }}>{toINR(currentQty)}</span>
+                          </div>
+                        </td>
+                        <td className="num">
+                          {investment ? <div className="sc"><span className="sc1">Rs.{toINRd(investment)}</span><span className="sc2">{actualInv ? `Rs.${toINRd(actualInv)}` : '—'}</span></div> : <span style={{ color:'var(--muted)' }}>—</span>}
+                        </td>
+                        <td className="num">{mtfInt ? <span className="mtf-val">Rs.{toINRd(mtfInt)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                        <td className="num">{unrealisedPnL !== null ? <span className={unrealisedPnL>=0?'pnl-pos':'pnl-neg'}>{unrealisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(unrealisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                        <td className="num">{realisedPnL !== 0 || trade.status==='CLOSED' ? <span className={realisedPnL>=0?'pnl-pos':'pnl-neg'}>{realisedPnL>=0?'+':'−'}Rs.{toINRd(Math.abs(realisedPnL))}</span> : <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                        <td>{trade.status==='OPEN' ? <span className="st-open">OPEN</span> : <span className="st-closed">CLOSED</span>}</td>
+                      </tr>
+                      {expandedTrade === trade.id && (
+                        <tr>
+                          <td colSpan={12} style={{ padding:0, background:'var(--surface)', borderBottom:'2px solid var(--accent)' }}>
+                            <ExecutionPanel trade={trade} executions={mExecsMap[trade.id]||[]} isReadOnly={true} onAdd={()=>{}} onDelete={()=>{}} onAutoClose={()=>{}} />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   )
                 })}
               </tbody>

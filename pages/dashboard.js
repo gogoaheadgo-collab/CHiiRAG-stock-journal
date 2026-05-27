@@ -24,15 +24,31 @@ function PnLCalendar({ trades, allExecs }) {
   const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
   const startDow = startOfMonth(month).getDay()
   const dailyPnL = {}
-  trades.filter(t => t.status==='CLOSED' && t.exit_date).forEach(t => {
-    const key = t.exit_date.slice(0,10)
-    dailyPnL[key] = (dailyPnL[key]||0) + (t._realised||0)
+  // P&L by individual execution date (each partial/full exit on its own date)
+  ;(allExecs || []).forEach(exec => {
+    const trade = trades.find(t => t.id === exec.trade_id)
+    if (!trade) return
+    const execDate = (exec.date || exec.created_at || '').split('T')[0]
+    if (!execDate) return
+    const pnl = (Number(exec.price) - Number(trade.entry_price)) * Number(exec.quantity)
+    dailyPnL[execDate] = (dailyPnL[execDate] || 0) + pnl
+  })
+  // Also include trades closed directly without any executions
+  trades.forEach(trade => {
+    if (trade.status !== 'CLOSED' || !trade.exit_date || !trade.exit_price) return
+    if ((allExecs || []).some(e => e.trade_id === trade.id)) return
+    const closeDate = trade.exit_date.split('T')[0]
+    const pnl = (Number(trade.exit_price) - Number(trade.entry_price)) * Number(trade.quantity)
+    dailyPnL[closeDate] = (dailyPnL[closeDate] || 0) + pnl
   })
   const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
 
-  // Trades closed on the selected day
-  const dayTrades = selectedCalDay
-    ? trades.filter(t => t.status==='CLOSED' && t.exit_date?.slice(0,10) === selectedCalDay)
+  // Executions on the selected day + directly-closed trades (no executions)
+  const dayExecs = selectedCalDay
+    ? (allExecs || []).filter(e => (e.date || e.created_at || '').split('T')[0] === selectedCalDay)
+    : []
+  const dayDirectTrades = selectedCalDay
+    ? trades.filter(t => t.status==='CLOSED' && t.exit_date?.split('T')[0] === selectedCalDay && !(allExecs || []).some(e => e.trade_id === t.id))
     : []
 
   return (
@@ -100,42 +116,31 @@ function PnLCalendar({ trades, allExecs }) {
       </div>
 
       {/* Day Detail Panel */}
-      {selectedCalDay && dayTrades.length > 0 && (
+      {selectedCalDay && (dayExecs.length > 0 || dayDirectTrades.length > 0) && (
         <div style={{ marginTop:'16px', borderTop:'1px solid var(--border)', paddingTop:'14px' }}>
           <div style={{ fontSize:'11px', fontWeight:700, fontFamily:'DM Mono, monospace', color:'var(--text)', marginBottom:'10px' }}>
             {new Date(selectedCalDay+'T00:00:00').toLocaleDateString('en-IN',{ weekday:'long', day:'numeric', month:'long', year:'numeric' })}
-            <span style={{ marginLeft:'8px', fontSize:'10px', color:'var(--muted)', fontWeight:400 }}>{dayTrades.length} trade{dayTrades.length>1?'s':''} closed</span>
+            <span style={{ marginLeft:'8px', fontSize:'10px', color:'var(--muted)', fontWeight:400 }}>{dayExecs.length + dayDirectTrades.length} exit{(dayExecs.length + dayDirectTrades.length)>1?'s':''}</span>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-            {dayTrades.map(dayTrade => {
-              const dayTradeExecs = (allExecs || []).filter(e => e.trade_id === dayTrade.id)
-              const origQty = Number(dayTrade.quantity) || 0
-              const exitPrice = dayTradeExecs.length > 0
-                ? dayTradeExecs.reduce((s,e) => s + Number(e.price)*Number(e.quantity), 0) / dayTradeExecs.reduce((s,e) => s + Number(e.quantity), 0)
-                : (Number(dayTrade.exit_price) || 0)
-              const exitQty = dayTradeExecs.length > 0
-                ? dayTradeExecs.reduce((s,e) => s + Number(e.quantity), 0)
-                : origQty
-              // MTF interest for this trade
-              const investment = Number(dayTrade.invested_capital) || (Number(dayTrade.entry_price) * origQty)
-              const actualInv  = Number(dayTrade.actual_investment) || 0
-              const mtfBase    = investment - actualInv
-              let dayMtf = 0
-              if (mtfBase > 0 && dayTrade.mtf_interest_rate && dayTrade.entry_date) {
-                dayMtf = dayTradeExecs.reduce((s,e) => {
-                  const days = Math.max(1, Math.floor((new Date(e.date) - new Date(dayTrade.entry_date)) / 86400000))
-                  return s + mtfBase * (Number(e.quantity)/origQty) * dayTrade.mtf_interest_rate * days / 36500
-                }, 0)
-              }
-              const dayPnl = dayTrade._realised || 0
+            {dayExecs.map(exec => {
+              const trade = trades.find(t => t.id === exec.trade_id)
+              if (!trade) return null
+              const origQty = Number(trade.quantity) || 0
+              const investment = Number(trade.invested_capital) || (Number(trade.entry_price) * origQty)
+              const mtfBase = investment - (Number(trade.actual_investment) || 0)
+              const dayMtf = mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date
+                ? mtfBase * (Number(exec.quantity)/origQty) * trade.mtf_interest_rate * Math.max(1, Math.floor((new Date(exec.date) - new Date(trade.entry_date)) / 86400000)) / 36500
+                : 0
+              const pnl = (Number(exec.price) - Number(trade.entry_price)) * Number(exec.quantity)
               return (
-                <div key={dayTrade.id} style={{ background:'var(--bg)', border:`1px solid ${dayPnl>=0?'rgba(14,165,233,0.2)':'rgba(239,68,68,0.2)'}`, borderRadius:'6px', padding:'10px 14px', borderLeft:`3px solid ${dayPnl>=0?'var(--bull)':'var(--bear)'}` }}>
+                <div key={exec.id} style={{ background:'var(--bg)', border:`1px solid ${pnl>=0?'rgba(14,165,233,0.2)':'rgba(239,68,68,0.2)'}`, borderRadius:'6px', padding:'10px 14px', borderLeft:`3px solid ${pnl>=0?'var(--bull)':'var(--bear)'}` }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'6px' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
-                      <span style={{ fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'13px', color:'var(--text)' }}>{dayTrade.ticker}</span>
-                      {dayTrade.account && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', background:'var(--surface)', padding:'1px 7px', borderRadius:'3px' }}>{dayTrade.account}</span>}
+                      <span style={{ fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'13px', color:'var(--text)' }}>{trade.ticker}</span>
+                      {trade.account && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', background:'var(--surface)', padding:'1px 7px', borderRadius:'3px' }}>{trade.account}</span>}
                       <span style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>
-                        Exit {Number(exitQty).toLocaleString('en-IN')} × Rs.{toINRd(exitPrice)}
+                        Sell {Number(exec.quantity).toLocaleString('en-IN')} × Rs.{toINRd(Number(exec.price))}
                       </span>
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
@@ -147,9 +152,31 @@ function PnLCalendar({ trades, allExecs }) {
                       )}
                       <div style={{ textAlign:'right' }}>
                         <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.08em' }}>P&L</div>
-                        <div style={{ fontSize:'14px', fontWeight:800, fontFamily:'DM Mono, monospace', color:dayPnl>=0?'var(--bull)':'var(--bear)' }}>
-                          {dayPnl>=0?'+':'−'}Rs.{toINRd(Math.abs(dayPnl))}
+                        <div style={{ fontSize:'14px', fontWeight:800, fontFamily:'DM Mono, monospace', color:pnl>=0?'var(--bull)':'var(--bear)' }}>
+                          {pnl>=0?'+':'−'}Rs.{toINRd(Math.abs(pnl))}
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            {dayDirectTrades.map(trade => {
+              const pnl = (Number(trade.exit_price) - Number(trade.entry_price)) * Number(trade.quantity)
+              return (
+                <div key={trade.id} style={{ background:'var(--bg)', border:`1px solid ${pnl>=0?'rgba(14,165,233,0.2)':'rgba(239,68,68,0.2)'}`, borderRadius:'6px', padding:'10px 14px', borderLeft:`3px solid ${pnl>=0?'var(--bull)':'var(--bear)'}` }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'6px' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
+                      <span style={{ fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'13px', color:'var(--text)' }}>{trade.ticker}</span>
+                      {trade.account && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', background:'var(--surface)', padding:'1px 7px', borderRadius:'3px' }}>{trade.account}</span>}
+                      <span style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>
+                        Exit {Number(trade.quantity).toLocaleString('en-IN')} × Rs.{toINRd(Number(trade.exit_price))}
+                      </span>
+                    </div>
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.08em' }}>P&L</div>
+                      <div style={{ fontSize:'14px', fontWeight:800, fontFamily:'DM Mono, monospace', color:pnl>=0?'var(--bull)':'var(--bear)' }}>
+                        {pnl>=0?'+':'−'}Rs.{toINRd(Math.abs(pnl))}
                       </div>
                     </div>
                   </div>
