@@ -410,38 +410,99 @@ export default function Dashboard() {
 
   const bd = useTableFilter(breakdownRows, bdColumns)
 
-  const openPositionRows = useMemo(() => openTrades.map(trade => {
-    const execs = allExecs.filter(e => e.trade_id === trade.id)
-    const soldQty = execs.reduce((s, e) => s + Number(e.quantity), 0)
-    const currentQty = Math.max(0, Number(trade.quantity) - soldQty)
-    const lp = livePrices[trade.ticker]
-    const cmp = lp?.price
-    const unr = cmp && currentQty > 0
-      ? (trade.direction === 'SHORT' ? (Number(trade.entry_price) - cmp) * currentQty : (cmp - Number(trade.entry_price)) * currentQty)
-      : null
-    const ownerLabel = (() => {
-      if (!isAdmin) return trade.account
-      for (const m of mirroredAccounts) {
-        if ((mirroredTrades[m.subscriber_id] || []).find(t => t.id === trade.id))
-          return (m.subscriber_name || m.subscriber_email || '').split(' ')[0] + "'s"
-      }
-      return trade.account
-    })()
-    return { id: trade.id, ticker: trade.ticker, direction: trade.direction, entry_price: Number(trade.entry_price), currentQty, lp, cmp, unr, ownerLabel }
-  }), [openTrades, allExecs, livePrices, isAdmin, mirroredAccounts, mirroredTrades])
+  // ── PERFORMANCE METRICS ──
+  const perfMetrics = useMemo(() => {
+    const closedAll = tradesWithRealised.filter(t => t.status === 'CLOSED')
+    const getRealisedPnL = (t) => {
+      const te = allExecs.filter(e => e.trade_id === t.id)
+      if (te.length > 0) return te.reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+      if (t.exit_price) return (Number(t.exit_price) - Number(t.entry_price)) * Number(t.quantity)
+      return 0
+    }
+    const tradePnLs = closedAll.map(t => ({ ...t, _pnl: getRealisedPnL(t) }))
+    const winT = tradePnLs.filter(t => t._pnl > 0)
+    const lossT = tradePnLs.filter(t => t._pnl <= 0)
 
-  const opColumns = useMemo(() => [
-    { key: 'ticker', label: 'Ticker', filterable: true, sortable: true },
-    { key: 'ownerLabel', label: isAdmin ? 'Owner' : 'Account', filterable: true, sortable: true },
-    { key: 'direction', label: 'Dir', filterable: true, sortable: true },
-    { key: 'entry_price', label: 'Entry Rs.', sortable: true },
-    { key: 'currentQty', label: 'Qty', sortable: true },
-    { key: 'cmp', label: 'CMP', sortable: true },
-    { key: '_changePercent', label: 'Change %', sortable: true, getSortValue: r => r.lp?.changePercent ?? -Infinity },
-    { key: 'unr', label: 'Unreal. P&L', sortable: true },
-  ], [isAdmin])
+    const bestTrade = tradePnLs.length > 0 ? Math.max(...tradePnLs.map(t => t._pnl)) : 0
+    const worstTrade = tradePnLs.length > 0 ? Math.min(...tradePnLs.map(t => t._pnl)) : 0
+    const avgWin = winT.length > 0 ? winT.reduce((s, t) => s + t._pnl, 0) / winT.length : 0
+    const avgLoss = lossT.length > 0 ? lossT.reduce((s, t) => s + t._pnl, 0) / lossT.length : 0
 
-  const op = useTableFilter(openPositionRows, opColumns)
+    const grossProfit = winT.reduce((s, t) => s + t._pnl, 0)
+    const grossLoss = Math.abs(lossT.reduce((s, t) => s + t._pnl, 0))
+    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0
+    const payoffRatio = Math.abs(avgLoss) > 0 ? avgWin / Math.abs(avgLoss) : 0
+    const breakevenWR = payoffRatio > 0 ? (1 / (1 + payoffRatio)) * 100 : 0
+
+    const winPct = tradePnLs.length > 0 ? winT.length / tradePnLs.length : 0
+    const expectancy = (winPct * avgWin) + ((1 - winPct) * avgLoss)
+
+    // Holding durations
+    const holdMs = (t) => { if (!t.entry_date || !t.exit_date) return null; const ms = new Date(t.exit_date) - new Date(t.entry_date); return ms >= 0 ? ms : null }
+    const winHMs = winT.map(holdMs).filter(x => x !== null)
+    const lossHMs = lossT.map(holdMs).filter(x => x !== null)
+    const allHMs = tradePnLs.map(holdMs).filter(x => x !== null)
+    const avgWinHold = winHMs.length > 0 ? winHMs.reduce((s, x) => s + x, 0) / winHMs.length : 0
+    const avgLossHold = lossHMs.length > 0 ? lossHMs.reduce((s, x) => s + x, 0) / lossHMs.length : 0
+    const avgAllHold = allHMs.length > 0 ? allHMs.reduce((s, x) => s + x, 0) / allHMs.length : 0
+    const fmtDur = (ms) => {
+      if (!ms) return '—'
+      const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000), m = Math.floor((ms % 3600000) / 60000)
+      if (d > 0) return `${d}d ${h}h ${m}m`
+      if (h > 0) return `${h}h ${m}m`
+      return `${m}m`
+    }
+
+    // Best / Worst day P&L
+    const dPnL = {}
+    allExecs.forEach(exec => {
+      const trade = allTrades.find(t => t.id === exec.trade_id); if (!trade) return
+      const dt = (exec.date || exec.created_at || '').split('T')[0]; if (!dt) return
+      dPnL[dt] = (dPnL[dt] || 0) + (Number(exec.price) - Number(trade.entry_price)) * Number(exec.quantity)
+    })
+    closedAll.forEach(t => {
+      if (!t.exit_date || !t.exit_price || allExecs.some(e => e.trade_id === t.id)) return
+      const dt = t.exit_date.split('T')[0]
+      dPnL[dt] = (dPnL[dt] || 0) + (Number(t.exit_price) - Number(t.entry_price)) * Number(t.quantity)
+    })
+    const dVals = Object.values(dPnL)
+    const bestDay = dVals.length > 0 ? Math.max(...dVals) : 0
+    const worstDay = dVals.length > 0 ? Math.min(...dVals) : 0
+
+    // Consecutive wins/losses + current streak
+    const sorted = [...tradePnLs].sort((a, b) => new Date(a.exit_date || a.updated_at) - new Date(b.exit_date || b.updated_at))
+    let maxCW = 0, maxCL = 0, cw = 0, cl = 0
+    sorted.forEach(t => { if (t._pnl > 0) { cw++; cl = 0; maxCW = Math.max(maxCW, cw) } else { cl++; cw = 0; maxCL = Math.max(maxCL, cl) } })
+    let streak = 0, sType = null
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const w = sorted[i]._pnl > 0
+      if (sType === null) { sType = w ? 'W' : 'L'; streak = 1 }
+      else if ((w && sType === 'W') || (!w && sType === 'L')) streak++
+      else break
+    }
+
+    // Max Drawdown (equity curve peak to trough)
+    let peak = 0, maxDD = 0, cum = 0
+    sorted.forEach(t => { cum += t._pnl; if (cum > peak) peak = cum; maxDD = Math.max(maxDD, peak - cum) })
+
+    // R-Multiple (only trades with stop_loss set)
+    const withSL = tradePnLs.filter(t => t.stop_loss && Number(t.stop_loss) > 0 && Number(t.stop_loss) !== Number(t.entry_price))
+    const rMults = withSL.map(t => { const risk = Math.abs(Number(t.entry_price) - Number(t.stop_loss)); return risk > 0 ? t._pnl / (risk * Number(t.quantity)) : null }).filter(x => x !== null)
+    const avgR = rMults.length > 0 ? rMults.reduce((s, x) => s + x, 0) / rMults.length : null
+
+    return {
+      winCount: winT.length, lossCount: lossT.length,
+      winRatePct: tradePnLs.length > 0 ? (winT.length / tradePnLs.length * 100) : 0,
+      bestTrade, worstTrade, avgWin, avgLoss,
+      profitFactor, payoffRatio, breakevenWR, expectancy,
+      bestDay, worstDay,
+      avgWinHold, avgLossHold, avgAllHold, fmtDur,
+      maxConsWins: maxCW, maxConsLosses: maxCL,
+      currentStreak: streak, streakType: sType,
+      maxDrawdown: maxDD,
+      avgRMultiple: avgR, slCount: withSL.length, totalClosed: tradePnLs.length,
+    }
+  }, [tradesWithRealised, allExecs, allTrades]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!session) return null
 
@@ -621,82 +682,70 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* OPEN POSITIONS */}
-            {openTrades.length>0 && (
-              <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginBottom:'20px' }}>
-                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'14px', display:'flex', alignItems:'center', gap:'8px' }}>
-                  Open Positions
-                  <span style={{ fontSize:'10px', background:'var(--accent-dim)', color:'var(--accent)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>{openTrades.length}</span>
+            {/* PERFORMANCE METRICS */}
+            {closedTrades.length > 0 && (() => {
+              const pm = perfMetrics
+              const MI = ({ label, value, color, sub }) => (
+                <div style={{ padding:'10px 12px', background:'var(--bg)', borderRadius:'5px', border:'1px solid var(--border)', minWidth:0 }}>
+                  <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'5px', fontFamily:'DM Mono, monospace', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
+                  <div style={{ fontSize:'13px', fontWeight:700, fontFamily:"'DM Mono', monospace", color: color || 'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{value}</div>
+                  {sub && <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'3px', fontFamily:'DM Mono, monospace' }}>{sub}</div>}
                 </div>
-                <table className="data-table">
-                    <colgroup>
-                      <col style={{ width:'13%' }} />
-                      <col style={{ width:'11%' }} />
-                      <col style={{ width:'7%' }} />
-                      <col style={{ width:'12%' }} />
-                      <col style={{ width:'8%' }} />
-                      <col style={{ width:'13%' }} />
-                      <col style={{ width:'10%' }} />
-                      <col style={{ width:'18%' }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        {opColumns.map(col => {
-                          const isLeft = ['ticker','ownerLabel','direction'].includes(col.key)
-                          return (
-                            <th key={col.key} className={!isLeft ? 'r' : undefined} style={{ cursor:'pointer' }}
-                              onClick={() => op.handleSort(col.key)}>
-                              <div className="col-header" style={!isLeft ? { justifyContent:'flex-end' } : undefined}>
-                                <span>{col.label}</span>
-                                <span className={`sort-arrow${op.sortConfig?.key === col.key ? ' active' : ''}`}>
-                                  {op.sortConfig?.key === col.key ? (op.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
-                                </span>
-                                {col.filterable && (
-                                  <span className={`filter-icon${(op.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`}
-                                    onClick={e => op.openFilter(e, col.key)}>▼</span>
-                                )}
-                              </div>
-                            </th>
-                          )
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {op.filteredData.map(({ id, ticker, direction, entry_price, currentQty, lp, cmp, unr, ownerLabel }) => (
-                        <tr key={id} style={{ borderBottom:'1px solid var(--border)' }}>
-                          <td style={{ padding:'8px 12px', fontWeight:700, fontFamily:'DM Mono, monospace' }}>{ticker}</td>
-                          <td style={{ padding:'8px 12px', color:'var(--muted)', fontSize:'11px', fontFamily:'DM Mono, monospace' }}>{ownerLabel}</td>
-                          <td style={{ padding:'8px 12px' }}>
-                            <span style={{ fontSize:'10px', padding:'2px 6px', borderRadius:'3px', fontWeight:700, fontFamily:'DM Mono, monospace',
-                              background:direction==='LONG'?'var(--accent-dim)':'var(--bear-dim)',
-                              color:direction==='LONG'?'var(--accent)':'var(--bear)' }}>{direction}</span>
-                          </td>
-                          <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(entry_price)}</td>
-                          <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace' }}>{toINR(currentQty)}</td>
-                          <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{cmp?`Rs.${toINRd(cmp)}`:'—'}</td>
-                          <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700, color:lp?.change>=0?'var(--bull)':'var(--bear)' }}>
-                            {lp?.changePercent!=null?`${lp.change>=0?'+':''}${lp.changePercent.toFixed(2)}%`:'—'}
-                          </td>
-                          <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:700, color:unr===null?'var(--muted)':unr>=0?'var(--bull)':'var(--bear)' }}>
-                            {unr!==null?`${unr>=0?'+':'−'}${toINRd(Math.abs(unr))}`:'—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                {op.openFilterKey && (
-                  <FilterDropdown
-                    position={op.filterDropPos}
-                    uniqueValues={op.getUniqueValues(op.openFilterKey)}
-                    hiddenValues={op.columnFilters[op.openFilterKey] || new Set()}
-                    onToggle={v => op.toggleFilterValue(op.openFilterKey, v)}
-                    onSelectAll={() => op.selectAllFilter(op.openFilterKey)}
-                    onDeselectAll={() => op.deselectAllFilter(op.openFilterKey, op.getUniqueValues(op.openFilterKey))}
-                    onClose={() => op.setOpenFilterKey(null)}
-                  />
-                )}
-              </div>
-            )}
+              )
+              const bullBear = v => v >= 0 ? 'var(--bull)' : 'var(--bear)'
+              const sign = v => v >= 0 ? '+' : '−'
+              const rs = v => `${sign(v)}Rs.${fmtINR(Math.abs(v))}`
+              return (
+                <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px' }}>
+                  <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'16px', display:'flex', alignItems:'center', gap:'8px' }}>
+                    Performance Metrics
+                    <span style={{ fontSize:'10px', background:'var(--accent-dim)', color:'var(--accent)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>{pm.totalClosed} closed trades</span>
+                    {pm.slCount > 0 && <span style={{ fontSize:'10px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>{pm.slCount}/{pm.totalClosed} with SL</span>}
+                  </div>
+
+                  {/* Row 1: Trade P&L */}
+                  <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'8px', marginTop:'4px' }}>Trade P&L</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'8px', marginBottom:'16px' }}>
+                    <MI label="Best Trade" value={rs(pm.bestTrade)} color="var(--bull)" />
+                    <MI label="Worst Trade" value={rs(pm.worstTrade)} color="var(--bear)" />
+                    <MI label="Avg Winning Trade" value={rs(pm.avgWin)} color="var(--bull)" sub={`${pm.winCount} wins`} />
+                    <MI label="Avg Losing Trade" value={rs(pm.avgLoss)} color="var(--bear)" sub={`${pm.lossCount} losses`} />
+                    <MI label="Expectancy" value={rs(pm.expectancy)} color={bullBear(pm.expectancy)} sub="per trade avg" />
+                  </div>
+
+                  {/* Row 2: Ratios */}
+                  <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'8px' }}>Ratios & Edge</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'8px', marginBottom:'16px' }}>
+                    <MI label="Win Rate" value={`${pm.winRatePct.toFixed(1)}%`} color="var(--accent)" sub={`${pm.winCount}W · ${pm.lossCount}L`} />
+                    <MI label="Profit Factor" value={pm.profitFactor === Infinity ? '∞' : pm.profitFactor.toFixed(2)} color={pm.profitFactor >= 1 ? 'var(--bull)' : 'var(--bear)'} sub="gross profit / loss" />
+                    <MI label="Payoff Ratio" value={`1 : ${pm.payoffRatio.toFixed(2)}`} sub="avg win / avg loss" />
+                    <MI label="Breakeven Win Rate" value={`${pm.breakevenWR.toFixed(1)}%`} color="var(--muted)" sub={`edge: ${(pm.winRatePct - pm.breakevenWR).toFixed(1)}%`} />
+                    {pm.avgRMultiple !== null && (
+                      <MI label="Avg R-Multiple" value={`${pm.avgRMultiple >= 0 ? '+' : ''}${pm.avgRMultiple.toFixed(2)}R`} color={bullBear(pm.avgRMultiple)} sub={`${pm.slCount} of ${pm.totalClosed} with SL`} />
+                    )}
+                  </div>
+
+                  {/* Row 3: Risk */}
+                  <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'8px' }}>Risk & Streaks</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'8px', marginBottom:'16px' }}>
+                    <MI label="Max Drawdown" value={pm.maxDrawdown > 0 ? `−Rs.${fmtINR(pm.maxDrawdown)}` : '—'} color="var(--bear)" sub="peak to trough" />
+                    <MI label="Largest Winning Day" value={pm.bestDay > 0 ? rs(pm.bestDay) : '—'} color="var(--bull)" />
+                    <MI label="Largest Losing Day" value={pm.worstDay < 0 ? rs(pm.worstDay) : '—'} color="var(--bear)" />
+                    <MI label="Max Consec. Wins" value={pm.maxConsWins} color="var(--bull)" />
+                    <MI label="Max Consec. Losses" value={pm.maxConsLosses} color="var(--bear)" />
+                    <MI label="Current Streak" value={pm.streakType ? `${pm.currentStreak}${pm.streakType}` : '—'} color={pm.streakType === 'W' ? 'var(--bull)' : pm.streakType === 'L' ? 'var(--bear)' : 'var(--muted)'} />
+                  </div>
+
+                  {/* Row 4: Timing */}
+                  <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'8px' }}>Holding Duration</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'8px' }}>
+                    <MI label="Avg Hold (Winners)" value={pm.fmtDur(pm.avgWinHold)} color="var(--bull)" sub={`${pm.winCount} trades`} />
+                    <MI label="Avg Hold (Losers)" value={pm.fmtDur(pm.avgLossHold)} color="var(--bear)" sub={`${pm.lossCount} trades`} />
+                    <MI label="Avg Time in Trade" value={pm.fmtDur(pm.avgAllHold)} sub="all closed trades" />
+                  </div>
+                </div>
+              )
+            })()}
           </>
         )}
       </main>
