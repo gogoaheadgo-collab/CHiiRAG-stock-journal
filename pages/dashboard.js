@@ -371,6 +371,7 @@ export default function Dashboard() {
   })
   const winRate = closedTrades.length>0 ? (wins.length/closedTrades.length*100).toFixed(1) : '0.0'
   const totalInvested = openTrades.reduce((s,t)=>s+(Number(t.actual_investment)||Number(t.invested_capital)||0),0)
+  const fundDeployed = openTrades.reduce((s,t) => s + (Number(t.actual_investment) || (Number(t.entry_price) * Number(t.quantity)) || 0), 0)
 
   // Build per-account breakdown — each own account separately + each mirrored subscriber
   const ownAccountNames = [...new Set(trades.map(t => t.account).filter(Boolean))]
@@ -538,6 +539,7 @@ export default function Dashboard() {
             {/* STAT CARDS */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'14px', marginBottom:'28px' }}>
               <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs.${fmtINR(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
+              <StatCard label="Fund Deployed" value={`Rs.${fmtINR(fundDeployed)}`} color="var(--accent)" sub={`across ${openTrades.length} open trades`} />
               <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}Rs.${fmtINR(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
               <StatCard label="Win Rate" value={`${winRate}%`} color="var(--accent)" sub={`${wins.length}W · ${closedTrades.length-wins.length}L`} />
               <StatCard label="Open Positions" value={openTrades.length} sub={`Rs.${fmtINR(totalInvested)} deployed`} />
