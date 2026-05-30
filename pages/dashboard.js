@@ -202,6 +202,13 @@ export default function Dashboard() {
   const [mirroredExecs, setMirroredExecs] = useState({})
   const [sharedAdminTrades, setSharedAdminTrades] = useState([])
   const [sharedAdminExecs, setSharedAdminExecs] = useState([])
+  const [selectedAccounts, setSelectedAccounts] = useState(() => {
+    if (typeof window === 'undefined') return new Set()
+    try {
+      const saved = localStorage.getItem('dashboard_selected_accounts')
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch { return new Set() }
+  })
 
   const isAdmin = session?.user?.email === ADMIN
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
@@ -241,6 +248,20 @@ export default function Dashboard() {
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [session, loadData])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dashboard_selected_accounts', JSON.stringify([...selectedAccounts]))
+    }
+  }, [selectedAccounts])
+
+  const toggleAccount = (name) => {
+    setSelectedAccounts(prev => {
+      const next = new Set(prev)
+      next.has(name) ? next.delete(name) : next.add(name)
+      return next
+    })
+  }
 
   // Load shared admin accounts for subscribers
   useEffect(() => {
@@ -549,18 +570,33 @@ export default function Dashboard() {
             {/* ADMIN: per-account breakdown */}
             {isAdmin && subscriberBreakdown.length>1 && (
               <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginBottom:'20px' }}>
-                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'14px' }}>Account Breakdown</div>
+                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'14px', display:'flex', alignItems:'center', gap:'10px' }}>
+                  Account Breakdown
+                  {selectedAccounts.size > 0 && (
+                    <button onClick={() => setSelectedAccounts(new Set())}
+                      style={{ fontSize:'10px', padding:'2px 10px', borderRadius:'4px', border:'1px solid var(--accent)', background:'var(--accent-dim)', color:'var(--accent)', cursor:'pointer', fontFamily:'DM Mono, monospace', fontWeight:600 }}>
+                      Clear ({selectedAccounts.size})
+                    </button>
+                  )}
+                </div>
                 <table className="data-table">
                     <colgroup>
-                      <col style={{ width:'24%' }} />
+                      <col style={{ width:'5%' }} />
+                      <col style={{ width:'21%' }} />
                       <col style={{ width:'8%' }} />
                       <col style={{ width:'8%' }} />
-                      <col style={{ width:'20%' }} />
-                      <col style={{ width:'20%' }} />
+                      <col style={{ width:'19%' }} />
+                      <col style={{ width:'19%' }} />
                       <col style={{ width:'20%' }} />
                     </colgroup>
                     <thead>
                       <tr>
+                        <th style={{ padding:'8px 4px', textAlign:'center' }}>
+                          {selectedAccounts.size > 0 && (
+                            <span onClick={() => setSelectedAccounts(new Set())}
+                              style={{ cursor:'pointer', fontSize:'10px', color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>✕</span>
+                          )}
+                        </th>
                         {bdColumns.map(col => (
                           <th key={col.key} className={col.key !== 'name' ? 'r' : undefined} style={{ cursor:'pointer' }}
                             onClick={() => bd.handleSort(col.key)}>
@@ -580,7 +616,13 @@ export default function Dashboard() {
                     </thead>
                     <tbody>
                       {bd.filteredData.map(({ name, isOwn, _open, _closed, _unr, _rel, _mtf }) => (
-                          <tr key={name} style={{ borderBottom:'1px solid var(--border)' }}>
+                          <tr key={name} style={{ borderBottom:'1px solid var(--border)', background: selectedAccounts.has(name) ? 'var(--accent-dim)' : 'transparent' }}>
+                            <td style={{ padding:'8px 4px', textAlign:'center' }}>
+                              <input type="checkbox"
+                                checked={selectedAccounts.has(name)}
+                                onChange={() => toggleAccount(name)}
+                                style={{ cursor:'pointer', accentColor:'var(--accent)' }} />
+                            </td>
                             <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>
                               <span style={{ fontWeight:700 }}>{name}</span>
                               {isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'var(--accent-dim)', color:'var(--accent)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MINE</span>}
@@ -594,6 +636,31 @@ export default function Dashboard() {
                           </tr>
                       ))}
                     </tbody>
+                    {selectedAccounts.size > 0 && (() => {
+                      const sel = bd.filteredData.filter(r => selectedAccounts.has(r.name))
+                      const totOpen = sel.reduce((s, r) => s + r._open, 0)
+                      const totClosed = sel.reduce((s, r) => s + r._closed, 0)
+                      const totUnr = sel.reduce((s, r) => s + r._unr, 0)
+                      const totRel = sel.reduce((s, r) => s + r._rel, 0)
+                      const totMtf = sel.reduce((s, r) => s + r._mtf, 0)
+                      return (
+                        <tfoot>
+                          <tr style={{ borderTop:'2px solid var(--accent)', background:'var(--accent-dim)' }}>
+                            <td style={{ padding:'8px 4px', textAlign:'center' }}>
+                              <span style={{ fontSize:'10px', fontWeight:800, color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>Σ</span>
+                            </td>
+                            <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', fontWeight:800, color:'var(--accent)', fontSize:'12px' }}>
+                              Selected Total ({sel.length})
+                            </td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{totOpen}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{totClosed}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', color:totUnr>=0?'var(--bull)':'var(--bear)' }}>{totUnr>=0?'+':'−'}Rs.{toINR(Math.abs(totUnr))}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', color:totRel>=0?'var(--bull)':'var(--bear)' }}>{totRel>=0?'+':'−'}Rs.{toINR(Math.abs(totRel))}</td>
+                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace', fontWeight:700 }}>Rs.{toINRd(totMtf)}</td>
+                          </tr>
+                        </tfoot>
+                      )
+                    })()}
                   </table>
                 {bd.openFilterKey && (
                   <FilterDropdown
