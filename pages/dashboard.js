@@ -615,52 +615,66 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {bd.filteredData.map(({ name, isOwn, _open, _closed, _unr, _rel, _mtf }) => (
-                          <tr key={name} style={{ borderBottom:'1px solid var(--border)', background: selectedAccounts.has(name) ? 'var(--accent-dim)' : 'transparent' }}>
-                            <td style={{ padding:'8px 4px', textAlign:'center' }}>
-                              <input type="checkbox"
-                                checked={selectedAccounts.has(name)}
-                                onChange={() => toggleAccount(name)}
-                                style={{ cursor:'pointer', accentColor:'var(--accent)' }} />
-                            </td>
-                            <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>
-                              <span style={{ fontWeight:700 }}>{name}</span>
-                              {isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'var(--accent-dim)', color:'var(--accent)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MINE</span>}
-                              {!isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MIRRORED</span>}
-                            </td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>{_open}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{_closed}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:_unr>=0?'var(--bull)':'var(--bear)' }}>{_unr>=0?'+':'−'}Rs.{toINR(Math.abs(_unr))}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:_rel>=0?'var(--bull)':'var(--bear)' }}>{_rel>=0?'+':'−'}Rs.{toINR(Math.abs(_rel))}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(_mtf)}</td>
-                          </tr>
-                      ))}
+                      {(() => {
+                        const selected = bd.filteredData.filter(r => selectedAccounts.has(r.name))
+                        const unselected = bd.filteredData.filter(r => !selectedAccounts.has(r.name))
+                        const renderRow = (row) => {
+                          const { name, isOwn, _open, _closed, _unr, _rel, _mtf } = row
+                          const isSel = selectedAccounts.has(name)
+                          return (
+                            <tr key={name} style={{ borderBottom:'1px solid var(--border)', background: isSel ? 'var(--accent-dim)' : 'transparent' }}>
+                              <td style={{ padding:'8px 4px', textAlign:'center' }}>
+                                <input type="checkbox" checked={isSel} onChange={() => toggleAccount(name)}
+                                  style={{ cursor:'pointer', accentColor:'var(--accent)' }} />
+                              </td>
+                              <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>
+                                <span style={{ fontWeight:700 }}>{name}</span>
+                                {isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'var(--accent-dim)', color:'var(--accent)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MINE</span>}
+                                {!isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MIRRORED</span>}
+                              </td>
+                              <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>{_open}</td>
+                              <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{_closed}</td>
+                              <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:_unr>=0?'var(--bull)':'var(--bear)' }}>{_unr>=0?'+':'−'}Rs.{toINR(Math.abs(_unr))}</td>
+                              <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:_rel>=0?'var(--bull)':'var(--bear)' }}>{_rel>=0?'+':'−'}Rs.{toINR(Math.abs(_rel))}</td>
+                              <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(_mtf)}</td>
+                            </tr>
+                          )
+                        }
+
+                        if (selectedAccounts.size === 0) {
+                          return bd.filteredData.map(renderRow)
+                        }
+
+                        const totOpen = selected.reduce((s, r) => s + r._open, 0)
+                        const totClosed = selected.reduce((s, r) => s + r._closed, 0)
+                        const totUnr = selected.reduce((s, r) => s + r._unr, 0)
+                        const totRel = selected.reduce((s, r) => s + r._rel, 0)
+                        const totMtf = selected.reduce((s, r) => s + r._mtf, 0)
+
+                        return (
+                          <>
+                            {selected.map(renderRow)}
+                            <tr style={{ borderTop:'2px solid var(--accent)', background:'var(--accent-dim)' }}>
+                              <td style={{ padding:'10px 4px', textAlign:'center' }}>
+                                <span style={{ fontSize:'12px', fontWeight:800, color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>Σ</span>
+                              </td>
+                              <td style={{ padding:'10px 12px', fontFamily:'DM Mono, monospace', fontWeight:800, color:'var(--accent)', fontSize:'14px' }}>
+                                Selected Total ({selected.length})
+                              </td>
+                              <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>{totOpen}</td>
+                              <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>{totClosed}</td>
+                              <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', fontSize:'14px', color:totUnr>=0?'var(--bull)':'var(--bear)' }}>{totUnr>=0?'+':'−'}Rs.{toINR(Math.abs(totUnr))}</td>
+                              <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', fontSize:'14px', color:totRel>=0?'var(--bull)':'var(--bear)' }}>{totRel>=0?'+':'−'}Rs.{toINR(Math.abs(totRel))}</td>
+                              <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>Rs.{toINRd(totMtf)}</td>
+                            </tr>
+                            {unselected.length > 0 && (
+                              <tr><td colSpan={7} style={{ padding:'10px 0', border:'none' }}></td></tr>
+                            )}
+                            {unselected.map(renderRow)}
+                          </>
+                        )
+                      })()}
                     </tbody>
-                    {selectedAccounts.size > 0 && (() => {
-                      const sel = bd.filteredData.filter(r => selectedAccounts.has(r.name))
-                      const totOpen = sel.reduce((s, r) => s + r._open, 0)
-                      const totClosed = sel.reduce((s, r) => s + r._closed, 0)
-                      const totUnr = sel.reduce((s, r) => s + r._unr, 0)
-                      const totRel = sel.reduce((s, r) => s + r._rel, 0)
-                      const totMtf = sel.reduce((s, r) => s + r._mtf, 0)
-                      return (
-                        <tfoot>
-                          <tr style={{ borderTop:'2px solid var(--accent)', background:'var(--accent-dim)' }}>
-                            <td style={{ padding:'8px 4px', textAlign:'center' }}>
-                              <span style={{ fontSize:'10px', fontWeight:800, color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>Σ</span>
-                            </td>
-                            <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', fontWeight:800, color:'var(--accent)', fontSize:'12px' }}>
-                              Selected Total ({sel.length})
-                            </td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{totOpen}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:700 }}>{totClosed}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', color:totUnr>=0?'var(--bull)':'var(--bear)' }}>{totUnr>=0?'+':'−'}Rs.{toINR(Math.abs(totUnr))}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', color:totRel>=0?'var(--bull)':'var(--bear)' }}>{totRel>=0?'+':'−'}Rs.{toINR(Math.abs(totRel))}</td>
-                            <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace', fontWeight:700 }}>Rs.{toINRd(totMtf)}</td>
-                          </tr>
-                        </tfoot>
-                      )
-                    })()}
                   </table>
                 {bd.openFilterKey && (
                   <FilterDropdown
