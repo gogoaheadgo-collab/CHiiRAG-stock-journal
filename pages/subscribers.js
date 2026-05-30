@@ -90,16 +90,21 @@ export default function SubscribersPage() {
 
   const handleSaveName = async (sub) => {
     if (!editName.trim()) return
-    const token = await getToken()
-    const res = await fetch('/api/admin/update-user-name', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-      body: JSON.stringify({ userId: sub.id, name: editName.trim() }),
-    })
-    const data = await res.json()
-    if (data.error) { alert('Error: ' + data.error); return }
-    setSubscribers(prev => prev.map(s => s.id === sub.id ? { ...s, full_name: editName.trim() } : s))
-    setEditingUserId(null)
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/admin/update-user-name', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+        body: JSON.stringify({ userId: sub.id, name: editName.trim() }),
+      })
+      const data = await res.json()
+      if (data.error) { alert('Error: ' + data.error); return }
+      setSubscribers(prev => prev.map(s => s.id === sub.id ? { ...s, full_name: editName.trim() } : s))
+      setEditingUserId(null)
+    } catch (err) {
+      console.error('Save name error:', err)
+      alert('Failed to save name: ' + err.message)
+    }
   }
 
   const downloadCSV = () => {
