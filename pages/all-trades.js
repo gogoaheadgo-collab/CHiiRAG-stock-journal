@@ -113,34 +113,113 @@ export default function AllTradesPage() {
   const [tkFilterPos, setTkFilterPos] = useState({ top:0, left:0 })
   const [tickerSearchQuery, setTickerSearchQuery] = useState('')
   const [tradesSearchQuery, setTradesSearchQuery] = useState('')
+  const [importModal, setImportModal] = useState(null)
+  const [importing, setImporting] = useState(false)
+
+  const parseCSV = (text) => {
+    const lines = text.split('\n').filter(l => l.trim())
+    if (lines.length < 2) return []
+    const parseRow = (line) => {
+      const values = []
+      let cur = '', inQ = false
+      for (const ch of line) {
+        if (ch === '"') { inQ = !inQ }
+        else if (ch === ',' && !inQ) { values.push(cur.trim()); cur = '' }
+        else cur += ch
+      }
+      values.push(cur.trim())
+      return values.map(v => v.replace(/^"|"$/g, ''))
+    }
+    const headers = parseRow(lines[0])
+    return lines.slice(1).map(line => {
+      const vals = parseRow(line)
+      const row = {}
+      headers.forEach((h, i) => { row[h] = vals[i] || '' })
+      return row
+    }).filter(row => row['Ticker'] || row['ticker'])
+  }
+
+  const handleImportFile = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => { setImportModal({ rows: parseCSV(ev.target.result) }) }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  const handleConfirmImport = async () => {
+    if (!importModal?.rows?.length) return
+    setImporting(true)
+    let count = 0
+    for (const row of importModal.rows) {
+      const ticker = (row['Ticker'] || row['ticker'] || '').toUpperCase().trim()
+      if (!ticker) continue
+      const entry_price = parseFloat(row['Entry Price']) || 0
+      const quantity = parseFloat(row['Qty']) || 0
+      const investment = parseFloat(row['Investment']) || (entry_price * quantity) || 0
+      const exitPriceVal = parseFloat(row['Exit Price']) || null
+      const statusVal = (row['Status'] || 'OPEN').toUpperCase().trim()
+      const { error } = await supabase.from('trades').insert({
+        user_id: session.user.id,
+        ticker,
+        direction: (row['Direction'] || 'LONG').toUpperCase().trim(),
+        account: row['Account'] || '',
+        entry_date: row['Entry Date'] || new Date().toISOString().slice(0,10),
+        entry_price,
+        quantity,
+        invested_capital: investment,
+        actual_investment: parseFloat(row['Actual Inv']) || 0,
+        mtf_interest_rate: parseFloat(row['MTF Rate%']) || null,
+        exit_price: exitPriceVal,
+        status: statusVal,
+      })
+      if (!error) count++
+    }
+    const total = importModal.rows.length
+    setImporting(false)
+    setImportModal(null)
+    await loadAll()
+    alert(`Imported ${count} of ${total} trades successfully.`)
+  }
+
   const downloadCSV = () => {
     const list = tf.statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===tf.statusFilter)
-    const h=['Ticker','Account','Direction','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Investment','Unrealised P&L','Realised P&L','MTF Interest','Status','Type']
-    const rows=list.map(({trade,isSub,execMap:rowExecMap}) => {
+    const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Return%','Status']
+    const rows = list.map(({trade, execMap: rowExecMap}) => {
       const exs = rowExecMap?.[trade.id] || []
-      const sold = exs.reduce((s,e)=>s+Number(e.quantity),0)
-      const orig = Number(trade.quantity)||0
-      const curr = Math.max(0,orig-sold)
-      const entry = Number(trade.entry_price)||0
-      const lp = livePrices[trade.ticker]?.price
-      const unr = trade.status==='OPEN' && lp && curr>0?(trade.direction==='LONG'?(lp-entry)*curr:(entry-lp)*curr):''
-      const rel = exs.length>0?exs.reduce((s,e)=>s+(Number(e.price)-entry)*Number(e.quantity),0):(Number(trade.realized_gains)||0)
+      const sold = exs.reduce((s,e) => s + Number(e.quantity), 0)
+      const orig = Number(trade.quantity) || 0
+      const curr = Math.max(0, orig - sold)
+      const entry = Number(trade.entry_price) || 0
       const investment = Number(trade.invested_capital) || (entry * orig)
-      const actualInv  = Number(trade.actual_investment) || 0
-      const mtfBase    = actualInv > 0 ? investment - actualInv : 0
-      let mtf = ''
+      const actualInv = Number(trade.actual_investment) || 0
+      const mtfBase = actualInv > 0 ? investment - actualInv : 0
+      const lp = livePrices[trade.ticker]?.price
+      const unrealised = trade.status==='OPEN' && lp && curr > 0
+        ? (trade.direction==='LONG' ? (lp-entry)*curr : (entry-lp)*curr) : ''
+      const realised = exs.length > 0
+        ? exs.reduce((s,e) => s + (Number(e.price)-entry)*Number(e.quantity), 0)
+        : (Number(trade.realized_gains) || 0)
+      const exitPrice = exs.length > 0
+        ? (exs.reduce((s,e) => s + Number(e.price)*Number(e.quantity), 0) / sold).toFixed(2)
+        : (trade.exit_price || '')
+      let mtfAccrued = ''
       if (mtfBase > 0 && trade.mtf_interest_rate && trade.entry_date) {
-        const soldMtf = exs.reduce((s,e) => {
-          const days = Math.max(1, Math.floor((new Date(e.date) - new Date(trade.entry_date)) / 86400000))
-          return s + mtfBase * (Number(e.quantity)/orig) * trade.mtf_interest_rate * days / 36500
+        const soldM = exs.reduce((s,e) => {
+          const d = Math.max(1, Math.floor((new Date(e.date) - new Date(trade.entry_date)) / 86400000))
+          return s + mtfBase * (Number(e.quantity)/orig) * trade.mtf_interest_rate * d / 36500
         }, 0)
-        const remDays = Math.max(1, Math.floor((new Date() - new Date(trade.entry_date)) / 86400000))
-        const remMtf  = trade.status === 'OPEN' ? mtfBase * (curr/orig) * trade.mtf_interest_rate * remDays / 36500 : 0
-        mtf = (soldMtf + remMtf).toFixed(2)
+        const remD = Math.max(1, Math.floor((new Date() - new Date(trade.entry_date)) / 86400000))
+        const remM = curr > 0 ? mtfBase * (curr/orig) * trade.mtf_interest_rate * remD / 36500 : 0
+        mtfAccrued = (soldM + remM).toFixed(2)
       }
-      return [trade.ticker,trade.account,trade.direction,trade.entry_date,entry,trade.exit_price||'',orig,curr,investment?investment.toFixed(2):'',actualInv?actualInv.toFixed(2):'',unr!==''?unr.toFixed(2):'',rel.toFixed(2),mtf,trade.status,isSub?'Subscriber':'Admin']
+      const unrNum = unrealised !== '' ? Number(unrealised) : 0
+      const relNum = Number(realised) || 0
+      const returnPct = investment > 0 ? (((unrNum + relNum) * 100) / investment).toFixed(2) : ''
+      return [trade.ticker, trade.direction, trade.account||'', trade.entry_date, entry, exitPrice, orig, curr, investment ? investment.toFixed(2) : '', actualInv ? actualInv.toFixed(2) : '', trade.mtf_interest_rate||'', mtfAccrued, unrealised!==''?unrealised.toFixed(2):'', realised.toFixed(2), returnPct, trade.status]
     })
-    const csv=[h,...rows].map(r=>r.join(',')).join('\n')
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
     triggerCSVDownload(csv, 'all-trades.csv')
   }
   const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
@@ -182,8 +261,8 @@ export default function AllTradesPage() {
       ? (trade.direction === 'SHORT' ? (entryPrice - cmp) * currentQty : (cmp - entryPrice) * currentQty)
       : null
 
-    const exitPrice = currentQty===0 && execs.length>0
-      ? execs.reduce((s,e)=>s+Number(e.price)*Number(e.quantity),0) / totalSold
+    const exitPrice = execs.length > 0
+      ? execs.reduce((s,e) => s + Number(e.price) * Number(e.quantity), 0) / totalSold
       : (Number(trade.exit_price) || null)
 
     return { execs, totalSold, originalQty, currentQty, entryPrice, investment, actualInv, mtfInt, realisedPnL, unrealisedPnL, exitPrice, lp, cmp }
@@ -515,6 +594,8 @@ export default function AllTradesPage() {
                   style={{ padding:'5px 12px', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'4px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', outline:'none', width:'180px' }}
                 />
                 <button onClick={downloadCSV} style={{ padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>⬇ CSV</button>
+                <input type="file" id="csv-import-input" accept=".csv" style={{ display:'none' }} onChange={handleImportFile} />
+                <button onClick={() => document.getElementById('csv-import-input').click()} style={{ padding:'5px 12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', cursor:'pointer', fontSize:'10px', fontFamily:'DM Mono, monospace' }}>⬆ Import CSV</button>
                 <div className="status-filter-bar" style={{ marginBottom:0 }}>
                   {['ALL','OPEN','CLOSED'].map(f => (
                     <button key={f} className={`status-btn ${tf.statusFilter===f?'active':''}`}
@@ -656,6 +737,45 @@ export default function AllTradesPage() {
           </>
         )}
       </main>
+
+      {/* CSV Import Modal */}
+      {importModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={() => setImportModal(null)}>
+          <div style={{ background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'12px', padding:'24px', width:'min(90vw, 820px)', maxHeight:'80vh', overflow:'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'16px', color:'var(--text)', marginBottom:'6px' }}>Import CSV — Preview</div>
+            <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'16px' }}>{importModal.rows.length} trades to import</div>
+            <div style={{ overflow:'auto', maxHeight:'400px', border:'1px solid var(--border)', borderRadius:'6px' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'11px' }}>
+                <thead>
+                  <tr style={{ background:'var(--surface)' }}>
+                    {['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Status'].map(h => (
+                      <th key={h} style={{ padding:'8px 10px', textAlign:'left', borderBottom:'1px solid var(--border)', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontSize:'9px', textTransform:'uppercase', whiteSpace:'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {importModal.rows.slice(0, 25).map((row, i) => (
+                    <tr key={i} style={{ borderBottom:'1px solid var(--border)', background:i%2===0?'transparent':'rgba(0,0,0,0.015)' }}>
+                      {['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Status'].map(h => (
+                        <td key={h} style={{ padding:'7px 10px', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>{row[h] || <span style={{ color:'var(--muted)' }}>—</span>}</td>
+                      ))}
+                    </tr>
+                  ))}
+                  {importModal.rows.length > 25 && (
+                    <tr><td colSpan={8} style={{ padding:'10px', color:'var(--muted)', fontSize:'10px', textAlign:'center', fontFamily:'DM Mono, monospace' }}>...and {importModal.rows.length - 25} more rows</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display:'flex', gap:'10px', marginTop:'20px', justifyContent:'flex-end' }}>
+              <button onClick={() => setImportModal(null)} style={{ padding:'8px 20px', background:'none', border:'1px solid var(--border)', borderRadius:'6px', color:'var(--muted)', cursor:'pointer', fontFamily:'DM Mono, monospace', fontSize:'12px' }}>Cancel</button>
+              <button onClick={handleConfirmImport} disabled={importing} style={{ padding:'8px 24px', background:'var(--accent)', border:'none', borderRadius:'6px', color:'#fff', cursor:importing?'not-allowed':'pointer', fontFamily:'DM Mono, monospace', fontSize:'12px', fontWeight:700, opacity:importing?0.7:1 }}>
+                {importing ? 'Importing...' : `Import ${importModal.rows.length} Trades`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

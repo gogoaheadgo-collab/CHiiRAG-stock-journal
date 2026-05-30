@@ -78,17 +78,30 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
               </button>
             ))}
             <button onClick={() => {
-              const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Unrealised P&L','Realised P&L','Status']
+              const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Return%','Status']
               const rows = baseFiltered.map(t => {
                 const mExs2 = mExecs.filter(e=>e.trade_id===t.id)
                 const mSold = mExs2.reduce((s,e)=>s+Number(e.quantity),0)
                 const mOrig = Number(t.quantity)||0
                 const mCurr = Math.max(0,mOrig-mSold)
                 const mEntry = Number(t.entry_price)||0
+                const mInv = Number(t.invested_capital)||(mEntry*mOrig)
+                const mActualInv = Number(t.actual_investment)||0
+                const mMtfBase = mInv - mActualInv
                 const mLp = livePrices[t.ticker]?.price
                 const mUnr = mLp&&mCurr>0?(t.direction==='LONG'?(mLp-mEntry)*mCurr:(mEntry-mLp)*mCurr):''
                 const mRel = mExs2.length>0?mExs2.reduce((s,e)=>s+(Number(e.price)-mEntry)*Number(e.quantity),0):(Number(t.realized_gains)||0)
-                return [t.ticker,t.direction,t.account||'',t.entry_date,mEntry,t.exit_price||'',mOrig,mCurr,mUnr!==''?mUnr.toFixed(2):'',mRel.toFixed(2),t.status]
+                const mExitPrice = mExs2.length>0?(mExs2.reduce((s,e)=>s+Number(e.price)*Number(e.quantity),0)/mSold).toFixed(2):(t.exit_price||'')
+                let mMtfAccrued = ''
+                if (mMtfBase > 0 && t.mtf_interest_rate && t.entry_date) {
+                  const mSoldM = mExs2.reduce((s,e)=>{ const d=Math.max(1,Math.floor((new Date(e.date)-new Date(t.entry_date))/86400000)); return s+mMtfBase*(Number(e.quantity)/mOrig)*t.mtf_interest_rate*d/36500 },0)
+                  const mRemD = Math.max(1,Math.floor((new Date()-new Date(t.entry_date))/86400000))
+                  const mRemM = mCurr>0?mMtfBase*(mCurr/mOrig)*t.mtf_interest_rate*mRemD/36500:0
+                  mMtfAccrued = (mSoldM+mRemM).toFixed(2)
+                }
+                const mUnrNum = mUnr!==''?Number(mUnr):0
+                const mReturnPct = mInv>0?(((mUnrNum+Number(mRel))*100)/mInv).toFixed(2):''
+                return [t.ticker,t.direction,t.account||'',t.entry_date,mEntry,mExitPrice,mOrig,mCurr,mInv||'',mActualInv||'',t.mtf_interest_rate||'',mMtfAccrued,mUnr!==''?mUnr.toFixed(2):'',mRel.toFixed(2),mReturnPct,t.status]
               })
               const csv = [headers,...rows].map(r=>r.join(',')).join('\n')
               triggerCSVDownload(csv, `${mirrorInfo?.subscriber_name||'trades'}_trades.csv`)
@@ -166,7 +179,7 @@ function MirroredView({ mirrorInfo, mTrades, mExecs, mExecsMap, mirrorFilter, se
                     ? execs.reduce((s,e) => { const days = Math.max(1, Math.floor((new Date(e.date)-new Date(trade.entry_date))/86400000)); return s + mtfBase*(Number(e.quantity)/originalQty)*trade.mtf_interest_rate*days/36500 }, 0)
                       + (currentQty > 0 ? mtfBase*(currentQty/originalQty)*trade.mtf_interest_rate*Math.max(1,Math.floor((new Date()-new Date(trade.entry_date))/86400000))/36500 : 0)
                     : null
-                  const exitPrice = currentQty===0 && execs.length>0 ? execs.reduce((s,e)=>s+Number(e.price)*Number(e.quantity),0)/totalSoldQty : trade.exit_price||null
+                  const exitPrice = execs.length > 0 ? execs.reduce((s,e)=>s+Number(e.price)*Number(e.quantity),0)/totalSoldQty : (trade.exit_price||null)
                   return (
                     <React.Fragment key={trade.id}>
                       <tr onClick={() => setExpandedTrade(prev => prev === trade.id ? null : trade.id)} style={{ cursor:'pointer' }}>
@@ -624,7 +637,7 @@ export default function AccountsPage() {
   }
 
   const downloadCSV = (tradeList, filename) => {
-    const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Status']
+    const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Return%','Status']
     const rows = tradeList.map(t => {
       const exs = executions[t.id] || []
       const totalSold = exs.reduce((s,e) => s+Number(e.quantity), 0)
@@ -637,6 +650,9 @@ export default function AccountsPage() {
       const lp = livePrices[t.ticker]?.price
       const unrealised = lp && currQty > 0 ? (t.direction==='LONG'?(lp-entry)*currQty:(entry-lp)*currQty) : ''
       const realised = exs.length > 0 ? exs.reduce((s,e)=>s+(Number(e.price)-entry)*Number(e.quantity),0) : (Number(t.realized_gains)||0)
+      const exitPrice = exs.length > 0
+        ? (exs.reduce((s,e) => s + Number(e.price)*Number(e.quantity), 0) / totalSold).toFixed(2)
+        : (t.exit_price || '')
       let mtfAccrued = ''
       if (mtfBase > 0 && t.mtf_interest_rate && t.entry_date) {
         const soldM = exs.reduce((s,e)=>{ const d=Math.max(1,Math.floor((new Date(e.date)-new Date(t.entry_date))/86400000)); return s+mtfBase*(Number(e.quantity)/origQty)*t.mtf_interest_rate*d/36500 },0)
@@ -644,7 +660,10 @@ export default function AccountsPage() {
         const remM = currQty>0 ? mtfBase*(currQty/origQty)*t.mtf_interest_rate*remD/36500 : 0
         mtfAccrued = (soldM+remM).toFixed(2)
       }
-      return [t.ticker,t.direction,t.account||'',t.entry_date,entry,t.exit_price||'',origQty,currQty,investment||'',actualInv||'',t.mtf_interest_rate||'',mtfAccrued,unrealised!==''?unrealised.toFixed(2):'',realised.toFixed(2),t.status]
+      const unrNum = unrealised !== '' ? Number(unrealised) : 0
+      const relNum = Number(realised) || 0
+      const returnPct = investment > 0 ? (((unrNum + relNum) * 100) / investment).toFixed(2) : ''
+      return [t.ticker,t.direction,t.account||'',t.entry_date,entry,exitPrice,origQty,currQty,investment||'',actualInv||'',t.mtf_interest_rate||'',mtfAccrued,unrealised!==''?unrealised.toFixed(2):'',realised.toFixed(2),returnPct,t.status]
     })
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
     triggerCSVDownload(csv, filename)
@@ -1085,9 +1104,9 @@ export default function AccountsPage() {
                             ? mtfBase * (currentQty/originalQty) * trade.mtf_interest_rate * Math.max(1, Math.floor((new Date() - new Date(trade.entry_date)) / 86400000)) / 36500
                             : 0)
                         : null
-                      const exitPrice = isClosed && execs.length > 0
+                      const exitPrice = execs.length > 0
                         ? execs.reduce((s,e) => s + Number(e.price)*Number(e.quantity), 0) / totalSoldQty
-                        : trade.exit_price || null
+                        : (trade.exit_price || null)
                       return (
                         <>
                           <tr key={trade.id} className={isOpen?'row-open':'row-closed'} onClick={() => handleRowClick(trade.id)} style={{ cursor:'pointer' }}>
