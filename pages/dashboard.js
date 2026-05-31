@@ -52,7 +52,7 @@ function PnLCalendar({ trades, allExecs }) {
     : []
 
   return (
-    <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px' }}>
+    <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'16px' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
         <button onClick={() => setMonth(m => subMonths(m,1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer' }}>‹</button>
         <div style={{ textAlign:'center' }}>
@@ -70,12 +70,12 @@ function PnLCalendar({ trades, allExecs }) {
         </div>
         <button onClick={() => setMonth(m => addMonths(m,1))} style={{ background:'none', border:'1px solid var(--border)', color:'var(--muted)', borderRadius:'4px', padding:'4px 10px', cursor:'pointer' }}>›</button>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'3px', marginBottom:'3px' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px', marginBottom:'3px' }}>
         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
-          <div key={d} style={{ textAlign:'center', fontSize:'9px', color:'var(--muted)', padding:'4px 0' }}>{d}</div>
+          <div key={d} style={{ textAlign:'center', fontSize:'11px', color:'var(--muted)', padding:'4px 0' }}>{d}</div>
         ))}
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'3px' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px' }}>
         {Array.from({ length: startDow }).map((_,i) => <div key={`e${i}`} />)}
         {days.map(day => {
           const key = format(day,'yyyy-MM-dd')
@@ -86,14 +86,14 @@ function PnLCalendar({ trades, allExecs }) {
             <div key={key}
               onClick={() => pnl != null && setSelectedCalDay(prev => prev === key ? null : key)}
               style={{
-                borderRadius:'4px', padding:'6px 4px', textAlign:'center', minHeight:'44px',
+                borderRadius:'4px', padding:'8px 6px', textAlign:'center', minHeight:'56px',
                 background: isSelDay ? (pnl>=0?'rgba(14,165,233,0.2)':'rgba(239,68,68,0.2)') : pnl!=null ? (pnl>=0?'rgba(14,165,233,0.08)':'rgba(239,68,68,0.08)') : 'transparent',
                 border: isSelDay ? `2px solid ${pnl>=0?'var(--bull)':'var(--bear)'}` : isToday ? '1px solid var(--accent)' : pnl!=null ? (pnl>=0?'1px solid rgba(0,230,118,0.3)':'1px solid rgba(255,71,87,0.3)') : '1px solid transparent',
                 cursor: pnl!=null ? 'pointer' : 'default',
               }}>
-              <div style={{ fontSize:'10px', color:isSelDay?(pnl>=0?'var(--bull)':'var(--bear)'):isToday?'var(--accent)':'var(--muted)', fontWeight:isToday||isSelDay?700:400 }}>{format(day,'d')}</div>
+              <div style={{ fontSize:'12px', color:isSelDay?(pnl>=0?'var(--bull)':'var(--bear)'):isToday?'var(--accent)':'var(--muted)', fontWeight:isToday||isSelDay?700:400 }}>{format(day,'d')}</div>
               {pnl!=null && (
-                <div style={{ fontSize:'8px', fontWeight:700, marginTop:'2px', color:pnl>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>
+                <div style={{ fontSize:'10px', fontWeight:700, marginTop:'2px', color:pnl>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>
                   {pnl>=0?'+':'−'}Rs.{toINRd(Math.abs(pnl))}
                 </div>
               )}
@@ -101,7 +101,7 @@ function PnLCalendar({ trades, allExecs }) {
           )
         })}
       </div>
-      <div style={{ display:'flex', gap:'16px', marginTop:'12px', justifyContent:'center' }}>
+      <div style={{ display:'flex', gap:'16px', marginTop:'10px', justifyContent:'center' }}>
         <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
           <div style={{ width:'10px', height:'10px', borderRadius:'2px', background:'rgba(14,165,233,0.3)', border:'1px solid rgba(0,230,118,0.5)' }} />
           <span style={{ fontSize:'9px', color:'var(--muted)' }}>Profit day</span>
