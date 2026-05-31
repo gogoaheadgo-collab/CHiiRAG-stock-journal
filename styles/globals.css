@@ -7,8 +7,8 @@
 
 :root {
   --bg:         #F6F0E7;
-  --surface:    #f8f9fc;
-  --surface2:   #eef1f7;
+  --surface:    #FFF8DE;
+  --surface2:   #f5edda;
   --border:     #d2d8e6;
   --border2:    #b8c4d6;
   --text:       #1a1f36;
@@ -53,7 +53,7 @@ body {
 /* ── Auth Screen ── */
 .auth-bg {
   position: fixed; inset: 0;
-  background: linear-gradient(135deg, #fff8f0 0%, #F6F0E7 50%, #f0f8ff 100%);
+  background: linear-gradient(135deg, #F6F0E7 0%, #F6F0E7 50%, #f0f8ff 100%);
   overflow: hidden;
   display: flex; align-items: center; justify-content: center;
 }
@@ -102,7 +102,7 @@ body {
 
 /* ── Header ── */
 .header {
-  background: rgba(246,240,231,0.97);
+  background: rgba(255,248,222,0.97);
   border-bottom: 2px solid var(--border);
   backdrop-filter: blur(16px);
   position: sticky; top: 0; z-index: 40;
@@ -324,7 +324,7 @@ body {
   position: fixed;
   top: 56px;
   left: 0; right: 0;
-  background: rgba(246,240,231,0.98);
+  background: rgba(255,248,222,0.98);
   border-bottom: 2px solid var(--border);
   z-index: 39;
   padding: 8px 12px 12px;

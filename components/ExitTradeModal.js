@@ -72,7 +72,7 @@ export default function ExitTradeModal({ trade, onClose, onConfirm }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{
-        background: 'var(--bg, #fff)', border: '1px solid var(--border, #e2e8f0)',
+        background: 'var(--bg, #F6F0E7)', border: '1px solid var(--border, #e2e8f0)',
         borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '460px',
         boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
       }}>
