@@ -27,7 +27,7 @@ function IndiaFlagLogo({ size = 32 }) {
         return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#000080" strokeWidth={size * 0.015} />
       })}
       <circle cx={r} cy={r} r={size * 0.025} fill="#000080" />
-      <circle cx={r} cy={r} r={r - 1} fill="none" stroke="#454040" strokeWidth="2" />
+      <circle cx={r} cy={r} r={r - 1} fill="none" stroke="#605B51" strokeWidth="2" />
     </svg>
   )
 }
@@ -226,7 +226,7 @@ export default function ViewersPage() {
                       onClick={() => togglePortfolio(a.name)}
                       style={{
                         padding: '6px 14px', borderRadius: '6px', cursor: 'pointer',
-                        border: `2px solid ${form.assigned_portfolios.includes(a.name) ? '#0ea5e9' : '#454040'}`,
+                        border: `2px solid ${form.assigned_portfolios.includes(a.name) ? '#0ea5e9' : '#605B51'}`,
                         background: form.assigned_portfolios.includes(a.name) ? '#e0f2fe' : 'var(--bg)',
                         color: form.assigned_portfolios.includes(a.name) ? '#0284c7' : '#6b7a9e',
                         fontSize: '12px', fontFamily: 'DM Mono, monospace', fontWeight: 600,
