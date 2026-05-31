@@ -107,7 +107,7 @@ export default function Sidebar({ active, isAdmin, user, onSignOut, onDeleteAcco
       {/* Desktop Sidebar */}
       <div className="sidebar-desktop" style={{
         position: 'fixed', left: 0, top: 0, width: '240px', height: '100vh',
-        background: 'white', borderRight: '1px solid var(--border)',
+        background: 'var(--bg)', borderRight: '1px solid var(--border)',
         zIndex: 40, overflowY: 'auto',
       }}>
         {sidebarContent}
@@ -116,7 +116,7 @@ export default function Sidebar({ active, isAdmin, user, onSignOut, onDeleteAcco
       {/* Mobile top bar */}
       <div className="sidebar-mobile-bar" style={{
         display: 'none', position: 'fixed', top: 0, left: 0, right: 0, height: '52px',
-        background: 'white', borderBottom: '1px solid var(--border)', zIndex: 40,
+        background: 'var(--bg)', borderBottom: '1px solid var(--border)', zIndex: 40,
         alignItems: 'center', padding: '0 16px', justifyContent: 'space-between',
       }}>
         <div style={{ fontFamily: 'Bookman Old Style, serif', fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>
@@ -136,7 +136,7 @@ export default function Sidebar({ active, isAdmin, user, onSignOut, onDeleteAcco
           <div onClick={() => setMobileOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
           <div style={{
             position: 'absolute', left: 0, top: 0, width: '240px', height: '100vh',
-            background: 'white', borderRight: '1px solid var(--border)', overflowY: 'auto',
+            background: 'var(--bg)', borderRight: '1px solid var(--border)', overflowY: 'auto',
           }}>
             {sidebarContent}
           </div>

@@ -9,7 +9,7 @@ export default function AccessDenied() {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'white', fontFamily: 'Libre Baskerville, Georgia, serif',
+      background: 'var(--bg)', fontFamily: 'Libre Baskerville, Georgia, serif',
     }}>
       {/* Tricolor top bar */}
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '4px', background: 'linear-gradient(90deg, #FF9933 33.33%, #e8e8e8 33.33%, #e8e8e8 66.66%, #138808 66.66%)' }} />

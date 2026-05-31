@@ -141,7 +141,7 @@ export default function ViewersPage() {
 
       {/* Header */}
       <header style={{
-        marginTop: '4px', background: 'rgba(255,255,255,0.97)',
+        marginTop: '4px', background: 'rgba(246,240,231,0.97)',
         borderBottom: '2px solid #dde2ee', position: 'sticky', top: 0, zIndex: 40,
         height: '56px', display: 'flex', alignItems: 'center',
         padding: '0 20px', justifyContent: 'space-between',
@@ -215,7 +215,7 @@ export default function ViewersPage() {
             <div style={{ marginBottom: '16px' }}>
               <label className="field-label">Assign Portfolios *</label>
               {accounts.length === 0 ? (
-                <div style={{ padding: '10px', color: '#6b7a9e', fontSize: '12px', fontFamily: 'DM Mono, monospace', background: '#fff', border: '1px solid #dde2ee', borderRadius: '6px' }}>
+                <div style={{ padding: '10px', color: '#6b7a9e', fontSize: '12px', fontFamily: 'DM Mono, monospace', background: 'var(--bg)', border: '1px solid #dde2ee', borderRadius: '6px' }}>
                   No portfolios found. Add accounts in the main journal first.
                 </div>
               ) : (
@@ -227,7 +227,7 @@ export default function ViewersPage() {
                       style={{
                         padding: '6px 14px', borderRadius: '6px', cursor: 'pointer',
                         border: `2px solid ${form.assigned_portfolios.includes(a.name) ? '#0ea5e9' : '#dde2ee'}`,
-                        background: form.assigned_portfolios.includes(a.name) ? '#e0f2fe' : 'white',
+                        background: form.assigned_portfolios.includes(a.name) ? '#e0f2fe' : 'var(--bg)',
                         color: form.assigned_portfolios.includes(a.name) ? '#0284c7' : '#6b7a9e',
                         fontSize: '12px', fontFamily: 'DM Mono, monospace', fontWeight: 600,
                         transition: 'all 0.15s',
@@ -264,7 +264,7 @@ export default function ViewersPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {viewers.map(viewer => (
               <div key={viewer.id} style={{
-                background: 'white', border: '1px solid #dde2ee', borderRadius: '8px',
+                background: 'var(--bg)', border: '1px solid #dde2ee', borderRadius: '8px',
                 padding: '16px 18px', display: 'flex', justifyContent: 'space-between',
                 alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
               }}>
