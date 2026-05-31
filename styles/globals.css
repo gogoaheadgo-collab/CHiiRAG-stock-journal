@@ -6,9 +6,9 @@
 /* Bookman Old Style closest Google Font substitute is Libre Baskerville */
 
 :root {
-  --bg:         #F6F0E7;
+  --bg:         #FFF8DE;
   --surface:    #FFF8DE;
-  --surface2:   #f5edda;
+  --surface2:   #f5edca;
   --border:     #d2d8e6;
   --border2:    #b8c4d6;
   --text:       #1a1f36;
@@ -53,7 +53,7 @@ body {
 /* ── Auth Screen ── */
 .auth-bg {
   position: fixed; inset: 0;
-  background: linear-gradient(135deg, #F6F0E7 0%, #F6F0E7 50%, #f0f8ff 100%);
+  background: linear-gradient(135deg, #FFF8DE 0%, #FFF8DE 50%, #f0f8ff 100%);
   overflow: hidden;
   display: flex; align-items: center; justify-content: center;
 }
