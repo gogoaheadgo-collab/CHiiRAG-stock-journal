@@ -27,7 +27,7 @@ function IndiaFlagLogo({ size = 32 }) {
         return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#000080" strokeWidth={size * 0.015} />
       })}
       <circle cx={r} cy={r} r={size * 0.025} fill="#000080" />
-      <circle cx={r} cy={r} r={r - 1} fill="none" stroke="#dde2ee" strokeWidth="2" />
+      <circle cx={r} cy={r} r={r - 1} fill="none" stroke="#454040" strokeWidth="2" />
     </svg>
   )
 }
@@ -141,8 +141,8 @@ export default function ViewersPage() {
 
       {/* Header */}
       <header style={{
-        marginTop: '4px', background: 'rgba(246,240,231,0.97)',
-        borderBottom: '2px solid #dde2ee', position: 'sticky', top: 0, zIndex: 40,
+        marginTop: '4px', background: 'rgba(255,248,222,0.97)',
+        borderBottom: '2px solid var(--border)', position: 'sticky', top: 0, zIndex: 40,
         height: '56px', display: 'flex', alignItems: 'center',
         padding: '0 20px', justifyContent: 'space-between',
         boxShadow: '0 1px 8px rgba(0,0,0,0.06)',
@@ -190,7 +190,7 @@ export default function ViewersPage() {
 
         {/* Add / Edit Form */}
         {showAdd && (
-          <div style={{ background: '#f8f9fc', border: '1px solid #dde2ee', borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
             <div style={{ fontWeight: 700, fontSize: '14px', color: '#1a1f36', marginBottom: '16px', fontFamily: 'Libre Baskerville, Georgia, serif' }}>
               {editingViewer ? '✎ Edit Viewer' : '+ New Viewer'}
             </div>
@@ -215,7 +215,7 @@ export default function ViewersPage() {
             <div style={{ marginBottom: '16px' }}>
               <label className="field-label">Assign Portfolios *</label>
               {accounts.length === 0 ? (
-                <div style={{ padding: '10px', color: '#6b7a9e', fontSize: '12px', fontFamily: 'DM Mono, monospace', background: 'var(--bg)', border: '1px solid #dde2ee', borderRadius: '6px' }}>
+                <div style={{ padding: '10px', color: '#6b7a9e', fontSize: '12px', fontFamily: 'DM Mono, monospace', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '6px' }}>
                   No portfolios found. Add accounts in the main journal first.
                 </div>
               ) : (
@@ -226,7 +226,7 @@ export default function ViewersPage() {
                       onClick={() => togglePortfolio(a.name)}
                       style={{
                         padding: '6px 14px', borderRadius: '6px', cursor: 'pointer',
-                        border: `2px solid ${form.assigned_portfolios.includes(a.name) ? '#0ea5e9' : '#dde2ee'}`,
+                        border: `2px solid ${form.assigned_portfolios.includes(a.name) ? '#0ea5e9' : '#454040'}`,
                         background: form.assigned_portfolios.includes(a.name) ? '#e0f2fe' : 'var(--bg)',
                         color: form.assigned_portfolios.includes(a.name) ? '#0284c7' : '#6b7a9e',
                         fontSize: '12px', fontFamily: 'DM Mono, monospace', fontWeight: 600,
@@ -264,7 +264,7 @@ export default function ViewersPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {viewers.map(viewer => (
               <div key={viewer.id} style={{
-                background: 'var(--bg)', border: '1px solid #dde2ee', borderRadius: '8px',
+                background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px',
                 padding: '16px 18px', display: 'flex', justifyContent: 'space-between',
                 alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
               }}>

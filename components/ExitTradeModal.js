@@ -110,7 +110,7 @@ export default function ExitTradeModal({ trade, onClose, onConfirm }) {
         {/* P&L Preview */}
         {exitPriceNum > 0 && eq > 0 && (
           <div style={{
-            marginTop: '18px', background: 'var(--surface, #f8f9fc)',
+            marginTop: '18px', background: 'var(--surface)',
             border: '1px solid var(--border)', borderRadius: '8px', padding: '14px',
           }}>
             <div style={{ fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.1em', fontWeight: 600, marginBottom: '10px' }}>
