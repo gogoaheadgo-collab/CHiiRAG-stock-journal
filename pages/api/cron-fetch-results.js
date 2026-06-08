@@ -88,11 +88,7 @@ export default async function handler(req, res) {
     if (req.query.debug === '1') {
       return res.status(200).json({
         yourTickers: [...allTickers].sort(),
-        nseEventSample: events.slice(0, 20).map(e => ({
-          symbol: e.symbol,
-          purpose: e.purpose,
-          date: e.bfMtngDate,
-        })),
+        nseEventSample: events.slice(0, 3).map(e => ({ ...e })),
         totalNseEvents: events.length,
       })
     }
