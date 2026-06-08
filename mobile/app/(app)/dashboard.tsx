@@ -48,19 +48,35 @@ function calcRealisedForTrade(trade: any, execs: any[]): number {
 }
 
 // ── P&L Calendar ────────────────────────────────────────────────────────────
-function PnLCalendar({ trades, execsMap }: { trades: any[]; execsMap: Record<string, any[]> }) {
+function PnLCalendar({ trades, execsMap, resultAnnouncements = [] }: { trades: any[]; execsMap: Record<string, any[]>; resultAnnouncements?: any[] }) {
   const [month, setMonth] = useState(() => new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
-  // Match web: group by exit_date, exec-based P&L per trade
+  // Group P&L by individual execution date (handles partial exits on OPEN trades)
   const dailyPnL: Record<string, number> = {}
-  trades.filter(t => t.status === 'CLOSED' && t.exit_date).forEach(t => {
-    const key   = t.exit_date.slice(0, 10)
-    const execs = execsMap[t.id] || []
-    const pnl   = execs.length > 0
-      ? execs.reduce((s: number, e: any) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
-      : (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
-    dailyPnL[key] = (dailyPnL[key] || 0) + pnl
+  const allExecsList: any[] = Object.values(execsMap).flat()
+  allExecsList.forEach((exec: any) => {
+    const trade = trades.find(t => t.id === exec.trade_id)
+    if (!trade) return
+    const execDate = (exec.date || exec.created_at || '').slice(0, 10)
+    if (!execDate) return
+    const pnl = (Number(exec.price) - Number(trade.entry_price)) * Number(exec.quantity)
+    dailyPnL[execDate] = (dailyPnL[execDate] || 0) + pnl
+  })
+  // Also include trades closed directly (no executions)
+  trades.forEach(trade => {
+    if (trade.status !== 'CLOSED' || !trade.exit_date || !trade.exit_price) return
+    if (allExecsList.some((e: any) => e.trade_id === trade.id)) return
+    const closeDate = trade.exit_date.slice(0, 10)
+    const pnl = (Number(trade.exit_price) - Number(trade.entry_price)) * Number(trade.quantity)
+    dailyPnL[closeDate] = (dailyPnL[closeDate] || 0) + pnl
+  })
+
+  // Build result dates map
+  const resultDatesMap: Record<string, any[]> = {}
+  ;(resultAnnouncements || []).forEach((r: any) => {
+    if (!resultDatesMap[r.result_date]) resultDatesMap[r.result_date] = []
+    resultDatesMap[r.result_date].push(r)
   })
 
   const year        = month.getFullYear()
@@ -80,8 +96,11 @@ function PnLCalendar({ trades, execsMap }: { trades: any[]; execsMap: Record<str
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ]
 
-  const dayTrades = selectedDate
-    ? trades.filter(t => t.status === 'CLOSED' && t.exit_date?.slice(0, 10) === selectedDate)
+  const dayExecs = selectedDate
+    ? allExecsList.filter((e: any) => (e.date || e.created_at || '').slice(0, 10) === selectedDate)
+    : []
+  const dayDirectTrades = selectedDate
+    ? trades.filter(t => t.status === 'CLOSED' && t.exit_date?.slice(0, 10) === selectedDate && !allExecsList.some((e: any) => e.trade_id === t.id))
     : []
 
   const prevMonth = () => { setMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1)); setSelectedDate(null) }
@@ -118,14 +137,15 @@ function PnLCalendar({ trades, execsMap }: { trades: any[]; execsMap: Record<str
           return (
             <TouchableOpacity
               key={dateStr}
-              activeOpacity={pnl != null ? 0.7 : 1}
+              activeOpacity={(pnl != null || resultDatesMap[dateStr]) ? 0.7 : 1}
               onPress={() => {
-                if (pnl == null) return
+                if (pnl == null && !resultDatesMap[dateStr]) return
                 setSelectedDate(prev => prev === dateStr ? null : dateStr)
               }}
               style={[
                 cal.day,
                 pnl != null && (pnl >= 0 ? cal.dayProfit : cal.dayLoss),
+                pnl == null && resultDatesMap[dateStr] && cal.dayResult,
                 isToday && cal.dayToday,
                 isSel && cal.daySelected,
               ]}
@@ -136,27 +156,71 @@ function PnLCalendar({ trades, execsMap }: { trades: any[]; execsMap: Record<str
                   {pnl >= 0 ? '+' : '−'}{Math.abs(pnl) >= 10000 ? `${(Math.abs(pnl) / 1000).toFixed(0)}k` : fmt0(Math.abs(pnl))}
                 </Text>
               )}
+              {resultDatesMap[dateStr] && (
+                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#7c3aed', marginTop: 1 }} />
+              )}
             </TouchableOpacity>
           )
         })}
       </View>
 
-      {/* Day detail — trades closed on selectedDate */}
-      {selectedDate && dayTrades.length > 0 && (
+      {/* Day detail — results + exits on selectedDate */}
+      {selectedDate && (dayExecs.length > 0 || dayDirectTrades.length > 0 || (resultDatesMap[selectedDate]?.length > 0)) && (
         <View style={cal.detail}>
           <View style={cal.detailHead}>
             <Text style={cal.detailTitle}>
               {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </Text>
-            <Text style={[cal.detailTotal, { color: (dailyPnL[selectedDate] || 0) >= 0 ? colors.green : colors.red }]}>
-              {(dailyPnL[selectedDate] || 0) >= 0 ? '+' : '−'}₹{fmtd(Math.abs(dailyPnL[selectedDate] || 0))}
-            </Text>
+            {(dailyPnL[selectedDate] != null) && (
+              <Text style={[cal.detailTotal, { color: (dailyPnL[selectedDate] || 0) >= 0 ? colors.green : colors.red }]}>
+                {(dailyPnL[selectedDate] || 0) >= 0 ? '+' : '−'}₹{fmtd(Math.abs(dailyPnL[selectedDate] || 0))}
+              </Text>
+            )}
           </View>
-          {dayTrades.map(t => {
-            const execs = execsMap[t.id] || []
-            const pnl   = execs.length > 0
-              ? execs.reduce((s: number, e: any) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
-              : (t.direction === 'LONG' ? 1 : -1) * (Number(t.exit_price || 0) - Number(t.entry_price)) * Number(t.quantity)
+
+          {/* Results section — above exits */}
+          {resultDatesMap[selectedDate]?.map((r: any, ri: number) => (
+            <View key={`result-${ri}`} style={[cal.detailRow, { borderLeftWidth: 3, borderLeftColor: '#7c3aed', paddingLeft: 8 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[cal.detailTicker, { color: colors.text }]}>{r.ticker}</Text>
+                {r.stock_name && r.stock_name !== r.ticker && (
+                  <Text style={cal.detailMeta}>{r.stock_name}</Text>
+                )}
+              </View>
+              <View style={{ backgroundColor: 'rgba(124,58,237,0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: '#a78bfa' }}>📊 RESULTS</Text>
+              </View>
+            </View>
+          ))}
+
+          {/* Execution-based exits */}
+          {dayExecs.map((exec: any) => {
+            const trade = trades.find(t => t.id === exec.trade_id)
+            if (!trade) return null
+            const pnl = (Number(exec.price) - Number(trade.entry_price)) * Number(exec.quantity)
+            return (
+              <View key={exec.id} style={cal.detailRow}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={cal.detailTicker}>{trade.ticker}</Text>
+                    <View style={[cal.dirBadge, trade.direction === 'LONG' ? cal.dirLong : cal.dirShort]}>
+                      <Text style={[cal.dirBadgeText, { color: trade.direction === 'LONG' ? colors.accent : colors.red }]}>
+                        {trade.direction}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={cal.detailMeta}>{trade.account ? `${trade.account} · ` : ''}₹{fmtd(trade.entry_price)} → ₹{fmtd(exec.price)}  ·  Qty {fmt0(exec.quantity)}</Text>
+                </View>
+                <Text style={[cal.detailPnl, { color: pnl >= 0 ? colors.green : colors.red }]}>
+                  {pnl >= 0 ? '+' : '−'}₹{fmtd(Math.abs(pnl))}
+                </Text>
+              </View>
+            )
+          })}
+
+          {/* Direct closed trades (no executions) */}
+          {dayDirectTrades.map((t: any) => {
+            const pnl = (Number(t.exit_price) - Number(t.entry_price)) * Number(t.quantity)
             return (
               <View key={t.id} style={cal.detailRow}>
                 <View style={{ flex: 1 }}>
@@ -195,6 +259,7 @@ export default function DashboardScreen() {
   const [sharedExecsMap,    setSharedExecsMap]    = useState<Record<string, any[]>>({})
   const [livePrices,        setLivePrices]        = useState<Record<string, number>>({})
   const [loading,           setLoading]           = useState(true)
+  const [resultAnnouncements, setResultAnnouncements] = useState<any[]>([])
   const [refreshing,        setRefreshing]        = useState(false)
   const pricesLoaded = useRef(false)
 
@@ -282,6 +347,14 @@ export default function DashboardScreen() {
   }, [isAdmin, fetchPrices])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://smk-stock-journal.vercel.app'
+    fetch(`${BASE_URL}/api/result-announcements`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setResultAnnouncements(d) })
+      .catch(() => {})
+  }, [])
 
   const onRefresh = () => {
     pricesLoaded.current = false
@@ -450,7 +523,7 @@ export default function DashboardScreen() {
 
       {/* ── P&L Calendar ── */}
       <Text style={s.sectionTitle}>P&L CALENDAR</Text>
-      <PnLCalendar trades={allTrades} execsMap={allExecsMap} />
+      <PnLCalendar trades={allTrades} execsMap={allExecsMap} resultAnnouncements={resultAnnouncements} />
 
       {/* ── Account Breakdown ── */}
       {breakdown.length > 0 && (
@@ -577,6 +650,7 @@ const cal = StyleSheet.create({
   dayLoss:    { backgroundColor: 'rgba(220,38,38,0.1)', borderColor: 'rgba(220,38,38,0.3)' },
   dayToday:   { borderColor: colors.accent },
   daySelected:{ borderWidth: 2, borderColor: colors.accent },
+  dayResult:  { backgroundColor: 'rgba(124,58,237,0.1)', borderColor: 'rgba(124,58,237,0.4)' },
   dayNum:     { fontSize: 10, color: colors.muted },
   dayNumToday:{ color: colors.accent, fontWeight: '700' },
   dayPnl:     { fontSize: 7, fontWeight: '700', marginTop: 1 },
