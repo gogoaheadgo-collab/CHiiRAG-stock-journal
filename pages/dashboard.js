@@ -18,7 +18,7 @@ function StatCard({ label, value, sub, color }) {
   )
 }
 
-function PnLCalendar({ trades, allExecs }) {
+function PnLCalendar({ trades, allExecs, resultAnnouncements = [] }) {
   const [month, setMonth] = useState(new Date())
   const [selectedCalDay, setSelectedCalDay] = useState(null)
   const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
@@ -42,6 +42,13 @@ function PnLCalendar({ trades, allExecs }) {
     dailyPnL[closeDate] = (dailyPnL[closeDate] || 0) + pnl
   })
   const toINRd = n => Number(n||0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
+
+  // Result announcements map: dateStr → [{ticker, stock_name}]
+  const resultDatesMap = {}
+  ;(resultAnnouncements || []).forEach(r => {
+    if (!resultDatesMap[r.result_date]) resultDatesMap[r.result_date] = []
+    resultDatesMap[r.result_date].push({ ticker: r.ticker, stock_name: r.stock_name })
+  })
 
   // Executions on the selected day + directly-closed trades (no executions)
   const dayExecs = selectedCalDay
@@ -84,17 +91,29 @@ function PnLCalendar({ trades, allExecs }) {
           const isSelDay = selectedCalDay === key
           return (
             <div key={key}
-              onClick={() => pnl != null && setSelectedCalDay(prev => prev === key ? null : key)}
+              onClick={() => (pnl != null || resultDatesMap[key]) && setSelectedCalDay(prev => prev === key ? null : key)}
               style={{
                 borderRadius:'4px', padding:'8px 6px', textAlign:'center', minHeight:'56px',
-                background: isSelDay ? (pnl>=0?'rgba(14,165,233,0.2)':'rgba(239,68,68,0.2)') : pnl!=null ? (pnl>=0?'rgba(14,165,233,0.08)':'rgba(239,68,68,0.08)') : 'transparent',
-                border: isSelDay ? `2px solid ${pnl>=0?'var(--bull)':'var(--bear)'}` : isToday ? '1px solid var(--accent)' : pnl!=null ? (pnl>=0?'1px solid rgba(0,230,118,0.3)':'1px solid rgba(255,71,87,0.3)') : '1px solid transparent',
-                cursor: pnl!=null ? 'pointer' : 'default',
+                background: isSelDay
+                  ? (pnl!=null ? (pnl>=0?'rgba(14,165,233,0.2)':'rgba(239,68,68,0.2)') : 'rgba(124,58,237,0.2)')
+                  : pnl!=null ? (pnl>=0?'rgba(14,165,233,0.08)':'rgba(239,68,68,0.08)')
+                  : resultDatesMap[key] ? 'rgba(124,58,237,0.08)' : 'transparent',
+                border: isSelDay
+                  ? `2px solid ${pnl!=null?(pnl>=0?'var(--bull)':'var(--bear)'):'#7c3aed'}`
+                  : isToday ? '1px solid var(--accent)'
+                  : pnl!=null ? (pnl>=0?'1px solid rgba(0,230,118,0.3)':'1px solid rgba(255,71,87,0.3)')
+                  : resultDatesMap[key] ? '1px solid rgba(124,58,237,0.4)' : '1px solid transparent',
+                cursor: (pnl!=null || resultDatesMap[key]) ? 'pointer' : 'default',
               }}>
-              <div style={{ fontSize:'12px', color:isSelDay?(pnl>=0?'var(--bull)':'var(--bear)'):isToday?'var(--accent)':'var(--muted)', fontWeight:isToday||isSelDay?700:400 }}>{format(day,'d')}</div>
+              <div style={{ fontSize:'12px', color:isSelDay?(pnl!=null?(pnl>=0?'var(--bull)':'var(--bear)'):'#a78bfa'):isToday?'var(--accent)':'var(--muted)', fontWeight:isToday||isSelDay?700:400 }}>{format(day,'d')}</div>
               {pnl!=null && (
                 <div style={{ fontSize:'10px', fontWeight:700, marginTop:'2px', color:pnl>=0?'var(--bull)':'var(--bear)', fontFamily:'DM Mono, monospace' }}>
                   {pnl>=0?'+':'−'}Rs.{toINRd(Math.abs(pnl))}
+                </div>
+              )}
+              {resultDatesMap[key] && (
+                <div style={{ display:'flex', justifyContent:'center', marginTop:'3px', gap:'2px' }}>
+                  <div style={{ width:'5px', height:'5px', borderRadius:'50%', background:'#7c3aed' }} />
                 </div>
               )}
             </div>
@@ -110,18 +129,41 @@ function PnLCalendar({ trades, allExecs }) {
           <div style={{ width:'10px', height:'10px', borderRadius:'2px', background:'rgba(239,68,68,0.3)', border:'1px solid rgba(255,71,87,0.5)' }} />
           <span style={{ fontSize:'9px', color:'var(--muted)' }}>Loss day</span>
         </div>
+        <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
+          <div style={{ width:'10px', height:'10px', borderRadius:'50%', background:'rgba(124,58,237,0.5)', border:'1px solid rgba(124,58,237,0.8)' }} />
+          <span style={{ fontSize:'9px', color:'var(--muted)' }}>Results day</span>
+        </div>
         {selectedCalDay && (
           <button onClick={() => setSelectedCalDay(null)} style={{ fontSize:'9px', color:'var(--muted)', background:'none', border:'1px solid var(--border)', borderRadius:'3px', padding:'1px 8px', cursor:'pointer', fontFamily:'DM Mono, monospace' }}>✕ clear</button>
         )}
       </div>
 
       {/* Day Detail Panel */}
-      {selectedCalDay && (dayExecs.length > 0 || dayDirectTrades.length > 0) && (
+      {selectedCalDay && (dayExecs.length > 0 || dayDirectTrades.length > 0 || (resultDatesMap[selectedCalDay]?.length > 0)) && (
         <div style={{ marginTop:'16px', borderTop:'1px solid var(--border)', paddingTop:'14px' }}>
           <div style={{ fontSize:'11px', fontWeight:700, fontFamily:'DM Mono, monospace', color:'var(--text)', marginBottom:'10px' }}>
             {new Date(selectedCalDay+'T00:00:00').toLocaleDateString('en-IN',{ weekday:'long', day:'numeric', month:'long', year:'numeric' })}
             <span style={{ marginLeft:'8px', fontSize:'10px', color:'var(--muted)', fontWeight:400 }}>{dayExecs.length + dayDirectTrades.length} exit{(dayExecs.length + dayDirectTrades.length)>1?'s':''}</span>
           </div>
+          {/* Results section — shown above exits */}
+          {resultDatesMap[selectedCalDay]?.length > 0 && (
+            <div style={{ marginBottom:'12px' }}>
+              <div style={{ fontSize:'10px', fontWeight:700, fontFamily:'DM Mono, monospace', color:'#a78bfa', letterSpacing:'0.1em', marginBottom:'6px' }}>📊 RESULTS ANNOUNCEMENT</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
+                {resultDatesMap[selectedCalDay].map((r, ri) => (
+                  <div key={ri} style={{ background:'rgba(124,58,237,0.08)', border:'1px solid rgba(124,58,237,0.35)', borderRadius:'6px', padding:'8px 12px', borderLeft:'3px solid #7c3aed', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <div>
+                      <span style={{ fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'13px', color:'var(--text)' }}>{r.ticker}</span>
+                      {r.stock_name && r.stock_name !== r.ticker && (
+                        <span style={{ marginLeft:'8px', fontSize:'10px', color:'var(--muted)' }}>{r.stock_name}</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize:'10px', fontWeight:700, fontFamily:'DM Mono, monospace', color:'#a78bfa', background:'rgba(124,58,237,0.15)', padding:'2px 8px', borderRadius:'3px' }}>RESULTS</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
             {dayExecs.map(exec => {
               const trade = trades.find(t => t.id === exec.trade_id)
@@ -198,6 +240,7 @@ export default function Dashboard() {
   const [executions, setExecutions] = useState({})
   const [livePrices, setLivePrices] = useState({})
   const [mirroredAccounts, setMirroredAccounts] = useState([])
+  const [resultAnnouncements, setResultAnnouncements] = useState([])
   const [mirroredTrades, setMirroredTrades] = useState({})
   const [mirroredExecs, setMirroredExecs] = useState({})
   const [sharedAdminTrades, setSharedAdminTrades] = useState([])
@@ -238,6 +281,12 @@ export default function Dashboard() {
       })
     }
     setLoading(false)
+    // Fetch result announcements (no auth required)
+    try {
+      const ra = await fetch('/api/result-announcements')
+      const raData = await ra.json()
+      if (Array.isArray(raData)) setResultAnnouncements(raData)
+    } catch {}
   }, [session])
 
   useEffect(() => { if (session) loadData() }, [session, loadData])
@@ -736,7 +785,7 @@ export default function Dashboard() {
 
             {/* CALENDAR + RECENT EXITS */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:'16px', marginBottom:'20px' }}>
-              <PnLCalendar trades={tradesWithRealised} allExecs={allExecs} />
+              <PnLCalendar trades={tradesWithRealised} allExecs={allExecs} resultAnnouncements={resultAnnouncements} />
               <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px' }}>
                 <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'14px' }}>Recent Exits</div>
                 {closedTrades.length===0 ? (
