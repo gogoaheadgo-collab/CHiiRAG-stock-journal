@@ -31,8 +31,12 @@ const EMPTY_TRADE = {
   invested_capital: '',
   actual_investment: '',
   mtf_interest_rate: '',
+  stop_loss: '',
+  strategy: '',
   notes: '',
 }
+
+const DEFAULT_STRATEGIES = ['VCP CONTRACTION', 'IPO', 'TIPS', 'OTHER']
 
 export default function AccountsScreen() {
   const { session, role } = useAuth()
@@ -197,8 +201,10 @@ export default function AccountsScreen() {
 
   const handleAddTrade = async () => {
     const { ticker, direction, entry_date, entry_price, quantity,
-            invested_capital, actual_investment, mtf_interest_rate, notes } = tradeForm
-    if (!ticker.trim()) { Alert.alert('Error', 'Enter a ticker'); return }
+            invested_capital, actual_investment, mtf_interest_rate,
+            stop_loss, strategy, notes } = tradeForm
+
+    if (!ticker.trim()) { Alert.alert('Error', 'Ticker is required'); return }
     if (!entry_price || !quantity) { Alert.alert('Error', 'Entry price and quantity required'); return }
     setSavingTrade(true)
     try {
@@ -215,7 +221,8 @@ export default function AccountsScreen() {
         invested_capital: ic,
         actual_investment: actual_investment ? parseFloat(actual_investment) : null,
         mtf_interest_rate: mtf_interest_rate ? parseFloat(mtf_interest_rate) : null,
-        notes: notes || null,
+        stop_loss: stop_loss ? parseFloat(stop_loss) : null,
+        notes: [strategy, notes].filter(Boolean).join(' | ') || null,
         status: 'OPEN',
       })
       setAddTradeModal(false)
@@ -772,7 +779,10 @@ export default function AccountsScreen() {
             <Text style={s.modalTitle}>New Trade — {tradeAcct}</Text>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-              <Text style={s.fieldLabel}>TICKER</Text>
+              {/* ── TRADE INFO ── */}
+              <Text style={s.sectionDivider}>TRADE INFO</Text>
+
+              <Text style={s.fieldLabel}>TICKER *</Text>
               <TextInput
                 style={s.input}
                 value={tradeForm.ticker}
@@ -809,22 +819,25 @@ export default function AccountsScreen() {
                 </View>
               )}
 
-              <Text style={s.fieldLabel}>DIRECTION</Text>
+              <Text style={s.fieldLabel}>DIRECTION *</Text>
               <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
                 {(['LONG', 'SHORT'] as const).map(d => (
                   <TouchableOpacity
                     key={d}
-                    style={[s.dirBtn, tradeForm.direction === d && s.dirBtnActive]}
+                    style={[s.dirBtn, tradeForm.direction === d && (d === 'LONG' ? s.dirBtnLong : s.dirBtnShort)]}
                     onPress={() => setTradeForm(f => ({ ...f, direction: d }))}
                   >
-                    <Text style={[s.dirBtnText, tradeForm.direction === d && s.dirBtnTextActive]}>
+                    <Text style={[s.dirBtnText, tradeForm.direction === d && (d === 'LONG' ? s.dirBtnTextLong : s.dirBtnTextShort)]}>
                       {d === 'LONG' ? '▲ LONG' : '▼ SHORT'}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={s.fieldLabel}>ENTRY DATE</Text>
+              {/* ── ENTRY DETAILS ── */}
+              <Text style={s.sectionDivider}>ENTRY DETAILS</Text>
+
+              <Text style={s.fieldLabel}>ENTRY DATE *</Text>
               <TextInput
                 style={s.input}
                 value={tradeForm.entry_date}
@@ -835,7 +848,7 @@ export default function AccountsScreen() {
 
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.fieldLabel}>ENTRY PRICE ₹</Text>
+                  <Text style={s.fieldLabel}>ENTRY PRICE ₹ *</Text>
                   <TextInput
                     style={s.input}
                     value={tradeForm.entry_price}
@@ -854,7 +867,7 @@ export default function AccountsScreen() {
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.fieldLabel}>QUANTITY</Text>
+                  <Text style={s.fieldLabel}>QUANTITY *</Text>
                   <TextInput
                     style={s.input}
                     value={tradeForm.quantity}
@@ -874,17 +887,18 @@ export default function AccountsScreen() {
                 </View>
               </View>
 
-              <Text style={s.fieldLabel}>INVESTED CAPITAL ₹  <Text style={{ fontWeight: '400', color: colors.muted }}>(auto-calculated)</Text></Text>
-              <TextInput
-                style={s.input}
-                value={tradeForm.invested_capital}
-                onChangeText={v => setTradeForm(f => ({ ...f, invested_capital: v }))}
-                placeholder="Entry × Qty"
-                placeholderTextColor={colors.muted}
-                keyboardType="numeric"
-              />
+              {/* Total Buying Value — auto calc */}
+              {tradeForm.entry_price && tradeForm.quantity && parseFloat(tradeForm.entry_price) > 0 && parseFloat(tradeForm.quantity) > 0 && (
+                <View style={s.calcRow}>
+                  <Text style={s.calcLabel}>TOTAL BUYING VALUE</Text>
+                  <Text style={s.calcValue}>₹{(parseFloat(tradeForm.entry_price) * parseFloat(tradeForm.quantity)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                </View>
+              )}
 
-              <Text style={s.fieldLabel}>ACTUAL INVESTMENT ₹  <Text style={{ fontWeight: '400', color: colors.muted }}>(your margin — MTF)</Text></Text>
+              {/* ── YOUR INVESTMENT (MTF) ── */}
+              <Text style={s.sectionDivider}>YOUR INVESTMENT  <Text style={{ fontWeight: '400', fontSize: 9 }}>(OPTIONAL — MTF)</Text></Text>
+
+              <Text style={s.fieldLabel}>REQUIRED MARGIN ₹  <Text style={{ fontWeight: '400', color: colors.muted }}>(your actual cash)</Text></Text>
               <TextInput
                 style={s.input}
                 value={tradeForm.actual_investment}
@@ -894,22 +908,95 @@ export default function AccountsScreen() {
                 keyboardType="numeric"
               />
 
-              <Text style={s.fieldLabel}>MTF INTEREST RATE %  <Text style={{ fontWeight: '400', color: colors.muted }}>(annual, 0 if none)</Text></Text>
+              <Text style={s.fieldLabel}>MTF INTEREST RATE %  <Text style={{ fontWeight: '400', color: colors.muted }}>(annual)</Text></Text>
               <TextInput
                 style={s.input}
                 value={tradeForm.mtf_interest_rate}
                 onChangeText={v => setTradeForm(f => ({ ...f, mtf_interest_rate: v }))}
-                placeholder="e.g. 18"
+                placeholder="e.g. 18.49"
                 placeholderTextColor={colors.muted}
                 keyboardType="numeric"
               />
+
+              {/* MTF summary */}
+              {(() => {
+                const totalVal = tradeForm.entry_price && tradeForm.quantity ? parseFloat(tradeForm.entry_price) * parseFloat(tradeForm.quantity) : 0
+                const margin   = tradeForm.actual_investment ? parseFloat(tradeForm.actual_investment) : 0
+                const borrowed = totalVal && margin > 0 ? totalVal - margin : 0
+                const daily    = borrowed > 0 && tradeForm.mtf_interest_rate ? (borrowed * parseFloat(tradeForm.mtf_interest_rate)) / 36500 : 0
+                if (borrowed <= 0) return null
+                return (
+                  <View style={s.mtfSummary}>
+                    <View>
+                      <Text style={s.calcLabel}>MTF BORROWED</Text>
+                      <Text style={[s.calcValue, { color: colors.gold }]}>₹{borrowed.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                    </View>
+                    {daily > 0 && (
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={s.calcLabel}>DAILY INTEREST</Text>
+                        <Text style={[s.calcValue, { color: colors.gold }]}>₹{daily.toFixed(2)}/day</Text>
+                      </View>
+                    )}
+                  </View>
+                )
+              })()}
+
+              {/* ── STOP LOSS ── */}
+              <Text style={s.sectionDivider}>STOP LOSS  <Text style={{ fontWeight: '400', fontSize: 9 }}>(OPTIONAL — TRIGGERS EMAIL ALERT)</Text></Text>
+
+              <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-end' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.fieldLabel}>STOP LOSS PRICE ₹</Text>
+                  <TextInput
+                    style={[s.input, tradeForm.stop_loss ? { borderColor: colors.red } : {}]}
+                    value={tradeForm.stop_loss}
+                    onChangeText={v => setTradeForm(f => ({ ...f, stop_loss: v }))}
+                    placeholder="e.g. 190.00"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="numeric"
+                  />
+                </View>
+                {tradeForm.stop_loss && tradeForm.entry_price && parseFloat(tradeForm.entry_price) > 0 && (
+                  <View style={{ paddingBottom: spacing.sm + 2, minWidth: 64, alignItems: 'flex-end' }}>
+                    <Text style={{ fontFamily: 'monospace', fontWeight: '700', fontSize: font.size.md, color: ((parseFloat(tradeForm.stop_loss) - parseFloat(tradeForm.entry_price)) / parseFloat(tradeForm.entry_price)) >= 0 ? colors.green : colors.red }}>
+                      {((parseFloat(tradeForm.stop_loss) - parseFloat(tradeForm.entry_price)) / parseFloat(tradeForm.entry_price) * 100).toFixed(2)}%
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {tradeForm.stop_loss ? (
+                <Text style={{ fontSize: font.size.xs, color: colors.red, marginTop: -spacing.xs, marginBottom: spacing.sm }}>
+                  🔔 Alert fires when CMP hits ₹{parseFloat(tradeForm.stop_loss).toLocaleString('en-IN')}
+                </Text>
+              ) : null}
+
+              {/* ── NOTES / STRATEGY ── */}
+              <Text style={s.sectionDivider}>NOTES / STRATEGY</Text>
+
+              <Text style={s.fieldLabel}>STRATEGY</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
+                {DEFAULT_STRATEGIES.map(st => (
+                  <TouchableOpacity
+                    key={st}
+                    onPress={() => setTradeForm(f => ({ ...f, strategy: f.strategy === st ? '' : st }))}
+                    style={{
+                      paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
+                      borderRadius: 20, borderWidth: 1,
+                      borderColor: tradeForm.strategy === st ? colors.accent : colors.border,
+                      backgroundColor: tradeForm.strategy === st ? colors.accentDim : colors.surface,
+                    }}
+                  >
+                    <Text style={{ fontSize: font.size.xs, fontWeight: '700', color: tradeForm.strategy === st ? colors.accent : colors.muted }}>{st}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
               <Text style={s.fieldLabel}>NOTES  <Text style={{ fontWeight: '400', color: colors.muted }}>(optional)</Text></Text>
               <TextInput
                 style={[s.input, { minHeight: 60, textAlignVertical: 'top' }]}
                 value={tradeForm.notes}
                 onChangeText={v => setTradeForm(f => ({ ...f, notes: v }))}
-                placeholder="Strategy, setup, notes..."
+                placeholder="Setup details, observations..."
                 placeholderTextColor={colors.muted}
                 multiline
               />
@@ -997,6 +1084,15 @@ const s = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: spacing.xl },
   modalBox:     { backgroundColor: colors.bg, borderRadius: radius.xl, padding: spacing.xl, gap: spacing.sm },
   modalTitle:   { fontSize: font.size.xl, fontWeight: '800', color: colors.text, marginBottom: spacing.xs },
+  sectionDivider: { fontSize: 9, fontWeight: '700', color: colors.muted, letterSpacing: 1.2, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.xs, marginTop: spacing.lg, marginBottom: spacing.md },
+  calcRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.bg, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.sm },
+  calcLabel: { fontSize: 9, color: colors.muted, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 2 },
+  calcValue: { fontSize: font.size.md, fontWeight: '800', color: colors.accent },
+  mtfSummary:{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: 'rgba(245,158,11,0.06)', borderRadius: radius.sm, borderWidth: 1, borderColor: 'rgba(245,158,11,0.2)', padding: spacing.md, marginBottom: spacing.sm },
+  dirBtnLong:     { borderColor: colors.green, backgroundColor: 'rgba(0,230,118,0.1)' },
+  dirBtnShort:    { borderColor: colors.red,   backgroundColor: 'rgba(255,71,87,0.1)'  },
+  dirBtnTextLong: { color: colors.green, fontWeight: '700' },
+  dirBtnTextShort:{ color: colors.red,   fontWeight: '700' },
   fieldLabel:   { fontSize: font.size.xs, color: colors.muted, fontWeight: '700', letterSpacing: 0.5 },
   input: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
