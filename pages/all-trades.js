@@ -43,9 +43,8 @@ export default function AllTradesPage() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session:s } }) => {
       if (!s) { router.push('/'); return }
-      if (s.user.email !== ADMIN_EMAIL) { router.push('/dashboard'); return } // subscriber redirect
       setSession(s)
-      setIsAdmin(true)
+      if (s.user.email === ADMIN_EMAIL) setIsAdmin(true)
     })
     const { data:{ subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       if (!s) router.push('/')
@@ -79,25 +78,25 @@ export default function AllTradesPage() {
       symbols.forEach(fetchPrice)
     }
 
-    // 2. All subscribers
-    const sRes = await fetch('/api/admin/subscribers', { headers:{ Authorization:`Bearer ${token}` } })
-    const sData = await sRes.json()
-    if (Array.isArray(sData)) {
-      const nonAdmin = sData.filter(s => s.email !== ADMIN_EMAIL)
-      const groups = await Promise.all(nonAdmin.map(async sub => {
-        const res = await fetch(`/api/admin/subscriber-trades?user_id=${sub.id}`, { headers:{ Authorization:`Bearer ${token}` } })
-        const d = await res.json()
-        const trades = d.trades || []
-        const execs  = d.executions || []
-        // Fetch prices for subscriber open trades
-        const syms = [...new Set(trades.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
-        syms.forEach(fetchPrice)
-        // Build exec map
-        const execMap = {}
-        trades.forEach(t => { execMap[t.id] = execs.filter(e=>e.trade_id===t.id) })
-        return { sub, trades, execMap }
-      }))
-      setSubGroups(groups)
+    // 2. All subscribers (admin only)
+    if (session.user.email === ADMIN_EMAIL) {
+      const sRes = await fetch('/api/admin/subscribers', { headers:{ Authorization:`Bearer ${token}` } })
+      const sData = await sRes.json()
+      if (Array.isArray(sData)) {
+        const nonAdmin = sData.filter(s => s.email !== ADMIN_EMAIL)
+        const groups = await Promise.all(nonAdmin.map(async sub => {
+          const res = await fetch(`/api/admin/subscriber-trades?user_id=${sub.id}`, { headers:{ Authorization:`Bearer ${token}` } })
+          const d = await res.json()
+          const trades = d.trades || []
+          const execs  = d.executions || []
+          const syms = [...new Set(trades.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
+          syms.forEach(fetchPrice)
+          const execMap = {}
+          trades.forEach(t => { execMap[t.id] = execs.filter(e=>e.trade_id===t.id) })
+          return { sub, trades, execMap }
+        }))
+        setSubGroups(groups)
+      }
     }
 
     setLoading(false)
@@ -410,7 +409,7 @@ export default function AllTradesPage() {
             All Trades
           </h1>
           <p style={{ color:'var(--muted)', fontSize:'12px', marginTop:'4px', fontFamily:'DM Mono, monospace' }}>
-            Combined view — all accounts + all subscribers
+            {isAdmin ? 'Combined view — all accounts + all subscribers' : 'Your trades across all accounts'}
           </p>
         </div>
 
