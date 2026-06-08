@@ -441,7 +441,14 @@ export default function Dashboard() {
   })
   const winRate = closedTrades.length>0 ? (wins.length/closedTrades.length*100).toFixed(1) : '0.0'
   const totalInvested = openTrades.reduce((s,t)=>s+(Number(t.actual_investment)||Number(t.invested_capital)||0),0)
-  const fundDeployed = openTrades.reduce((s,t) => s + (Number(t.actual_investment) || (Number(t.entry_price) * Number(t.quantity)) || 0), 0)
+  const fundDeployed = openTrades.reduce((s, t) => {
+    const totalQty = Number(t.quantity) || 0
+    if (totalQty === 0) return s
+    const soldQty = allExecs.filter(e => e.trade_id === t.id).reduce((sum, e) => sum + Number(e.quantity), 0)
+    const currentQty = Math.max(0, totalQty - soldQty)
+    const actualInv = Number(t.actual_investment) || (Number(t.entry_price) * totalQty) || 0
+    return s + (currentQty * actualInv) / totalQty
+  }, 0)
 
   // Build per-account breakdown — each own account separately + each mirrored subscriber
   const ownAccountNames = [...new Set(trades.map(t => t.account).filter(Boolean))]

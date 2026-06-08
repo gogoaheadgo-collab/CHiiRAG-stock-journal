@@ -408,9 +408,15 @@ export default function DashboardScreen() {
   const winners = closedTrades.filter(t => calcRealisedForTrade(t, allExecsMap[t.id] || []) > 0)
   const winRate  = closedTrades.length > 0 ? (winners.length / closedTrades.length) * 100 : 0
 
-  // Capital deployed
-  const capitalDeployed = openTrades.reduce((s, t) =>
-    s + (Number(t.actual_investment) || Number(t.invested_capital) || 0), 0)
+  // Capital deployed — proportional to remaining quantity after partial exits
+  const capitalDeployed = openTrades.reduce((s, t) => {
+    const totalQty = Number(t.quantity) || 0
+    if (totalQty === 0) return s
+    const soldQty = (allExecsMap[t.id] || []).reduce((sum: number, e: any) => sum + Number(e.quantity), 0)
+    const currentQty = Math.max(0, totalQty - soldQty)
+    const actualInv = Number(t.actual_investment) || Number(t.invested_capital) || 0
+    return s + (currentQty * actualInv) / totalQty
+  }, 0)
 
   // MTF interest
   const mtfInterest = calcMTF(allTrades)
