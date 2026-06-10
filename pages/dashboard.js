@@ -450,6 +450,40 @@ export default function Dashboard() {
     return s + (currentQty * actualInv) / totalQty
   }, 0)
 
+  const openPositions = useMemo(() => {
+    const byTicker = {}
+    openTrades.forEach(t => {
+      const ticker = t.ticker.toUpperCase()
+      if (!byTicker[ticker]) byTicker[ticker] = { ticker, trades: [], accounts: new Set() }
+      byTicker[ticker].trades.push(t)
+      if (t.account) byTicker[ticker].accounts.add(t.account)
+    })
+    return Object.values(byTicker).map(({ ticker, trades, accounts }) => {
+      const cmp = livePrices[ticker]?.price || 0
+      let currentQty = 0, unrealised = 0, realised = 0
+      trades.forEach(t => {
+        const totalQty = Number(t.quantity) || 0
+        const soldQty = allExecs.filter(e => e.trade_id === t.id).reduce((s, e) => s + Number(e.quantity), 0)
+        const qty = Math.max(0, totalQty - soldQty)
+        currentQty += qty
+        if (cmp && qty > 0) unrealised += t.direction === 'SHORT' ? (Number(t.entry_price) - cmp) * qty : (cmp - Number(t.entry_price)) * qty
+        realised += allExecs.filter(e => e.trade_id === t.id).reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+      })
+      return { ticker, currentQty, numAccounts: accounts.size, cmp, unrealised, realised }
+    }).sort((a, b) => a.ticker.localeCompare(b.ticker))
+  }, [openTrades, allExecs, livePrices]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const opColumns = useMemo(() => [
+    { key:'ticker',      label:'TICKER',         getValue:      r => r.ticker,        sortable:true, filterable:true },
+    { key:'currentQty',  label:'CURR QTY',       getSortValue:  r => r.currentQty,    sortable:true },
+    { key:'numAccounts', label:'ACCOUNTS',        getSortValue:  r => r.numAccounts,   sortable:true, filterable:true, getValue: r => String(r.numAccounts) },
+    { key:'cmp',         label:'CMP',             getSortValue:  r => r.cmp || 0,      sortable:true },
+    { key:'unrealised',  label:'UNREALISED P&L',  getSortValue:  r => r.unrealised,    sortable:true },
+    { key:'realised',    label:'REALISED P&L',    getSortValue:  r => r.realised,      sortable:true },
+  ], [])
+
+  const op = useTableFilter(openPositions, opColumns)
+
   // Build per-account breakdown — each own account separately + each mirrored subscriber
   const ownAccountNames = [...new Set(trades.map(t => t.account).filter(Boolean))]
   const subscriberBreakdown = isAdmin ? [
@@ -622,6 +656,81 @@ export default function Dashboard() {
               <StatCard label="MTF Interest" value={`Rs.${fmtINR(totalMTF)}`} color="var(--gold)" sub="Accrued" />
               <StatCard label="Total Trades" value={allTrades.length} sub={`${openTrades.length} open · ${closedTrades.length} closed`} />
             </div>
+
+            {/* OPEN POSITIONS TABLE */}
+            {openTrades.length > 0 && (
+              <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginBottom:'20px', position:'relative' }}>
+                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'14px' }}>
+                  Open Positions
+                  <span style={{ marginLeft:'10px', fontSize:'10px', background:'var(--accent-dim)', color:'var(--accent)', padding:'2px 8px', borderRadius:'4px', fontFamily:'DM Mono, monospace' }}>{openPositions.length} tickers · {openTrades.length} trades</span>
+                </div>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      {opColumns.map(col => (
+                        <th key={col.key}
+                          className={col.key !== 'ticker' ? 'r' : undefined}
+                          style={{ cursor: col.sortable ? 'pointer' : 'default' }}
+                          onClick={() => col.sortable && op.handleSort(col.key)}>
+                          <div className="col-header" style={col.key !== 'ticker' ? { justifyContent:'flex-end' } : undefined}>
+                            <span>{col.label}</span>
+                            {col.sortable && (
+                              <span className={`sort-arrow${op.sortConfig?.key === col.key ? ' active' : ''}`}>
+                                {op.sortConfig?.key === col.key ? (op.sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                              </span>
+                            )}
+                            {col.filterable && (
+                              <span className={`filter-icon${(op.columnFilters[col.key]?.size || 0) > 0 ? ' has-filter' : ''}`}
+                                onClick={e => op.openFilter(e, col.key)}>▼</span>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {op.filteredData.map(row => (
+                      <tr key={row.ticker} style={{ borderBottom:'1px solid var(--border)' }}>
+                        <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', fontWeight:700, color:'var(--text)' }}>{row.ticker}</td>
+                        <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>{row.currentQty.toLocaleString('en-IN')}</td>
+                        <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>{row.numAccounts}</td>
+                        <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>{row.cmp ? `Rs.${toINRd(row.cmp)}` : '—'}</td>
+                        <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:row.unrealised>=0?'var(--bull)':'var(--bear)' }}>{row.cmp ? `${row.unrealised>=0?'+':'−'}Rs.${toINR(Math.abs(row.unrealised))}` : '—'}</td>
+                        <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:row.realised>=0?'var(--bull)':'var(--bear)' }}>{row.realised !== 0 ? `${row.realised>=0?'+':'−'}Rs.${toINR(Math.abs(row.realised))}` : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {op.filteredData.length > 1 && (() => {
+                    const totUnr = op.filteredData.reduce((s, r) => s + r.unrealised, 0)
+                    const totRel = op.filteredData.reduce((s, r) => s + r.realised, 0)
+                    const totQty = op.filteredData.reduce((s, r) => s + r.currentQty, 0)
+                    return (
+                      <tfoot>
+                        <tr style={{ borderTop:'2px solid var(--border)', background:'var(--surface2)' }}>
+                          <td style={{ padding:'10px 12px', fontFamily:'DM Mono, monospace', fontWeight:800, color:'var(--text)', fontSize:'12px' }}>TOTAL</td>
+                          <td style={{ padding:'10px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'12px' }}>{totQty.toLocaleString('en-IN')}</td>
+                          <td></td>
+                          <td></td>
+                          <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', fontSize:'12px', color:totUnr>=0?'var(--bull)':'var(--bear)' }}>{totUnr>=0?'+':'−'}Rs.{toINR(Math.abs(totUnr))}</td>
+                          <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', fontSize:'12px', color:totRel>=0?'var(--bull)':'var(--bear)' }}>{totRel>=0?'+':'−'}Rs.{toINR(Math.abs(totRel))}</td>
+                        </tr>
+                      </tfoot>
+                    )
+                  })()}
+                </table>
+                {op.openFilterKey && (
+                  <FilterDropdown
+                    position={op.filterDropPos}
+                    uniqueValues={op.getUniqueValues(op.openFilterKey)}
+                    hiddenValues={op.columnFilters[op.openFilterKey] || new Set()}
+                    onToggle={v => op.toggleFilterValue(op.openFilterKey, v)}
+                    onSelectAll={() => op.selectAllFilter(op.openFilterKey)}
+                    onDeselectAll={() => op.deselectAllFilter(op.openFilterKey, op.getUniqueValues(op.openFilterKey))}
+                    onClose={() => op.setOpenFilterKey(null)}
+                  />
+                )}
+              </div>
+            )}
 
             {/* ADMIN: per-account breakdown */}
             {isAdmin && subscriberBreakdown.length>1 && (
