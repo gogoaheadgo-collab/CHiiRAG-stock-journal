@@ -469,7 +469,7 @@ export default function Dashboard() {
         if (cmp && qty > 0) unrealised += t.direction === 'SHORT' ? (Number(t.entry_price) - cmp) * qty : (cmp - Number(t.entry_price)) * qty
         realised += allExecs.filter(e => e.trade_id === t.id).reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
       })
-      return { ticker, currentQty, numAccounts: accounts.size, cmp, unrealised, realised }
+      return { ticker, currentQty, numAccounts: accounts.size, cmp, changePercent: livePrices[ticker]?.changePercent ?? null, unrealised, realised }
     }).sort((a, b) => a.ticker.localeCompare(b.ticker))
   }, [openTrades, allExecs, livePrices]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -891,7 +891,18 @@ export default function Dashboard() {
                         <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', fontWeight:700, color:'var(--text)' }}>{row.ticker}</td>
                         <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>{row.currentQty.toLocaleString('en-IN')}</td>
                         <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>{row.numAccounts}</td>
-                        <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>{row.cmp ? `Rs.${toINRd(row.cmp)}` : '—'}</td>
+                        <td style={{ padding:'8px 12px', textAlign:'right' }}>
+                          {row.cmp ? (
+                            <div>
+                              <div style={{ fontFamily:'DM Mono, monospace', fontWeight:700, color:'var(--text)', fontSize:'13px' }}>Rs.{toINRd(row.cmp)}</div>
+                              {row.changePercent != null && (
+                                <div style={{ fontSize:'10px', fontFamily:'DM Mono, monospace', fontWeight:700, marginTop:'2px', color: row.changePercent >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
+                                  {row.changePercent >= 0 ? '▲' : '▼'} {Math.abs(row.changePercent).toFixed(2)}%
+                                </div>
+                              )}
+                            </div>
+                          ) : '—'}
+                        </td>
                         <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:row.unrealised>=0?'var(--bull)':'var(--bear)' }}>{row.cmp ? `${row.unrealised>=0?'+':'−'}Rs.${toINR(Math.abs(row.unrealised))}` : '—'}</td>
                         <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:row.realised>=0?'var(--bull)':'var(--bear)' }}>{row.realised !== 0 ? `${row.realised>=0?'+':'−'}Rs.${toINR(Math.abs(row.realised))}` : '—'}</td>
                       </tr>
