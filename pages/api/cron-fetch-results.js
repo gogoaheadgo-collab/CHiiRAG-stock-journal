@@ -38,12 +38,21 @@ async function fetchNSEEvents(cookies) {
 
 function parseNSEDate(d) {
   if (!d) return null
+  // Already YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d
-  // "18-Apr-2026" format
+  // DD-Mon-YYYY e.g. "18-Apr-2026"
   const months = { Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12' }
   const p = d.split('-')
   if (p.length === 3 && months[p[1]]) return `${p[2]}-${months[p[1]]}-${p[0].padStart(2,'0')}`
+  // DD/MM/YYYY
+  const s = d.split('/')
+  if (s.length === 3) return `${s[2]}-${s[1].padStart(2,'0')}-${s[0].padStart(2,'0')}`
   return null
+}
+
+function getNSEDateField(e) {
+  // Try all known NSE date field variants
+  return e.bfMtngDate || e.bfMeetingDate || e.meetingDate || e.boardMeetingDate || e.date || e.eventDate || null
 }
 
 export default async function handler(req, res) {
@@ -78,7 +87,7 @@ export default async function handler(req, res) {
     const relevant = events.filter(e => {
       const sym = (e.symbol || '').toUpperCase()
       const purpose = (e.purpose || '').toLowerCase()
-      const date = parseNSEDate(e.bfMtngDate)
+      const date = parseNSEDate(getNSEDateField(e))
       return allTickers.has(sym) &&
         (purpose.includes('result') || purpose.includes('financial')) &&
         date && date >= today
@@ -99,7 +108,7 @@ export default async function handler(req, res) {
     const rows = relevant.map(e => ({
       ticker: e.symbol.toUpperCase(),
       stock_name: e.company || e.symbol,
-      result_date: parseNSEDate(e.bfMtngDate),
+      result_date: parseNSEDate(getNSEDateField(e)),
     }))
 
     const { error } = await adminSupabase
