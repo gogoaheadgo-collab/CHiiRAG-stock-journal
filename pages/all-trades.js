@@ -184,7 +184,7 @@ export default function AllTradesPage() {
 
   const downloadCSV = () => {
     const list = tf.statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===tf.statusFilter)
-    const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Return%','Status']
+    const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Return%','Status','Avg Hold Days','R-Multiple']
     const rows = list.map(({trade, execMap: rowExecMap}) => {
       const exs = rowExecMap?.[trade.id] || []
       const sold = exs.reduce((s,e) => s + Number(e.quantity), 0)
@@ -216,7 +216,32 @@ export default function AllTradesPage() {
       const unrNum = unrealised !== '' ? Number(unrealised) : 0
       const relNum = Number(realised) || 0
       const returnPct = investment > 0 ? (((unrNum + relNum) * 100) / investment).toFixed(2) : ''
-      return [trade.ticker, trade.direction, trade.account||'', trade.entry_date, entry, exitPrice, orig, curr, investment ? investment.toFixed(2) : '', actualInv ? actualInv.toFixed(2) : '', trade.mtf_interest_rate||'', mtfAccrued, unrealised!==''?unrealised.toFixed(2):'', realised.toFixed(2), returnPct, trade.status]
+      // Weighted average holding duration
+      let avgHoldDays = ''
+      if (trade.entry_date && orig > 0) {
+        const entryMs = new Date(trade.entry_date).getTime()
+        let weightedSum = 0
+        let totalQtyAccounted = 0
+        exs.forEach(e => {
+          const days = Math.max(0, Math.floor((new Date(e.date).getTime() - entryMs) / 86400000))
+          weightedSum += Number(e.quantity) * days
+          totalQtyAccounted += Number(e.quantity)
+        })
+        if (curr > 0) {
+          const daysToday = Math.max(0, Math.floor((new Date().getTime() - entryMs) / 86400000))
+          weightedSum += curr * daysToday
+          totalQtyAccounted += curr
+        }
+        avgHoldDays = totalQtyAccounted > 0 ? Math.round(weightedSum / totalQtyAccounted) : ''
+      }
+      // R-Multiple — uses stored stop_loss; falls back to 3.5% below entry
+      const sl = Number(trade.stop_loss) || 0
+      const slPrice = sl > 0 ? sl : (entry * (1 - 0.035))
+      const avgExitForR = exitPrice !== '' ? Number(exitPrice) : (lp || 0)
+      const rMultiple = entry > 0 && slPrice > 0 && avgExitForR > 0 && (entry - slPrice) > 0
+        ? ((avgExitForR - entry) / (entry - slPrice)).toFixed(2)
+        : ''
+      return [trade.ticker, trade.direction, trade.account||'', trade.entry_date, entry, exitPrice, orig, curr, investment ? investment.toFixed(2) : '', actualInv ? actualInv.toFixed(2) : '', trade.mtf_interest_rate||'', mtfAccrued, unrealised!==''?unrealised.toFixed(2):'', realised.toFixed(2), returnPct, trade.status, avgHoldDays, rMultiple]
     })
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
     triggerCSVDownload(csv, 'all-trades.csv')
