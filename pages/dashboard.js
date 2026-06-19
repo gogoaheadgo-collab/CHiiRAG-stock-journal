@@ -239,6 +239,7 @@ export default function Dashboard() {
   const [trades, setTrades] = useState([])
   const [executions, setExecutions] = useState({})
   const [livePrices, setLivePrices] = useState({})
+  const [ownAccounts, setOwnAccounts] = useState([])
   const [mirroredAccounts, setMirroredAccounts] = useState([])
   const [resultAnnouncements, setResultAnnouncements] = useState([])
   const [mirroredTrades, setMirroredTrades] = useState({})
@@ -265,10 +266,12 @@ export default function Dashboard() {
   const loadData = useCallback(async (silent = false) => {
     if (!session) return
     if (!silent) setLoading(prev => trades.length === 0 ? true : prev)
-    const [{ data: tradesData }, { data: execsData }] = await Promise.all([
+    const [{ data: tradesData }, { data: execsData }, { data: accountsData }] = await Promise.all([
       supabase.from('trades').select('*').eq('user_id', session.user.id).order('entry_date', { ascending: false }),
       supabase.from('executions').select('*').eq('user_id', session.user.id).order('date', { ascending: true }),
+      supabase.from('accounts').select('id, name, available_fund').eq('user_id', session.user.id),
     ])
+    if (Array.isArray(accountsData)) setOwnAccounts(accountsData)
     if (Array.isArray(tradesData)) {
       setTrades(tradesData)
       const execMap = {}
@@ -492,6 +495,7 @@ export default function Dashboard() {
       trades: trades.filter(t => t.account === accName),
       execs: allOwnExecs.filter(e => trades.filter(t=>t.account===accName).some(t=>t.id===e.trade_id)),
       isOwn: true,
+      available_fund: Number(ownAccounts.find(a => a.name === accName)?.available_fund) || 0,
     })),
     ...mirroredAccounts.map(m=>({
       name:(m.subscriber_name||m.subscriber_email||'').split(' ')[0]+"'s",
@@ -502,14 +506,18 @@ export default function Dashboard() {
   ] : []
 
   const breakdownRows = useMemo(() =>
-    subscriberBreakdown.map(({ name, trades: t, execs: e, isOwn }) => ({
-      name, isOwn,
-      _open: t.filter(x => x.status === 'OPEN').length,
-      _closed: t.filter(x => x.status === 'CLOSED').length,
-      _unr: calcUnrealised(t, e),
-      _rel: calcRealised(t, e),
-      _mtf: calcMTF(t),
-    })), [subscriberBreakdown]) // eslint-disable-line react-hooks/exhaustive-deps
+    subscriberBreakdown.map(({ name, trades: t, execs: e, isOwn, available_fund }) => {
+      const deployed = t.filter(x => x.status === 'OPEN').reduce((s, x) => s + (Number(x.actual_investment) || Number(x.invested_capital) || 0), 0)
+      return {
+        name, isOwn,
+        _open: t.filter(x => x.status === 'OPEN').length,
+        _closed: t.filter(x => x.status === 'CLOSED').length,
+        _unr: calcUnrealised(t, e),
+        _rel: calcRealised(t, e),
+        _mtf: calcMTF(t),
+        _avail: isOwn ? available_fund - deployed : null,
+      }
+    }), [subscriberBreakdown]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const bdColumns = useMemo(() => [
     { key: 'name', label: 'Account', filterable: true, sortable: true },
@@ -518,6 +526,7 @@ export default function Dashboard() {
     { key: '_unr', label: 'Unreal. P&L', sortable: true },
     { key: '_rel', label: 'Real. P&L', sortable: true },
     { key: '_mtf', label: 'MTF Int', sortable: true },
+    { key: '_avail', label: 'Avail. Fund', sortable: true },
   ], [])
 
   const bd = useTableFilter(breakdownRows, bdColumns)
@@ -671,13 +680,14 @@ export default function Dashboard() {
                 </div>
                 <table className="data-table">
                     <colgroup>
-                      <col style={{ width:'5%' }} />
-                      <col style={{ width:'21%' }} />
-                      <col style={{ width:'8%' }} />
-                      <col style={{ width:'8%' }} />
-                      <col style={{ width:'19%' }} />
-                      <col style={{ width:'19%' }} />
-                      <col style={{ width:'20%' }} />
+                      <col style={{ width:'4%' }} />
+                      <col style={{ width:'18%' }} />
+                      <col style={{ width:'7%' }} />
+                      <col style={{ width:'7%' }} />
+                      <col style={{ width:'16%' }} />
+                      <col style={{ width:'16%' }} />
+                      <col style={{ width:'16%' }} />
+                      <col style={{ width:'16%' }} />
                     </colgroup>
                     <thead>
                       <tr>
@@ -709,7 +719,7 @@ export default function Dashboard() {
                         const selected = bd.filteredData.filter(r => selectedAccounts.has(r.name))
                         const unselected = bd.filteredData.filter(r => !selectedAccounts.has(r.name))
                         const renderRow = (row) => {
-                          const { name, isOwn, _open, _closed, _unr, _rel, _mtf } = row
+                          const { name, isOwn, _open, _closed, _unr, _rel, _mtf, _avail } = row
                           const isSel = selectedAccounts.has(name)
                           return (
                             <tr key={name} style={{ borderBottom:'1px solid var(--border)', background: isSel ? 'var(--accent-dim)' : 'transparent' }}>
@@ -727,6 +737,9 @@ export default function Dashboard() {
                               <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:_unr>=0?'var(--bull)':'var(--bear)' }}>{_unr>=0?'+':'−'}Rs.{toINR(Math.abs(_unr))}</td>
                               <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:_rel>=0?'var(--bull)':'var(--bear)' }}>{_rel>=0?'+':'−'}Rs.{toINR(Math.abs(_rel))}</td>
                               <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(_mtf)}</td>
+                              <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:600, color: _avail === null ? 'var(--muted)' : _avail >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
+                                {_avail === null ? '—' : `Rs.${toINR(Math.abs(_avail))}`}
+                              </td>
                             </tr>
                           )
                         }
@@ -740,6 +753,7 @@ export default function Dashboard() {
                         const totUnr = selected.reduce((s, r) => s + r._unr, 0)
                         const totRel = selected.reduce((s, r) => s + r._rel, 0)
                         const totMtf = selected.reduce((s, r) => s + r._mtf, 0)
+                        const totAvail = selected.filter(r => r._avail !== null).reduce((s, r) => s + r._avail, 0)
 
                         return (
                           <>
@@ -756,9 +770,10 @@ export default function Dashboard() {
                               <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', fontSize:'14px', color:totUnr>=0?'var(--bull)':'var(--bear)' }}>{totUnr>=0?'+':'−'}Rs.{toINR(Math.abs(totUnr))}</td>
                               <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', fontSize:'14px', color:totRel>=0?'var(--bull)':'var(--bear)' }}>{totRel>=0?'+':'−'}Rs.{toINR(Math.abs(totRel))}</td>
                               <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>Rs.{toINRd(totMtf)}</td>
+                              <td style={{ padding:'10px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px', color: totAvail >= 0 ? 'var(--bull)' : 'var(--bear)' }}>Rs.{toINR(Math.abs(totAvail))}</td>
                             </tr>
                             {unselected.length > 0 && (
-                              <tr><td colSpan={7} style={{ padding:'10px 0', border:'none' }}></td></tr>
+                              <tr><td colSpan={8} style={{ padding:'10px 0', border:'none' }}></td></tr>
                             )}
                             {unselected.map(renderRow)}
                           </>
