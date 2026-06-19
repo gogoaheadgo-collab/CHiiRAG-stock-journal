@@ -53,7 +53,8 @@ export const getAccounts = async () => {
   if (error) throw new Error(error.message)
   return data || []
 }
-export const createAccount = (name: string) => apiFetch('accounts', { method: 'POST', body: JSON.stringify({ name }) })
+export const createAccount = (name: string, available_fund?: number) => apiFetch('accounts', { method: 'POST', body: JSON.stringify({ name, available_fund: available_fund || 0 }) })
+export const topupAccountFund = (id: string, add_amount: number) => apiFetch('accounts', { method: 'PATCH', body: JSON.stringify({ id, add_amount }) })
 export const deleteAccount = (id: string, name: string) => apiFetch('accounts', { method: 'DELETE', body: JSON.stringify({ id, name }) })
 
 // ── Notes ────────────────────────────────────────────────────────────────────

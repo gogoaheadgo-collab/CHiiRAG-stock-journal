@@ -4,7 +4,7 @@ import {
   StyleSheet, RefreshControl, ActivityIndicator, Alert, Modal, TextInput,
 } from 'react-native'
 import {
-  getAccounts, createAccount, deleteAccount, getTrades, getExecutions,
+  getAccounts, createAccount, deleteAccount, topupAccountFund, getTrades, getExecutions,
   getAdminMirror, getSubscriberTrades, getSharedAccountTrades, createTrade, getStockPrice,
   searchTicker,
 } from '../../lib/api'
@@ -53,6 +53,10 @@ export default function AccountsScreen() {
   const [tradeFilter,       setTradeFilter]       = useState<'OPEN' | 'CLOSED'>('OPEN')
 
   const [addAcctModal,  setAddAcctModal]  = useState(false)
+  const [newFund,       setNewFund]       = useState('')
+  const [fundModal,     setFundModal]     = useState<{ id: string; name: string; current: number } | null>(null)
+  const [fundAddAmt,    setFundAddAmt]    = useState('')
+  const [savingFund,    setSavingFund]    = useState(false)
   const [newName,       setNewName]       = useState('')
   const [savingAcct,    setSavingAcct]    = useState(false)
 
@@ -157,11 +161,24 @@ export default function AccountsScreen() {
     if (!newName.trim()) return
     setSavingAcct(true)
     try {
-      await createAccount(newName.trim())
-      setNewName(''); setAddAcctModal(false)
+      await createAccount(newName.trim(), newFund ? Number(newFund) : 0)
+      setNewName(''); setNewFund(''); setAddAcctModal(false)
       load()
     } catch (e: any) { Alert.alert('Error', e.message) }
     finally { setSavingAcct(false) }
+  }
+
+  const handleTopupFund = async () => {
+    if (!fundModal || !fundAddAmt) return
+    const amt = Number(fundAddAmt)
+    if (!amt || amt <= 0) { Alert.alert('Invalid', 'Enter a positive amount'); return }
+    setSavingFund(true)
+    try {
+      await topupAccountFund(fundModal.id, amt)
+      setFundModal(null); setFundAddAmt('')
+      load()
+    } catch (e: any) { Alert.alert('Error', e.message) }
+    finally { setSavingFund(false) }
   }
 
   const handleDeleteAccount = (id: string, name: string) =>
@@ -321,7 +338,24 @@ export default function AccountsScreen() {
               <View key={key}>
                 <View style={[s.tile, (isOpenActive || isClosedActive) && s.tileActive]}>
                   <View style={s.tileHead}>
-                    <Text style={s.tileName}>{acc.name}</Text>
+                    <View style={{ flex:1 }}>
+                      <Text style={s.tileName}>{acc.name}</Text>
+                      {(() => {
+                        const deployed = ownTrades.filter((t:any) => t.account === acc.name && t.status === 'OPEN').reduce((sum:number, t:any) => sum + (Number(t.actual_investment) || Number(t.invested_capital) || 0), 0)
+                        const avail = (Number(acc.available_fund) || 0) - deployed
+                        return (
+                          <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginTop:3 }}>
+                            <View>
+                              <Text style={{ fontSize:8, color:colors.muted, fontFamily:'DMMono', letterSpacing:0.5 }}>AVAIL FUND</Text>
+                              <Text style={{ fontSize:11, fontFamily:'DMMono', fontWeight:'600', color: avail >= 0 ? colors.bull : colors.bear }}>₹{avail.toLocaleString('en-IN', { maximumFractionDigits:0 })}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => { setFundModal({ id: acc.id, name: acc.name, current: Number(acc.available_fund) || 0 }); setFundAddAmt('') }} style={{ paddingHorizontal:7, paddingVertical:2, backgroundColor:'rgba(14,165,233,0.1)', borderRadius:4, borderWidth:1, borderColor:colors.accent }}>
+                              <Text style={{ fontSize:14, color:colors.accent, fontWeight:'700', lineHeight:18 }}>+</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )
+                      })()}
+                    </View>
                     <View style={s.tileActions}>
                       <TouchableOpacity style={s.addTradeBtn} onPress={() => openAddTrade(acc.name)}>
                         <Text style={s.addTradeBtnText}>+ Trade</Text>
@@ -760,12 +794,49 @@ export default function AccountsScreen() {
               placeholderTextColor={colors.muted}
               autoFocus
             />
+            <TextInput
+              style={[s.input, { marginTop:8 }]}
+              value={newFund}
+              onChangeText={setNewFund}
+              placeholder="Available fund ₹ (optional)"
+              placeholderTextColor={colors.muted}
+              keyboardType="numeric"
+            />
             <View style={s.modalBtns}>
-              <TouchableOpacity style={s.cancelBtn} onPress={() => { setAddAcctModal(false); setNewName('') }}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => { setAddAcctModal(false); setNewName(''); setNewFund('') }}>
                 <Text style={s.cancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[s.saveBtn, savingAcct && { opacity: 0.6 }]} onPress={handleAddAccount} disabled={savingAcct}>
                 <Text style={s.saveText}>{savingAcct ? 'Creating…' : 'Create'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Fund Top-up Modal */}
+      <Modal visible={!!fundModal} transparent animationType="fade" onRequestClose={() => setFundModal(null)}>
+        <View style={s.modalOverlay}>
+          <View style={s.modalBox}>
+            <Text style={s.modalTitle}>Add Funds — {fundModal?.name}</Text>
+            <Text style={{ fontSize:10, color:colors.muted, fontFamily:'DMMono', marginBottom:12 }}>
+              Current total fund: ₹{(fundModal?.current || 0).toLocaleString('en-IN', { maximumFractionDigits:0 })}
+            </Text>
+            <TextInput
+              style={s.input}
+              value={fundAddAmt}
+              onChangeText={setFundAddAmt}
+              placeholder="Amount to add (₹)"
+              placeholderTextColor={colors.muted}
+              keyboardType="numeric"
+              autoFocus
+            />
+            <View style={s.modalBtns}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => { setFundModal(null); setFundAddAmt('') }}>
+                <Text style={s.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.saveBtn, savingFund && { opacity:0.6 }]} onPress={handleTopupFund} disabled={savingFund}>
+                <Text style={s.saveText}>{savingFund ? 'Adding…' : 'Add Funds'}</Text>
               </TouchableOpacity>
             </View>
           </View>
