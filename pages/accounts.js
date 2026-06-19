@@ -368,6 +368,9 @@ export default function AccountsPage() {
   const [activeMirrorAccount, setActiveMirrorAccount] = useState(null)
   const [mirrorFilter, setMirrorFilter] = useState('ALL')
   const [selectedMonth, setSelectedMonth] = useState(null) // 'YYYY-MM' or null=ALL
+  const [newAccountFund, setNewAccountFund] = useState('')
+  const [fundModal, setFundModal] = useState(null) // { id, name, current }
+  const [fundAddAmount, setFundAddAmount] = useState('')
   const [shareModal, setShareModal] = useState(null) // account name being shared
   const [accountShares, setAccountShares] = useState([]) // { account_name, subscriber_id }[]
   const [subscribers, setSubscribers] = useState([]) // for share picker
@@ -576,8 +579,17 @@ export default function AccountsPage() {
   const handleCreateAccount = async () => {
     if (!newAccountName.trim()) return
     const token = await getToken()
-    await fetch('/api/accounts', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ name:newAccountName.trim().toUpperCase() }) })
-    setNewAccountName(''); setShowNewAccount(false); await loadData()
+    await fetch('/api/accounts', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ name:newAccountName.trim().toUpperCase(), available_fund: Number(newAccountFund) || 0 }) })
+    setNewAccountName(''); setNewAccountFund(''); setShowNewAccount(false); await loadData()
+  }
+
+  const handleTopupFund = async () => {
+    if (!fundModal || !fundAddAmount) return
+    const amt = Number(fundAddAmount)
+    if (!amt || amt <= 0) return
+    const token = await getToken()
+    await fetch('/api/accounts', { method:'PATCH', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ id: fundModal.id, add_amount: amt }) })
+    setFundModal(null); setFundAddAmount(''); await loadData()
   }
 
   const handleRenameAccount = async (acc) => {
@@ -850,8 +862,19 @@ export default function AccountsPage() {
               <button onClick={() => { setActiveAccount(acc.name); setActiveMirror(null) }} style={{ width:'100%', padding:'14px 16px 10px', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}>
                 <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:activeAccount===acc.name&&!activeMirror?'var(--accent)':'var(--text)' }}>{acc.name}</div>
                 <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'3px' }}>{trades.filter(t=>t.account===acc.name).length} trades</div>
+                {(() => {
+                  const deployed = trades.filter(t => t.account === acc.name && t.status === 'OPEN').reduce((s,t) => s + (Number(t.actual_investment) || Number(t.invested_capital) || 0), 0)
+                  const avail = (Number(acc.available_fund) || 0) - deployed
+                  return (
+                    <div style={{ marginTop:'6px' }}>
+                      <div style={{ fontSize:'9px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.04em' }}>AVAIL FUND</div>
+                      <div style={{ fontSize:'11px', fontFamily:'DM Mono, monospace', fontWeight:600, color: avail >= 0 ? 'var(--bull)' : 'var(--bear)' }}>₹{avail.toLocaleString('en-IN', { maximumFractionDigits:0 })}</div>
+                    </div>
+                  )
+                })()}
               </button>
               <div style={{ display:'flex', borderTop:'1px solid var(--border)' }}>
+                <button onClick={e => { e.stopPropagation(); setFundModal({ id: acc.id, name: acc.name, current: Number(acc.available_fund) || 0 }); setFundAddAmount('') }} style={{ flex:1, padding:'6px', background:'none', border:'none', borderRight:'1px solid var(--border)', color:'var(--accent)', cursor:'pointer', fontSize:'13px', fontWeight:700 }} title="Add funds">+</button>
                 <button onClick={() => handleRenameAccount(acc)} style={{ flex:1, padding:'6px', background:'none', border:'none', borderRight:'1px solid var(--border)', color:'var(--muted)', cursor:'pointer', fontSize:'11px' }}>✎</button>
                 {isAdmin && (
                   <button onClick={e => { e.stopPropagation(); setShareModal(acc.name) }}
@@ -864,10 +887,11 @@ export default function AccountsPage() {
             </div>
           ))}
           {showNewAccount ? (
-            <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
+            <div style={{ display:'flex', gap:'6px', alignItems:'center', flexWrap:'wrap' }}>
               <input value={newAccountName} onChange={e=>setNewAccountName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleCreateAccount()} placeholder="ACCOUNT NAME" autoFocus style={{ background:'var(--surface)', border:'1px solid var(--accent)', borderRadius:'6px', padding:'6px 12px', color:'var(--text)', fontSize:'11px', fontFamily:'DM Mono, monospace', width:'140px', outline:'none' }} />
+              <input value={newAccountFund} onChange={e=>setNewAccountFund(e.target.value)} placeholder="Available Fund ₹ (optional)" type="number" style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'6px 12px', color:'var(--text)', fontSize:'11px', fontFamily:'DM Mono, monospace', width:'170px', outline:'none' }} />
               <button onClick={handleCreateAccount} className="btn btn-primary" style={{ padding:'6px 12px', fontSize:'11px' }}>Add</button>
-              <button onClick={() => { setShowNewAccount(false); setNewAccountName('') }} className="btn btn-ghost" style={{ padding:'6px 10px', fontSize:'11px' }}>✕</button>
+              <button onClick={() => { setShowNewAccount(false); setNewAccountName(''); setNewAccountFund('') }} className="btn btn-ghost" style={{ padding:'6px 10px', fontSize:'11px' }}>✕</button>
             </div>
           ) : (
             <button onClick={() => setShowNewAccount(true)} style={{ padding:'7px 14px', borderRadius:'6px', border:'1px dashed var(--border)', background:'transparent', color:'var(--muted)', cursor:'pointer', fontSize:'11px', fontFamily:'DM Mono, monospace' }}>+ New Account</button>
@@ -1225,6 +1249,19 @@ export default function AccountsPage() {
         </div>
       )}
 
+      {fundModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'28px', width:'320px', boxShadow:'0 8px 32px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize:'13px', fontWeight:700, fontFamily:'DM Mono, monospace', color:'var(--text)', marginBottom:'4px' }}>Add Funds — {fundModal.name}</div>
+            <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', marginBottom:'16px' }}>Current total fund: ₹{fundModal.current.toLocaleString('en-IN', { maximumFractionDigits:0 })}</div>
+            <input autoFocus type="number" value={fundAddAmount} onChange={e=>setFundAddAmount(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleTopupFund()} placeholder="Amount to add (₹)" style={{ width:'100%', background:'var(--bg)', border:'1px solid var(--accent)', borderRadius:'6px', padding:'9px 12px', color:'var(--text)', fontSize:'13px', fontFamily:'DM Mono, monospace', outline:'none', boxSizing:'border-box', marginBottom:'16px' }} />
+            <div style={{ display:'flex', gap:'10px' }}>
+              <button onClick={() => { setFundModal(null); setFundAddAmount('') }} style={{ flex:1, padding:'9px', background:'none', border:'1px solid var(--border)', borderRadius:'6px', color:'var(--muted)', cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace' }}>Cancel</button>
+              <button onClick={handleTopupFund} style={{ flex:1, padding:'9px', background:'var(--accent)', border:'none', borderRadius:'6px', color:'#fff', cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:700 }}>Add Funds</button>
+            </div>
+          </div>
+        </div>
+      )}
       {showAdd && <AddTradeModal session={session} onClose={() => setShowAdd(false)} onAdd={handleAddTrade} isAdmin={isAdmin} activeAccount={activeAccount} />}
       {editingTrade && <EditTradeModal trade={editingTrade} onClose={() => setEditingTrade(null)} onSave={handleEdit} session={session} isAdmin={isAdmin} />}
     </>

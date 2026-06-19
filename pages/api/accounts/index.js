@@ -21,10 +21,20 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { name } = req.body
+    const { name, available_fund } = req.body
     if (!name?.trim()) return res.status(400).json({ error: 'Name required' })
     const { data, error } = await supabase
-      .from('accounts').insert([{ user_id: user.id, name: name.trim().toUpperCase() }]).select().single()
+      .from('accounts').insert([{ user_id: user.id, name: name.trim().toUpperCase(), available_fund: Number(available_fund) || 0 }]).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    return res.status(200).json(data)
+  }
+
+  if (req.method === 'PATCH') {
+    const { id, add_amount } = req.body
+    if (!id || !add_amount) return res.status(400).json({ error: 'ID and add_amount required' })
+    const { data: existing } = await supabase.from('accounts').select('available_fund').eq('id', id).eq('user_id', user.id).single()
+    const newFund = (Number(existing?.available_fund) || 0) + Number(add_amount)
+    const { data, error } = await supabase.from('accounts').update({ available_fund: newFund }).eq('id', id).eq('user_id', user.id).select().single()
     if (error) return res.status(500).json({ error: error.message })
     return res.status(200).json(data)
   }
