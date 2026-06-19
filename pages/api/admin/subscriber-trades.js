@@ -18,15 +18,20 @@ export default async function handler(req, res) {
   const { user_id } = req.query
   if (!user_id) return res.status(400).json({ error: 'user_id required' })
 
-  const { data: trades, error: tErr } = await adminSupabase
-    .from('trades').select('*').eq('user_id', user_id).order('entry_date', { ascending: false })
-
-  const { data: executions, error: eErr } = await adminSupabase
-    .from('executions').select('*').eq('user_id', user_id)
+  const [
+    { data: trades, error: tErr },
+    { data: executions, error: eErr },
+    { data: accounts },
+  ] = await Promise.all([
+    adminSupabase.from('trades').select('*').eq('user_id', user_id).order('entry_date', { ascending: false }),
+    adminSupabase.from('executions').select('*').eq('user_id', user_id),
+    adminSupabase.from('accounts').select('id, name, available_fund').eq('user_id', user_id),
+  ])
 
   return res.status(200).json({
     trades: trades || [],
     executions: executions || [],
+    accounts: accounts || [],
     debug: {
       user_id_received: user_id,
       trades_count: trades?.length,

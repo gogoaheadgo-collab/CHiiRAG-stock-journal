@@ -244,6 +244,7 @@ export default function Dashboard() {
   const [resultAnnouncements, setResultAnnouncements] = useState([])
   const [mirroredTrades, setMirroredTrades] = useState({})
   const [mirroredExecs, setMirroredExecs] = useState({})
+  const [mirroredSubAccounts, setMirroredSubAccounts] = useState({})
   const [sharedAdminTrades, setSharedAdminTrades] = useState([])
   const [sharedAdminExecs, setSharedAdminExecs] = useState([])
   const [selectedAccounts, setSelectedAccounts] = useState(() => {
@@ -349,6 +350,7 @@ export default function Dashboard() {
         if (d.trades) {
           setMirroredTrades(prev=>({...prev,[m.subscriber_id]:d.trades}))
           setMirroredExecs(prev=>({...prev,[m.subscriber_id]:d.executions||[]}))
+          setMirroredSubAccounts(prev=>({...prev,[m.subscriber_id]:d.accounts||[]}))
           const tickers = [...new Set(d.trades.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
           tickers.forEach(async ticker => {
             try { const pr = await fetch(`/api/stock/${ticker}`); const pd = await pr.json(); if (pd.price) setLivePrices(prev=>({...prev,[ticker]:pd})) } catch {}
@@ -497,12 +499,19 @@ export default function Dashboard() {
       isOwn: true,
       available_fund: Number(ownAccounts.find(a => a.name === accName)?.available_fund) || 0,
     })),
-    ...mirroredAccounts.map(m=>({
-      name:(m.subscriber_name||m.subscriber_email||'').split(' ')[0]+"'s",
-      trades: allMirroredTrades.filter(t => (mirroredTrades[m.subscriber_id]||[]).some(mt=>mt.id===t.id)),
-      execs: allMirroredExecs.filter(e => (mirroredTrades[m.subscriber_id]||[]).some(mt=>mt.id===e.trade_id)),
-      isOwn: false,
-    }))
+    ...mirroredAccounts.map(m=>{
+      const subTrades = allMirroredTrades.filter(t => (mirroredTrades[m.subscriber_id]||[]).some(mt=>mt.id===t.id))
+      const subAccounts = mirroredSubAccounts[m.subscriber_id] || []
+      const subDeployed = subTrades.filter(t=>t.status==='OPEN').reduce((s,t)=>s+(Number(t.actual_investment)||Number(t.invested_capital)||0),0)
+      const subTotalFund = subAccounts.reduce((s,a)=>s+(Number(a.available_fund)||0),0)
+      return {
+        name:(m.subscriber_name||m.subscriber_email||'').split(' ')[0]+"'s",
+        trades: subTrades,
+        execs: allMirroredExecs.filter(e => (mirroredTrades[m.subscriber_id]||[]).some(mt=>mt.id===e.trade_id)),
+        isOwn: false,
+        available_fund: subTotalFund - subDeployed,
+      }
+    })
   ] : []
 
   const breakdownRows = useMemo(() =>
@@ -515,7 +524,7 @@ export default function Dashboard() {
         _unr: calcUnrealised(t, e),
         _rel: calcRealised(t, e),
         _mtf: calcMTF(t),
-        _avail: isOwn ? available_fund - deployed : null,
+        _avail: available_fund - deployed,
       }
     }), [subscriberBreakdown]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -737,8 +746,8 @@ export default function Dashboard() {
                               <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:_unr>=0?'var(--bull)':'var(--bear)' }}>{_unr>=0?'+':'−'}Rs.{toINR(Math.abs(_unr))}</td>
                               <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:700, fontFamily:'DM Mono, monospace', color:_rel>=0?'var(--bull)':'var(--bear)' }}>{_rel>=0?'+':'−'}Rs.{toINR(Math.abs(_rel))}</td>
                               <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace' }}>Rs.{toINRd(_mtf)}</td>
-                              <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:600, color: _avail === null ? 'var(--muted)' : _avail >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
-                                {_avail === null ? '—' : `Rs.${toINR(Math.abs(_avail))}`}
+                              <td style={{ padding:'8px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:600, color: _avail >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
+                                Rs.{toINR(Math.abs(_avail))}
                               </td>
                             </tr>
                           )
