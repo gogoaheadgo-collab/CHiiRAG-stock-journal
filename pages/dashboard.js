@@ -525,7 +525,7 @@ export default function Dashboard() {
       }
     }),
     ...allSubscribers
-      .filter(s => !mirroredAccounts.some(m => m.subscriber_id === s.id))
+      .filter(s => !mirroredAccounts.some(m => m.subscriber_id === s.id) && s.id !== ownUserId)
       .map(s => {
         const subTrades = mirroredTrades[s.id] || []
         const subExecs = mirroredExecs[s.id] || []
@@ -533,7 +533,7 @@ export default function Dashboard() {
         const subDeployed = subTrades.filter(t=>t.status==='OPEN').reduce((acc,t)=>acc+(Number(t.actual_investment)||Number(t.invested_capital)||0),0)
         const subTotalFund = subAccounts.reduce((acc,a)=>acc+(Number(a.available_fund)||0),0)
         return {
-          name: s.name.split(' ')[0] + "'s",
+          name: s.name + "'s",
           trades: subTrades,
           execs: subExecs,
           isOwn: false,
@@ -759,16 +759,6 @@ export default function Dashboard() {
                         const renderRow = (row) => {
                           const { name, isOwn, isFetched = true, _open, _closed, _unr, _rel, _mtf, _avail } = row
                           const isSel = selectedAccounts.has(name)
-                          if (!isFetched && !_open && !_closed) return (
-                            <tr key={name} style={{ borderBottom:'1px solid var(--border)', opacity: 0.4 }}>
-                              <td style={{ padding:'8px 4px', textAlign:'center' }} />
-                              <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>
-                                <span style={{ fontWeight:700 }}>{name}</span>
-                                <span style={{ marginLeft:'6px', fontSize:'8px', background:'rgba(100,100,100,0.1)', color:'var(--muted)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>LOADING</span>
-                              </td>
-                              <td colSpan={6} style={{ padding:'8px 12px', textAlign:'center', fontFamily:'DM Mono, monospace', fontSize:'10px', color:'var(--muted)' }}>—</td>
-                            </tr>
-                          )
                           return (
                             <tr key={name} style={{ borderBottom:'1px solid var(--border)', background: isSel ? 'var(--accent-dim)' : 'transparent' }}>
                               <td style={{ padding:'8px 4px', textAlign:'center' }}>
