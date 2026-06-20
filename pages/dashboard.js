@@ -783,21 +783,28 @@ export default function Dashboard() {
                         }
 
                         if (selectedAccounts.size === 0) {
-                          const ownRows = bd.filteredData.filter(r => r.isOwn)
-                          const subRows = bd.filteredData.filter(r => !r.isOwn)
+                          const adminRows = bd.filteredData.filter(r => r.isOwn || r.isFetched !== false)
+                          const unfetchedRows = bd.filteredData.filter(r => r.isFetched === false)
                           return (
                             <>
-                              {ownRows.map(renderRow)}
-                              {subRows.length > 0 && (
+                              {adminRows.length > 0 && (
                                 <>
                                   <tr>
-                                    <td colSpan={8} style={{ padding:'8px 12px', background:'rgba(245,158,11,0.06)', borderTop:'2px solid var(--gold)', borderBottom:'1px solid var(--gold)' }}>
-                                      <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'11px', color:'var(--gold)', letterSpacing:'0.08em' }}>
-                                        SUBSCRIBER'S ACCOUNTS
-                                      </span>
+                                    <td colSpan={8} style={{ padding:'6px 12px', background:'rgba(14,165,233,0.06)', borderTop:'2px solid var(--accent)', borderBottom:'1px solid var(--accent)' }}>
+                                      <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'11px', color:'var(--accent)', letterSpacing:'0.08em' }}>ADMIN'S ACCOUNTS</span>
                                     </td>
                                   </tr>
-                                  {subRows.map(renderRow)}
+                                  {adminRows.map(renderRow)}
+                                </>
+                              )}
+                              {unfetchedRows.length > 0 && (
+                                <>
+                                  <tr>
+                                    <td colSpan={8} style={{ padding:'6px 12px', background:'rgba(245,158,11,0.06)', borderTop:'2px solid var(--gold)', borderBottom:'1px solid var(--gold)' }}>
+                                      <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'11px', color:'var(--gold)', letterSpacing:'0.08em' }}>SUBSCRIBER'S ACCOUNTS</span>
+                                    </td>
+                                  </tr>
+                                  {unfetchedRows.map(renderRow)}
                                 </>
                               )}
                             </>
