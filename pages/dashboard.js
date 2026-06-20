@@ -754,7 +754,25 @@ export default function Dashboard() {
                         }
 
                         if (selectedAccounts.size === 0) {
-                          return bd.filteredData.map(renderRow)
+                          const ownRows = bd.filteredData.filter(r => r.isOwn)
+                          const subRows = bd.filteredData.filter(r => !r.isOwn)
+                          return (
+                            <>
+                              {ownRows.map(renderRow)}
+                              {subRows.length > 0 && (
+                                <>
+                                  <tr>
+                                    <td colSpan={8} style={{ padding:'8px 12px', background:'rgba(245,158,11,0.06)', borderTop:'2px solid var(--gold)', borderBottom:'1px solid var(--gold)' }}>
+                                      <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'11px', color:'var(--gold)', letterSpacing:'0.08em' }}>
+                                        SUBSCRIBER'S ACCOUNTS
+                                      </span>
+                                    </td>
+                                  </tr>
+                                  {subRows.map(renderRow)}
+                                </>
+                              )}
+                            </>
+                          )
                         }
 
                         const totOpen = selected.reduce((s, r) => s + r._open, 0)
