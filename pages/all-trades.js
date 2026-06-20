@@ -241,7 +241,18 @@ export default function AllTradesPage() {
       const rMultiple = entry > 0 && slPrice > 0 && avgExitForR > 0 && (entry - slPrice) > 0
         ? ((avgExitForR - entry) / (entry - slPrice)).toFixed(2)
         : ''
-      return [trade.ticker, trade.direction, trade.account||'', trade.entry_date, entry, exitPrice, orig, curr, investment ? investment.toFixed(2) : '', actualInv ? actualInv.toFixed(2) : '', trade.mtf_interest_rate||'', mtfAccrued, unrealised!==''?unrealised.toFixed(2):'', realised.toFixed(2), returnPct, trade.status, avgHoldDays, slPrice.toFixed(2), rMultiple]
+      const inIN = (n, decimals=0) => n === '' || n === null || n === undefined ? '' : `"${Number(n).toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}"`
+      const entryFmt = inIN(entry, 2)
+      const exitFmt = exitPrice !== '' ? inIN(exitPrice, 2) : ''
+      const qtyFmt = inIN(orig, 0)
+      const currFmt = inIN(curr, 0)
+      const invFmt = investment ? inIN(Math.round(investment), 0) : ''
+      const actInvFmt = actualInv ? inIN(Math.round(actualInv), 0) : ''
+      const mtfFmt = mtfAccrued !== '' ? inIN(Math.round(Number(mtfAccrued)), 0) : ''
+      const unrealFmt = unrealised !== '' ? inIN(Math.round(Number(unrealised)), 0) : ''
+      const realFmt = inIN(Math.round(Number(realised)), 0)
+      const slFmt = inIN(slPrice, 2)
+      return [trade.ticker, trade.direction, trade.account||'', trade.entry_date, entryFmt, exitFmt, qtyFmt, currFmt, invFmt, actInvFmt, trade.mtf_interest_rate||'', mtfFmt, unrealFmt, realFmt, returnPct, trade.status, avgHoldDays, slFmt, rMultiple]
     })
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
     triggerCSVDownload(csv, 'all-trades.csv')
