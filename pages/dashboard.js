@@ -350,13 +350,17 @@ export default function Dashboard() {
       if (!Array.isArray(data)) return
       setMirroredAccounts(data)
       if (Array.isArray(allSubs)) setAllSubscribers(allSubs)
-      data.forEach(async m => {
-        const r = await fetch(`/api/admin/subscriber-trades?user_id=${m.subscriber_id}`, { headers:{ Authorization:`Bearer ${token}` } })
+      const allToFetch = [
+        ...data.map(m => ({ id: m.subscriber_id, name: m.subscriber_name || m.subscriber_email || '', isMirrored: true })),
+        ...(Array.isArray(allSubs) ? allSubs.filter(s => !data.some(m => m.subscriber_id === s.id)).map(s => ({ id: s.id, name: s.name, isMirrored: false })) : [])
+      ]
+      allToFetch.forEach(async m => {
+        const r = await fetch(`/api/admin/subscriber-trades?user_id=${m.id}`, { headers:{ Authorization:`Bearer ${token}` } })
         const d = await r.json()
         if (d.trades) {
-          setMirroredTrades(prev=>({...prev,[m.subscriber_id]:d.trades}))
-          setMirroredExecs(prev=>({...prev,[m.subscriber_id]:d.executions||[]}))
-          setMirroredSubAccounts(prev=>({...prev,[m.subscriber_id]:d.accounts||[]}))
+          setMirroredTrades(prev=>({...prev,[m.id]:d.trades}))
+          setMirroredExecs(prev=>({...prev,[m.id]:d.executions||[]}))
+          setMirroredSubAccounts(prev=>({...prev,[m.id]:d.accounts||[]}))
           const tickers = [...new Set(d.trades.filter(t=>t.status==='OPEN').map(t=>t.ticker))]
           tickers.forEach(async ticker => {
             try { const pr = await fetch(`/api/stock/${ticker}`); const pd = await pr.json(); if (pd.price) setLivePrices(prev=>({...prev,[ticker]:pd})) } catch {}
@@ -520,14 +524,21 @@ export default function Dashboard() {
     }),
     ...allSubscribers
       .filter(s => !mirroredAccounts.some(m => m.subscriber_id === s.id))
-      .map(s => ({
-        name: s.name.split(' ')[0] + "'s",
-        trades: [],
-        execs: [],
-        isOwn: false,
-        isFetched: false,
-        available_fund: 0,
-      }))
+      .map(s => {
+        const subTrades = mirroredTrades[s.id] || []
+        const subExecs = mirroredExecs[s.id] || []
+        const subAccounts = mirroredSubAccounts[s.id] || []
+        const subDeployed = subTrades.filter(t=>t.status==='OPEN').reduce((acc,t)=>acc+(Number(t.actual_investment)||Number(t.invested_capital)||0),0)
+        const subTotalFund = subAccounts.reduce((acc,a)=>acc+(Number(a.available_fund)||0),0)
+        return {
+          name: s.name.split(' ')[0] + "'s",
+          trades: subTrades,
+          execs: subExecs,
+          isOwn: false,
+          isFetched: false,
+          available_fund: subTotalFund - subDeployed,
+        }
+      })
   ] : []
 
   const breakdownRows = useMemo(() =>
@@ -746,14 +757,14 @@ export default function Dashboard() {
                         const renderRow = (row) => {
                           const { name, isOwn, isFetched = true, _open, _closed, _unr, _rel, _mtf, _avail } = row
                           const isSel = selectedAccounts.has(name)
-                          if (!isFetched) return (
-                            <tr key={name} style={{ borderBottom:'1px solid var(--border)', opacity: 0.5 }}>
+                          if (!isFetched && !_open && !_closed) return (
+                            <tr key={name} style={{ borderBottom:'1px solid var(--border)', opacity: 0.4 }}>
                               <td style={{ padding:'8px 4px', textAlign:'center' }} />
                               <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>
                                 <span style={{ fontWeight:700 }}>{name}</span>
-                                <span style={{ marginLeft:'6px', fontSize:'8px', background:'rgba(100,100,100,0.1)', color:'var(--muted)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>NOT FETCHED</span>
+                                <span style={{ marginLeft:'6px', fontSize:'8px', background:'rgba(100,100,100,0.1)', color:'var(--muted)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>LOADING</span>
                               </td>
-                              <td colSpan={6} style={{ padding:'8px 12px', textAlign:'center', fontFamily:'DM Mono, monospace', fontSize:'10px', color:'var(--muted)' }}>— go to Subscribers page to fetch —</td>
+                              <td colSpan={6} style={{ padding:'8px 12px', textAlign:'center', fontFamily:'DM Mono, monospace', fontSize:'10px', color:'var(--muted)' }}>—</td>
                             </tr>
                           )
                           return (
