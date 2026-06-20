@@ -818,27 +818,42 @@ export default function Dashboard() {
                         const totMtf = selected.reduce((s, r) => s + r._mtf, 0)
                         const totAvail = selected.filter(r => r._avail !== null).reduce((s, r) => s + r._avail, 0)
 
+                        const adminRows = bd.filteredData.filter(r => r.isOwn || r.isFetched !== false)
+                        const unfetchedRows = bd.filteredData.filter(r => r.isFetched === false)
                         return (
                           <>
-                            {selected.map(renderRow)}
-                            <tr style={{ borderTop:'2px solid var(--accent)', background:'var(--accent-dim)' }}>
-                              <td style={{ padding:'10px 4px', textAlign:'center' }}>
-                                <span style={{ fontSize:'12px', fontWeight:800, color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>Σ</span>
+                            <tr>
+                              <td colSpan={8} style={{ padding:'6px 12px', background:'rgba(14,165,233,0.06)', borderTop:'2px solid var(--accent)', borderBottom:'1px solid var(--accent)' }}>
+                                <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'11px', color:'var(--accent)', letterSpacing:'0.08em' }}>ADMIN'S ACCOUNTS</span>
                               </td>
-                              <td style={{ padding:'10px 12px', fontFamily:'DM Mono, monospace', fontWeight:800, color:'var(--accent)', fontSize:'14px' }}>
-                                Selected Total ({selected.length})
-                              </td>
-                              <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>{totOpen}</td>
-                              <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>{totClosed}</td>
-                              <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', fontSize:'14px', color:totUnr>=0?'var(--bull)':'var(--bear)' }}>{totUnr>=0?'+':'−'}Rs.{toINR(Math.abs(totUnr))}</td>
-                              <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', fontSize:'14px', color:totRel>=0?'var(--bull)':'var(--bear)' }}>{totRel>=0?'+':'−'}Rs.{toINR(Math.abs(totRel))}</td>
-                              <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>Rs.{toINRd(totMtf)}</td>
-                              <td style={{ padding:'10px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px', color: totAvail >= 0 ? 'var(--bull)' : 'var(--bear)' }}>Rs.{toINR(Math.abs(totAvail))}</td>
                             </tr>
-                            {unselected.length > 0 && (
-                              <tr><td colSpan={8} style={{ padding:'10px 0', border:'none' }}></td></tr>
+                            {adminRows.map(renderRow)}
+                            {selected.length > 0 && (
+                              <tr style={{ borderTop:'2px solid var(--accent)', background:'var(--accent-dim)' }}>
+                                <td style={{ padding:'10px 4px', textAlign:'center' }}>
+                                  <span style={{ fontSize:'12px', fontWeight:800, color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>Σ</span>
+                                </td>
+                                <td style={{ padding:'10px 12px', fontFamily:'DM Mono, monospace', fontWeight:800, color:'var(--accent)', fontSize:'14px' }}>
+                                  Selected Total ({selected.length})
+                                </td>
+                                <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>{totOpen}</td>
+                                <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>{totClosed}</td>
+                                <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', fontSize:'14px', color:totUnr>=0?'var(--bull)':'var(--bear)' }}>{totUnr>=0?'+':'−'}Rs.{toINR(Math.abs(totUnr))}</td>
+                                <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontFamily:'DM Mono, monospace', fontSize:'14px', color:totRel>=0?'var(--bull)':'var(--bear)' }}>{totRel>=0?'+':'−'}Rs.{toINR(Math.abs(totRel))}</td>
+                                <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>Rs.{toINRd(totMtf)}</td>
+                                <td style={{ padding:'10px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px', color: totAvail >= 0 ? 'var(--bull)' : 'var(--bear)' }}>Rs.{toINR(Math.abs(totAvail))}</td>
+                              </tr>
                             )}
-                            {unselected.map(renderRow)}
+                            {unfetchedRows.length > 0 && (
+                              <>
+                                <tr>
+                                  <td colSpan={8} style={{ padding:'6px 12px', background:'rgba(245,158,11,0.06)', borderTop:'2px solid var(--gold)', borderBottom:'1px solid var(--gold)' }}>
+                                    <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'11px', color:'var(--gold)', letterSpacing:'0.08em' }}>SUBSCRIBER'S ACCOUNTS</span>
+                                  </td>
+                                </tr>
+                                {unfetchedRows.map(renderRow)}
+                              </>
+                            )}
                           </>
                         )
                       })()}
