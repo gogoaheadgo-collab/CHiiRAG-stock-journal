@@ -819,6 +819,8 @@ export default function Dashboard() {
                         const totAvail = selected.filter(r => r._avail !== null).reduce((s, r) => s + r._avail, 0)
 
                         const adminRows = bd.filteredData.filter(r => r.isOwn || r.isFetched !== false)
+                        const adminSelected = adminRows.filter(r => selectedAccounts.has(r.name))
+                        const adminUnselected = adminRows.filter(r => !selectedAccounts.has(r.name))
                         const unfetchedRows = bd.filteredData.filter(r => r.isFetched === false)
                         return (
                           <>
@@ -827,7 +829,7 @@ export default function Dashboard() {
                                 <span style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'11px', color:'var(--accent)', letterSpacing:'0.08em' }}>ADMIN'S ACCOUNTS</span>
                               </td>
                             </tr>
-                            {adminRows.map(renderRow)}
+                            {adminSelected.map(renderRow)}
                             {selected.length > 0 && (
                               <tr style={{ borderTop:'2px solid var(--accent)', background:'var(--accent-dim)' }}>
                                 <td style={{ padding:'10px 4px', textAlign:'center' }}>
@@ -843,6 +845,12 @@ export default function Dashboard() {
                                 <td style={{ padding:'10px 12px', textAlign:'right', color:'var(--gold)', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px' }}>Rs.{toINRd(totMtf)}</td>
                                 <td style={{ padding:'10px 12px', textAlign:'right', fontFamily:'DM Mono, monospace', fontWeight:800, fontSize:'14px', color: totAvail >= 0 ? 'var(--bull)' : 'var(--bear)' }}>Rs.{toINR(Math.abs(totAvail))}</td>
                               </tr>
+                            )}
+                            {adminUnselected.length > 0 && (
+                              <>
+                                <tr><td colSpan={8} style={{ padding:'6px 0', border:'none' }}></td></tr>
+                                {adminUnselected.map(renderRow)}
+                              </>
                             )}
                             {unfetchedRows.length > 0 && (
                               <>
