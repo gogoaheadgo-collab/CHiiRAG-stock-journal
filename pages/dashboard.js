@@ -517,7 +517,7 @@ export default function Dashboard() {
         isOwn: false,
         available_fund: subTotalFund - subDeployed,
       }
-    })
+    }),
     ...allSubscribers
       .filter(s => !mirroredAccounts.some(m => m.subscriber_id === s.id))
       .map(s => ({
