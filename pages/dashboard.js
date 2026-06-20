@@ -245,6 +245,7 @@ export default function Dashboard() {
   const [mirroredTrades, setMirroredTrades] = useState({})
   const [mirroredExecs, setMirroredExecs] = useState({})
   const [mirroredSubAccounts, setMirroredSubAccounts] = useState({})
+  const [allSubscribers, setAllSubscribers] = useState([])
   const [sharedAdminTrades, setSharedAdminTrades] = useState([])
   const [sharedAdminExecs, setSharedAdminExecs] = useState([])
   const [selectedAccounts, setSelectedAccounts] = useState(() => {
@@ -340,10 +341,15 @@ export default function Dashboard() {
     if (session?.user?.email !== ADMIN) return
     const load = async () => {
       const token = await getToken()
-      const res = await fetch('/api/admin/mirror', { headers:{ Authorization:`Bearer ${token}` } })
+      const [res, resAll] = await Promise.all([
+        fetch('/api/admin/mirror', { headers:{ Authorization:`Bearer ${token}` } }),
+        fetch('/api/admin/all-subscribers', { headers:{ Authorization:`Bearer ${token}` } }),
+      ])
       const data = await res.json()
+      const allSubs = await resAll.json()
       if (!Array.isArray(data)) return
       setMirroredAccounts(data)
+      if (Array.isArray(allSubs)) setAllSubscribers(allSubs)
       data.forEach(async m => {
         const r = await fetch(`/api/admin/subscriber-trades?user_id=${m.subscriber_id}`, { headers:{ Authorization:`Bearer ${token}` } })
         const d = await r.json()
@@ -512,13 +518,23 @@ export default function Dashboard() {
         available_fund: subTotalFund - subDeployed,
       }
     })
+    ...allSubscribers
+      .filter(s => !mirroredAccounts.some(m => m.subscriber_id === s.id))
+      .map(s => ({
+        name: s.name.split(' ')[0] + "'s",
+        trades: [],
+        execs: [],
+        isOwn: false,
+        isFetched: false,
+        available_fund: 0,
+      }))
   ] : []
 
   const breakdownRows = useMemo(() =>
-    subscriberBreakdown.map(({ name, trades: t, execs: e, isOwn, available_fund }) => {
+    subscriberBreakdown.map(({ name, trades: t, execs: e, isOwn, isFetched = true, available_fund }) => {
       const deployed = t.filter(x => x.status === 'OPEN').reduce((s, x) => s + (Number(x.actual_investment) || Number(x.invested_capital) || 0), 0)
       return {
-        name, isOwn,
+        name, isOwn, isFetched,
         _open: t.filter(x => x.status === 'OPEN').length,
         _closed: t.filter(x => x.status === 'CLOSED').length,
         _unr: calcUnrealised(t, e),
@@ -728,8 +744,18 @@ export default function Dashboard() {
                         const selected = bd.filteredData.filter(r => selectedAccounts.has(r.name))
                         const unselected = bd.filteredData.filter(r => !selectedAccounts.has(r.name))
                         const renderRow = (row) => {
-                          const { name, isOwn, _open, _closed, _unr, _rel, _mtf, _avail } = row
+                          const { name, isOwn, isFetched = true, _open, _closed, _unr, _rel, _mtf, _avail } = row
                           const isSel = selectedAccounts.has(name)
+                          if (!isFetched) return (
+                            <tr key={name} style={{ borderBottom:'1px solid var(--border)', opacity: 0.5 }}>
+                              <td style={{ padding:'8px 4px', textAlign:'center' }} />
+                              <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', color:'var(--muted)' }}>
+                                <span style={{ fontWeight:700 }}>{name}</span>
+                                <span style={{ marginLeft:'6px', fontSize:'8px', background:'rgba(100,100,100,0.1)', color:'var(--muted)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>NOT FETCHED</span>
+                              </td>
+                              <td colSpan={6} style={{ padding:'8px 12px', textAlign:'center', fontFamily:'DM Mono, monospace', fontSize:'10px', color:'var(--muted)' }}>— go to Subscribers page to fetch —</td>
+                            </tr>
+                          )
                           return (
                             <tr key={name} style={{ borderBottom:'1px solid var(--border)', background: isSel ? 'var(--accent-dim)' : 'transparent' }}>
                               <td style={{ padding:'8px 4px', textAlign:'center' }}>
@@ -739,7 +765,7 @@ export default function Dashboard() {
                               <td style={{ padding:'8px 12px', fontFamily:'DM Mono, monospace', color:'var(--text)' }}>
                                 <span style={{ fontWeight:700 }}>{name}</span>
                                 {isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'var(--accent-dim)', color:'var(--accent)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MINE</span>}
-                                {!isOwn && <span style={{ marginLeft:'6px', fontSize:'8px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MIRRORED</span>}
+                                {!isOwn && isFetched && <span style={{ marginLeft:'6px', fontSize:'8px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'1px 5px', borderRadius:'3px', fontWeight:600 }}>MIRRORED</span>}
                               </td>
                               <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--accent)', fontFamily:'DM Mono, monospace' }}>{_open}</td>
                               <td style={{ padding:'8px 12px', textAlign:'right', color:'var(--muted)', fontFamily:'DM Mono, monospace' }}>{_closed}</td>
