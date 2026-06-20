@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   const { data: profiles } = await adminSupabase
     .from('profiles')
     .select('id, full_name, email, status')
-    .eq('status', 'approved')
+    .in('status', ['approved', 'rejected'])
 
   const { data: authUsers } = await adminSupabase.auth.admin.listUsers()
   const authMap = {}
