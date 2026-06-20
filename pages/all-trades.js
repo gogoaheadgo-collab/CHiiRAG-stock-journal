@@ -184,7 +184,7 @@ export default function AllTradesPage() {
 
   const downloadCSV = () => {
     const list = tf.statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===tf.statusFilter)
-    const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Return%','Status','Avg Hold Days','R-Multiple']
+    const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Return%','Status','Avg Hold Days','SL Price','R-Multiple']
     const rows = list.map(({trade, execMap: rowExecMap}) => {
       const exs = rowExecMap?.[trade.id] || []
       const sold = exs.reduce((s,e) => s + Number(e.quantity), 0)
@@ -241,7 +241,7 @@ export default function AllTradesPage() {
       const rMultiple = entry > 0 && slPrice > 0 && avgExitForR > 0 && (entry - slPrice) > 0
         ? ((avgExitForR - entry) / (entry - slPrice)).toFixed(2)
         : ''
-      return [trade.ticker, trade.direction, trade.account||'', trade.entry_date, entry, exitPrice, orig, curr, investment ? investment.toFixed(2) : '', actualInv ? actualInv.toFixed(2) : '', trade.mtf_interest_rate||'', mtfAccrued, unrealised!==''?unrealised.toFixed(2):'', realised.toFixed(2), returnPct, trade.status, avgHoldDays, rMultiple]
+      return [trade.ticker, trade.direction, trade.account||'', trade.entry_date, entry, exitPrice, orig, curr, investment ? investment.toFixed(2) : '', actualInv ? actualInv.toFixed(2) : '', trade.mtf_interest_rate||'', mtfAccrued, unrealised!==''?unrealised.toFixed(2):'', realised.toFixed(2), returnPct, trade.status, avgHoldDays, slPrice.toFixed(2), rMultiple]
     })
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
     triggerCSVDownload(csv, 'all-trades.csv')
