@@ -424,13 +424,15 @@ export default function Dashboard() {
   const ownTradeIds = new Set(trades.map(t => t.id))
   const ownUserId = session?.user?.id
   // Exclude mirrored subscribers who are the same user as admin (prevents double-count)
+  // Also exclude unfetched subscribers — their data should not affect tiles
+  const fetchedSubIds = new Set(mirroredAccounts.map(m => m.subscriber_id))
   const otherMirroredTrades = isAdmin
-    ? Object.entries(mirroredTrades).filter(([subId]) => subId !== ownUserId).flatMap(([, ts]) => ts)
+    ? Object.entries(mirroredTrades).filter(([subId]) => subId !== ownUserId && fetchedSubIds.has(subId)).flatMap(([, ts]) => ts)
     : []
   const allMirroredTrades = otherMirroredTrades.filter(t => !ownTradeIds.has(t.id))
   const mirroredTradeIds = new Set(allMirroredTrades.map(t => t.id))
   const allMirroredExecs = isAdmin
-    ? Object.entries(mirroredExecs).filter(([subId]) => subId !== ownUserId).flatMap(([, es]) => es).filter(e => mirroredTradeIds.has(e.trade_id))
+    ? Object.entries(mirroredExecs).filter(([subId]) => subId !== ownUserId && fetchedSubIds.has(subId)).flatMap(([, es]) => es).filter(e => mirroredTradeIds.has(e.trade_id))
     : []
   // For subscribers: include shared admin account trades
   const sharedExecsFiltered = sharedAdminTrades.length > 0
