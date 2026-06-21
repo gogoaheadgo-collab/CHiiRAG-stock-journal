@@ -514,14 +514,13 @@ export default function Dashboard() {
     ...mirroredAccounts.map(m=>{
       const subTrades = allMirroredTrades.filter(t => (mirroredTrades[m.subscriber_id]||[]).some(mt=>mt.id===t.id))
       const subAccounts = mirroredSubAccounts[m.subscriber_id] || []
-      const subDeployed = subTrades.filter(t=>t.status==='OPEN').reduce((s,t)=>s+(Number(t.actual_investment)||Number(t.invested_capital)||0),0)
       const subTotalFund = subAccounts.reduce((s,a)=>s+(Number(a.available_fund)||0),0)
       return {
         name:(m.subscriber_name||m.subscriber_email||'').split(' ')[0]+"'s",
         trades: subTrades,
         execs: allMirroredExecs.filter(e => (mirroredTrades[m.subscriber_id]||[]).some(mt=>mt.id===e.trade_id)),
         isOwn: false,
-        available_fund: subTotalFund - subDeployed,
+        available_fund: subTotalFund,
       }
     }),
     ...allSubscribers
@@ -530,7 +529,6 @@ export default function Dashboard() {
         const subTrades = mirroredTrades[s.id] || []
         const subExecs = mirroredExecs[s.id] || []
         const subAccounts = mirroredSubAccounts[s.id] || []
-        const subDeployed = subTrades.filter(t=>t.status==='OPEN').reduce((acc,t)=>acc+(Number(t.actual_investment)||Number(t.invested_capital)||0),0)
         const subTotalFund = subAccounts.reduce((acc,a)=>acc+(Number(a.available_fund)||0),0)
         return {
           name: s.name + "'s",
@@ -538,7 +536,7 @@ export default function Dashboard() {
           execs: subExecs,
           isOwn: false,
           isFetched: false,
-          available_fund: subTotalFund - subDeployed,
+          available_fund: subTotalFund,
         }
       })
   ] : []
