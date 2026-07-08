@@ -6,7 +6,6 @@ const ITEMS = [
   { label: 'Accounts',        path: '/accounts',        icon: '◰' },
   { label: 'All Trades',      path: '/all-trades',      icon: '◫' },
   { label: 'Bank',            path: '/bank',            icon: '◧' },
-  { label: 'Alerts',          path: '/alerts',          icon: '◉' },
   { label: 'Notes',           path: '/notes',           icon: '◱' },
   { label: 'Revenue Sharing', path: '/revenue-sharing', icon: '◍' },
 ]
