@@ -64,8 +64,9 @@ async function sendEmail(to, subject, html) {
 
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end()
-  const secret = req.headers['x-cron-secret'] || req.query.secret
-  if (secret !== CRON_SECRET) return res.status(401).json({ error: 'Unauthorized' })
+  const authHeader = req.headers['authorization'] || ''
+  const secret = req.headers['x-cron-secret'] || req.query.secret || authHeader.replace('Bearer ', '')
+  if (secret !== CRON_SECRET && secret !== process.env.VERCEL_CRON_SECRET) return res.status(401).json({ error: 'Unauthorized' })
 
   const today = new Date().toISOString().slice(0, 10)
   const { data: alerts } = await adminSupabase.from('price_alerts').select('*').eq('status', 'ACTIVE').gte('valid_till', today)
