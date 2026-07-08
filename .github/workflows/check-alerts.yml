@@ -1,0 +1,17 @@
+name: Check Price Alerts
+
+on:
+  schedule:
+    - cron: '*/15 3-10 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  check-alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call check-alerts API
+        run: |
+          curl -sf -X GET \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "https://smk-stock-journal.vercel.app/api/check-alerts" \
+            | jq .

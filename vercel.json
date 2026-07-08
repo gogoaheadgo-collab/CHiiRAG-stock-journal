@@ -7,10 +7,6 @@
     {
       "path": "/api/cron-result-reminder",
       "schedule": "30 1 * * *"
-    },
-    {
-      "path": "/api/check-alerts",
-      "schedule": "*/15 3-10 * * 1-5"
     }
   ]
 }
