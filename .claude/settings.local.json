@@ -35,7 +35,10 @@
       "Bash(git rm *)",
       "Bash(git reset *)",
       "Bash(npx tsc *)",
-      "Bash(npx --no-install tsc --noEmit)"
+      "Bash(npx --no-install tsc --noEmit)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__list_tables",
+      "mcp__claude_ai_Supabase__execute_sql"
     ]
   }
 }

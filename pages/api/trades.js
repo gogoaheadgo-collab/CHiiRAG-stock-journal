@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { setCors } from '../../lib/cors'
+import { updateMfeMaeForTrade } from '../../lib/updateTradeMfeMae'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -47,6 +48,9 @@ export default async function handler(req, res) {
       .select()
       .single()
     if (error) return res.status(500).json({ error: error.message })
+    if (updates.status === 'CLOSED' || updates.exit_date) {
+      updateMfeMaeForTrade(supabase, data.id)
+    }
     return res.status(200).json(data)
   }
 
