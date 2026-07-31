@@ -184,7 +184,7 @@ export default function AllTradesPage() {
 
   const downloadCSV = () => {
     const list = tf.statusFilter==='ALL' ? allRows : allRows.filter(r=>r.trade.status===tf.statusFilter)
-    const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Return%','Status','Avg Hold Days','SL Price','R-Multiple']
+    const headers = ['Ticker','Direction','Account','Entry Date','Entry Price','Exit Price','Qty','Curr Qty','Investment','Actual Inv','MTF Rate%','MTF Accrued','Unrealised P&L','Realised P&L','Return%','Status','Avg Hold Days','SL Price','R-Multiple','MFE (R)','MAE (R)']
     const rows = list.map(({trade, execMap: rowExecMap}) => {
       const exs = rowExecMap?.[trade.id] || []
       const sold = exs.reduce((s,e) => s + Number(e.quantity), 0)
@@ -252,7 +252,9 @@ export default function AllTradesPage() {
       const unrealFmt = unrealised !== '' ? inIN(Math.round(Number(unrealised)), 0) : ''
       const realFmt = inIN(Math.round(Number(realised)), 0)
       const slFmt = inIN(slPrice, 2)
-      return [trade.ticker, trade.direction, trade.account||'', trade.entry_date, entryFmt, exitFmt, qtyFmt, currFmt, invFmt, actInvFmt, trade.mtf_interest_rate||'', mtfFmt, unrealFmt, realFmt, returnPct, trade.status, avgHoldDays, slFmt, rMultiple]
+      const mfeRFmt = inIN(trade.mfe_r, 2)
+      const maeRFmt = inIN(trade.mae_r, 2)
+      return [trade.ticker, trade.direction, trade.account||'', trade.entry_date, entryFmt, exitFmt, qtyFmt, currFmt, invFmt, actInvFmt, trade.mtf_interest_rate||'', mtfFmt, unrealFmt, realFmt, returnPct, trade.status, avgHoldDays, slFmt, rMultiple, mfeRFmt, maeRFmt]
     })
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
     triggerCSVDownload(csv, 'all-trades.csv')
@@ -342,6 +344,8 @@ export default function AllTradesPage() {
     { key:'mtf_int', label:'MTF Int',getSortValue: r => { const rc = calcRow(r.trade, r.execMap); return rc.mtfInt||0 }, sortable:true },
     { key:'unrealised', label:'Unreal. P&L', getSortValue: r => { const rc = calcRow(r.trade, r.execMap); return rc.unrealisedPnL??-Infinity }, sortable:true },
     { key:'realised',   label:'Real. P&L',   getSortValue: r => { const rc = calcRow(r.trade, r.execMap); return rc.realisedPnL??0 }, sortable:true },
+    { key:'mfe_r', label:'MFE (R)', getSortValue: r => r.trade.mfe_r != null ? Number(r.trade.mfe_r) : -Infinity, sortable:true },
+    { key:'mae_r', label:'MAE (R)', getSortValue: r => r.trade.mae_r != null ? Number(r.trade.mae_r) : -Infinity, sortable:true },
   ], [calcRow])  // eslint-disable-line
 
   const tf = useTableFilter(allRows, detailedColumns, {
@@ -666,16 +670,18 @@ export default function AllTradesPage() {
             <div style={{ border:'1px solid var(--border)', borderRadius:'8px', overflow:'hidden' }}>
               <table className="data-table">
                 <colgroup>
-                  <col style={{ width:'13%' }} />
                   <col style={{ width:'11%' }} />
-                  <col style={{ width:'9%' }} />
-                  <col style={{ width:'8%' }} />
-                  <col style={{ width:'9%' }} />
+                  <col style={{ width:'10%' }} />
                   <col style={{ width:'8%' }} />
                   <col style={{ width:'7%' }} />
+                  <col style={{ width:'8%' }} />
                   <col style={{ width:'7%' }} />
-                  <col style={{ width:'14%' }} />
-                  <col style={{ width:'14%' }} />
+                  <col style={{ width:'6%' }} />
+                  <col style={{ width:'6%' }} />
+                  <col style={{ width:'11%' }} />
+                  <col style={{ width:'11%' }} />
+                  <col style={{ width:'7%' }} />
+                  <col style={{ width:'8%' }} />
                 </colgroup>
                 <thead>
                   <tr>
@@ -703,11 +709,13 @@ export default function AllTradesPage() {
                     <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('mtf_int')}><div className="col-header" style={{ justifyContent:'flex-end' }}>MTF Int<span className={`sort-arrow ${tf.sortConfig?.key==='mtf_int'?'active':''}`}>{tf.sortConfig?.key==='mtf_int'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
                     <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('unrealised')}><div className="col-header" style={{ justifyContent:'flex-end' }}>Unreal. P&L<span className={`sort-arrow ${tf.sortConfig?.key==='unrealised'?'active':''}`}>{tf.sortConfig?.key==='unrealised'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
                     <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('realised')}><div className="col-header" style={{ justifyContent:'flex-end' }}>Real. P&L<span className={`sort-arrow ${tf.sortConfig?.key==='realised'?'active':''}`}>{tf.sortConfig?.key==='realised'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('mfe_r')}><div className="col-header" style={{ justifyContent:'flex-end' }}>MFE (R)<span className={`sort-arrow ${tf.sortConfig?.key==='mfe_r'?'active':''}`}>{tf.sortConfig?.key==='mfe_r'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
+                    <th className="r" style={{ cursor:'pointer' }} onClick={() => tf.handleSort('mae_r')}><div className="col-header" style={{ justifyContent:'flex-end' }}>MAE (R)<span className={`sort-arrow ${tf.sortConfig?.key==='mae_r'?'active':''}`}>{tf.sortConfig?.key==='mae_r'?(tf.sortConfig.direction==='asc'?'↑':'↓'):'↕'}</span></div></th>
                   </tr>
                 </thead>
                 <tbody>
                   {tf.filteredData.filter(r => !tradesSearchQuery || r.trade.ticker.toLowerCase().includes(tradesSearchQuery.toLowerCase())).length === 0 ? (
-                    <tr><td colSpan={10} style={{ textAlign:'center', padding:'40px', color:'var(--muted)' }}>No trades found.</td></tr>
+                    <tr><td colSpan={12} style={{ textAlign:'center', padding:'40px', color:'var(--muted)' }}>No trades found.</td></tr>
                   ) : tf.filteredData.filter(r => !tradesSearchQuery || r.trade.ticker.toLowerCase().includes(tradesSearchQuery.toLowerCase())).map(({ trade, execMap, isSub, subName }) => {
                     const r = calcRow(trade, execMap)
                     const accountLabel = isSub
@@ -762,6 +770,12 @@ export default function AllTradesPage() {
                           {r.realisedPnL !== 0 || trade.status==='CLOSED'
                             ? <span className={r.realisedPnL>=0?'pnl-pos':'pnl-neg'}>{pnlSign(r.realisedPnL)}Rs.{toINRd(Math.abs(r.realisedPnL))}</span>
                             : <span className="neutral">—</span>}
+                        </td>
+                        <td className="num">
+                          {trade.mfe_r != null ? `${toINRd(trade.mfe_r)}R` : <span className="neutral">—</span>}
+                        </td>
+                        <td className="num">
+                          {trade.mae_r != null ? `${toINRd(trade.mae_r)}R` : <span className="neutral">—</span>}
                         </td>
                       </tr>
                     )
