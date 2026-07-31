@@ -232,6 +232,42 @@ function PnLCalendar({ trades, allExecs, resultAnnouncements = [] }) {
   )
 }
 
+// ── Indian Financial Year helpers (Apr 1 – Mar 31) ──
+function getFYLabel(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  const startYear = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1
+  return `FY ${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`
+}
+
+function getFYDateRange(fyLabel) {
+  const m = fyLabel?.match(/FY (\d{4})/)
+  if (!m) return { start: null, end: null }
+  const startYear = Number(m[1])
+  return { start: `${startYear}-04-01`, end: `${startYear + 1}-03-31` }
+}
+
+function getFYQuarterRange(fyLabel, quarterNum) {
+  const m = fyLabel?.match(/FY (\d{4})/)
+  if (!m) return { start: null, end: null }
+  const startYear = Number(m[1])
+  const endYear = startYear + 1
+  const ranges = {
+    1: { start: `${startYear}-04-01`, end: `${startYear}-06-30` },
+    2: { start: `${startYear}-07-01`, end: `${startYear}-09-30` },
+    3: { start: `${startYear}-10-01`, end: `${startYear}-12-31` },
+    4: { start: `${endYear}-01-01`, end: `${endYear}-03-31` },
+  }
+  return ranges[quarterNum] || { start: null, end: null }
+}
+
+function getMonthDateRange(monthStr) {
+  const [y, m] = monthStr.split('-').map(Number)
+  const start = `${monthStr}-01`
+  const end = format(endOfMonth(new Date(y, m - 1, 1)), 'yyyy-MM-dd')
+  return { start, end }
+}
+
 export default function Dashboard() {
   const router = useRouter()
   const [session, setSession] = useState(null)
@@ -255,6 +291,9 @@ export default function Dashboard() {
       return saved ? new Set(JSON.parse(saved)) : new Set()
     } catch { return new Set() }
   })
+  const [selectedFY, setSelectedFY] = useState('ALL')
+  const [selectedQuarter, setSelectedQuarter] = useState('ALL')
+  const [selectedMonth, setSelectedMonth] = useState('ALL')
 
   const isAdmin = session?.user?.email === ADMIN
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
@@ -447,11 +486,61 @@ export default function Dashboard() {
     _realised: allExecs.filter(e=>e.trade_id===t.id).reduce((s,e)=>s+(Number(e.price)-Number(t.entry_price))*Number(e.quantity),0)
   }))
 
-  const openTrades = allTrades.filter(t=>t.status==='OPEN')
-  const closedTrades = allTrades.filter(t=>t.status==='CLOSED')
-  const totalRealised = calcRealised(allTrades, allExecs)
-  const totalUnrealised = calcUnrealised(allTrades, allExecs)
-  const totalMTF = calcMTF(allTrades)
+  // ── FY / Quarter / Month filter ──
+  const fyOptions = useMemo(() => {
+    const dates = allTrades.map(t => t.entry_date).filter(Boolean)
+    if (dates.length === 0) return []
+    const minDate = dates.reduce((a,b) => a < b ? a : b)
+    const maxDate = dates.reduce((a,b) => a > b ? a : b)
+    const minYear = Number(getFYLabel(minDate).match(/FY (\d{4})/)[1])
+    const maxYear = Number(getFYLabel(maxDate).match(/FY (\d{4})/)[1])
+    const opts = []
+    for (let y = maxYear; y >= minYear; y--) opts.push(`FY ${y}-${String((y+1)%100).padStart(2,'0')}`)
+    return opts
+  }, [allTrades])
+
+  const quarterOptions = selectedFY === 'ALL' ? [] : [1,2,3,4]
+
+  const monthOptions = useMemo(() => {
+    if (selectedFY === 'ALL') return []
+    const startYear = Number(selectedFY.match(/FY (\d{4})/)[1])
+    const allMonths = Array.from({ length: 12 }, (_, i) => ({
+      monthIndex: (3 + i) % 12,
+      year: i < 9 ? startYear : startYear + 1,
+    }))
+    const slice = selectedQuarter === 'ALL' ? allMonths : allMonths.slice((Number(selectedQuarter)-1)*3, Number(selectedQuarter)*3)
+    return slice.map(({ year, monthIndex }) => ({
+      value: `${year}-${String(monthIndex+1).padStart(2,'0')}`,
+      label: format(new Date(year, monthIndex, 1), 'MMM yyyy'),
+    }))
+  }, [selectedFY, selectedQuarter])
+
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    if (selectedFY === 'ALL') return { rangeStart: null, rangeEnd: null }
+    if (selectedMonth !== 'ALL') { const r = getMonthDateRange(selectedMonth); return { rangeStart: r.start, rangeEnd: r.end } }
+    if (selectedQuarter !== 'ALL') { const r = getFYQuarterRange(selectedFY, Number(selectedQuarter)); return { rangeStart: r.start, rangeEnd: r.end } }
+    const r = getFYDateRange(selectedFY)
+    return { rangeStart: r.start, rangeEnd: r.end }
+  }, [selectedFY, selectedQuarter, selectedMonth])
+
+  const handleFYChange = (v) => { setSelectedFY(v); setSelectedQuarter('ALL'); setSelectedMonth('ALL') }
+  const handleQuarterChange = (v) => { setSelectedQuarter(v); setSelectedMonth('ALL') }
+
+  const inExitRange = (t) => !rangeStart || (t.exit_date && t.exit_date.slice(0,10) >= rangeStart && t.exit_date.slice(0,10) <= rangeEnd)
+  const inEntryRange = (t) => !rangeStart || (t.entry_date && t.entry_date.slice(0,10) >= rangeStart && t.entry_date.slice(0,10) <= rangeEnd)
+
+  const openTrades = allTrades.filter(t=>t.status==='OPEN' && inEntryRange(t))
+  const closedTrades = allTrades.filter(t=>t.status==='CLOSED' && inExitRange(t))
+  const rangedTrades = [...openTrades, ...closedTrades]
+  const totalRealised = calcRealised(rangedTrades, allExecs)
+  const totalUnrealised = calcUnrealised(openTrades, allExecs)
+  const totalMTF = calcMTF(rangedTrades)
+  const filteredTradesForRange = tradesWithRealised.filter(t => t.status === 'CLOSED' ? inExitRange(t) : inEntryRange(t))
+  const filteredExecsForRange = allExecs.filter(e => {
+    if (!rangeStart) return true
+    const d = (e.date || e.created_at || '').split('T')[0]
+    return d && d >= rangeStart && d <= rangeEnd
+  })
   const wins = closedTrades.filter(t => {
     const r = allExecs.filter(e=>e.trade_id===t.id).reduce((s,e)=>s+(Number(e.price)-Number(t.entry_price))*Number(e.quantity),0)
     return r > 0
@@ -569,7 +658,7 @@ export default function Dashboard() {
 
   // ── PERFORMANCE METRICS ──
   const perfMetrics = useMemo(() => {
-    const closedAll = tradesWithRealised.filter(t => t.status === 'CLOSED')
+    const closedAll = tradesWithRealised.filter(t => t.status === 'CLOSED' && (!rangeStart || (t.exit_date && t.exit_date.slice(0,10) >= rangeStart && t.exit_date.slice(0,10) <= rangeEnd)))
     const getRealisedPnL = (t) => {
       const te = allExecs.filter(e => e.trade_id === t.id)
       if (te.length > 0) return te.reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
@@ -659,7 +748,7 @@ export default function Dashboard() {
       maxDrawdown: maxDD,
       avgRMultiple: avgR, slCount: withSL.length, totalClosed: tradePnLs.length,
     }
-  }, [tradesWithRealised, allExecs, allTrades]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tradesWithRealised, allExecs, allTrades, rangeStart, rangeEnd]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!session) return null
 
@@ -692,6 +781,30 @@ export default function Dashboard() {
           <div style={{ textAlign:'center', padding:'60px', color:'var(--muted)' }}>Loading...</div>
         ) : (
           <>
+            {/* FY / QUARTER / MONTH FILTER */}
+            <div style={{ display:'flex', gap:'10px', alignItems:'center', marginBottom:'20px', flexWrap:'wrap' }}>
+              <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:'DM Mono, monospace', letterSpacing:'0.08em', textTransform:'uppercase' }}>Period</span>
+              <select value={selectedFY} onChange={e => handleFYChange(e.target.value)}
+                style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'6px 10px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', outline:'none', cursor:'pointer' }}>
+                <option value="ALL">All Time</option>
+                {fyOptions.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+              </select>
+              {selectedFY !== 'ALL' && (
+                <select value={selectedQuarter} onChange={e => handleQuarterChange(e.target.value)}
+                  style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'6px 10px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', outline:'none', cursor:'pointer' }}>
+                  <option value="ALL">All Quarters</option>
+                  {quarterOptions.map(q => <option key={q} value={q}>{`Q${q}`}</option>)}
+                </select>
+              )}
+              {selectedFY !== 'ALL' && (
+                <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                  style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'6px 10px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', outline:'none', cursor:'pointer' }}>
+                  <option value="ALL">All Months</option>
+                  {monthOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              )}
+            </div>
+
             {/* STAT CARDS */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'14px', marginBottom:'28px' }}>
               <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs.${fmtINR(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
@@ -925,7 +1038,7 @@ export default function Dashboard() {
 
             {/* CALENDAR + RECENT EXITS */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:'16px', marginBottom:'20px' }}>
-              <PnLCalendar trades={tradesWithRealised} allExecs={allExecs} resultAnnouncements={resultAnnouncements} />
+              <PnLCalendar trades={filteredTradesForRange} allExecs={filteredExecsForRange} resultAnnouncements={resultAnnouncements} />
               <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px' }}>
                 <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'14px' }}>Recent Exits</div>
                 {closedTrades.length===0 ? (
