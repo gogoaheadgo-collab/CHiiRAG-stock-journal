@@ -3,6 +3,8 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { differenceInDays, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, addMonths } from 'date-fns'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { useTableFilter, FilterDropdown } from '../components/TableFilter'
 import Sidebar from '../components/Sidebar'
 
@@ -267,6 +269,8 @@ function getMonthDateRange(monthStr) {
   const end = format(endOfMonth(new Date(y, m - 1, 1)), 'yyyy-MM-dd')
   return { start, end }
 }
+
+function clamp(v, min, max) { return Math.min(max, Math.max(min, v)) }
 
 export default function Dashboard() {
   const router = useRouter()
@@ -747,8 +751,84 @@ export default function Dashboard() {
       currentStreak: streak, streakType: sType,
       maxDrawdown: maxDD,
       avgRMultiple: avgR, slCount: withSL.length, totalClosed: tradePnLs.length,
+      grossProfit, grossLoss,
     }
   }, [tradesWithRealised, allExecs, allTrades, rangeStart, rangeEnd]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── EDGE SCORE (composite metric) ──
+  const edgeScore = useMemo(() => {
+    const pm = perfMetrics
+    if (pm.totalClosed === 0) return null
+    const pfScore = Math.min(100, (pm.profitFactor === Infinity ? 3 : pm.profitFactor) / 3 * 100)
+    const winScore = pm.winRatePct
+    const ddScore = pm.grossProfit > 0 ? clamp(100 - (pm.maxDrawdown / pm.grossProfit * 100), 0, 100) : 100
+    let score
+    if (pm.avgRMultiple !== null) {
+      const rScore = clamp(((pm.avgRMultiple + 1) / 3) * 100, 0, 100)
+      score = 0.30 * pfScore + 0.30 * rScore + 0.20 * winScore + 0.20 * ddScore
+    } else {
+      score = (0.30 * pfScore + 0.20 * winScore + 0.20 * ddScore) / 0.70 * 100
+    }
+    const grade = score >= 90 ? 'A+' : score >= 80 ? 'A' : score >= 70 ? 'B+' : score >= 60 ? 'B' : score >= 50 ? 'C' : 'D'
+    return { score: Math.round(score), grade }
+  }, [perfMetrics])
+
+  const periodLabel = selectedFY === 'ALL' ? 'All Time'
+    : selectedMonth !== 'ALL' ? (monthOptions.find(m => m.value === selectedMonth)?.label || selectedFY)
+    : selectedQuarter !== 'ALL' ? `Q${selectedQuarter} ${selectedFY}`
+    : selectedFY
+
+  const handleDownloadPDF = () => {
+    try {
+      const pm = perfMetrics
+      const doc = new jsPDF()
+
+      doc.setFontSize(16)
+      doc.text('SMK Stock Journal — Performance Report', 14, 18)
+      doc.setFontSize(11)
+      doc.setTextColor(100)
+      doc.text(periodLabel, 14, 26)
+      doc.text(`Generated on ${format(new Date(), 'dd MMM yyyy')}`, 14, 32)
+      doc.setTextColor(0)
+
+      doc.setFontSize(12)
+      doc.text('Summary', 14, 42)
+      const summaryRows = [
+        ['Win Rate', `${pm.winRatePct.toFixed(1)}%`],
+        ['Profit Factor', pm.profitFactor === Infinity ? '∞' : pm.profitFactor.toFixed(2)],
+        ['Avg R-Multiple', pm.avgRMultiple !== null ? `${pm.avgRMultiple >= 0 ? '+' : ''}${pm.avgRMultiple.toFixed(2)}R` : '—'],
+        ['Max Drawdown', pm.maxDrawdown > 0 ? `-Rs.${fmtINR(pm.maxDrawdown)}` : '—'],
+        ['Edge Score', edgeScore ? `${edgeScore.grade} · ${edgeScore.score}` : '—'],
+        ['Total Realised P&L', `${totalRealised >= 0 ? '+' : '-'}Rs.${fmtINR(Math.abs(totalRealised))}`],
+      ]
+      autoTable(doc, {
+        startY: 46,
+        body: summaryRows,
+        theme: 'plain',
+        styles: { fontSize: 10 },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60 } },
+      })
+
+      const tableRows = tradesWithRealised
+        .filter(t => t.status === 'CLOSED' && inExitRange(t))
+        .map(t => [
+          t.ticker, t.direction || '—', t.entry_date?.slice(0, 10) || '—', t.exit_date?.slice(0, 10) || '—',
+          fmtINR(t.entry_price), fmtINR(t.exit_price), Number(t.quantity).toLocaleString('en-IN'),
+          `${t._realised >= 0 ? '+' : '-'}Rs.${fmtINR(Math.abs(t._realised))}`,
+        ])
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 10,
+        head: [['Ticker', 'Direction', 'Entry Date', 'Exit Date', 'Entry Price', 'Exit Price', 'Qty', 'Realised P&L']],
+        body: tableRows,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [30, 30, 30] },
+      })
+
+      doc.save(`SMK-Performance-Report-${periodLabel.replace(/\s+/g, '-')}.pdf`)
+    } catch (e) {
+      alert('Failed to generate PDF: ' + e.message)
+    }
+  }
 
   if (!session) return null
 
@@ -803,6 +883,10 @@ export default function Dashboard() {
                   {monthOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               )}
+              <button onClick={handleDownloadPDF}
+                style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'6px', padding:'6px 12px', color:'var(--text)', fontSize:'12px', fontFamily:'DM Mono, monospace', outline:'none', cursor:'pointer' }}>
+                ⬇ Download PDF Report
+              </button>
             </div>
 
             {/* STAT CARDS */}
@@ -810,6 +894,11 @@ export default function Dashboard() {
               <StatCard label="Unrealised P&L" value={`${totalUnrealised>=0?'+':'−'}Rs.${fmtINR(Math.abs(totalUnrealised))}`} color={totalUnrealised>=0?'var(--bull)':'var(--bear)'} sub={`${openTrades.length} open positions`} />
               <StatCard label="Realised P&L" value={`${totalRealised>=0?'+':'−'}Rs.${fmtINR(Math.abs(totalRealised))}`} color={totalRealised>=0?'var(--bull)':'var(--bear)'} sub={`${closedTrades.length} closed trades`} />
               <StatCard label="Win Rate" value={`${winRate}%`} color="var(--accent)" sub={`${wins.length}W · ${closedTrades.length-wins.length}L`} />
+              {edgeScore && (
+                <StatCard label="Edge Score" value={`${edgeScore.grade} · ${edgeScore.score}`}
+                  color={edgeScore.grade === 'A+' || edgeScore.grade === 'A' ? 'var(--bull)' : edgeScore.grade === 'B+' || edgeScore.grade === 'B' ? 'var(--gold)' : 'var(--bear)'}
+                  sub={selectedFY === 'ALL' ? 'all time' : 'this period'} />
+              )}
               <StatCard label="Fund Deployed" value={`Rs.${fmtINR(fundDeployed)}`} color="var(--accent)" sub={`across ${openTrades.length} open trades`} />
               <StatCard label="MTF Interest" value={`Rs.${fmtINR(totalMTF)}`} color="var(--gold)" sub="Accrued" />
               <StatCard label="Total Trades" value={allTrades.length} sub={`${openTrades.length} open · ${closedTrades.length} closed`} />
