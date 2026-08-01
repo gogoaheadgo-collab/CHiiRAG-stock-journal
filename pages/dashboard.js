@@ -20,6 +20,16 @@ function StatCard({ label, value, sub, color }) {
   )
 }
 
+function MetricTile({ label, value, color, sub }) {
+  return (
+    <div style={{ padding:'10px 12px', background:'var(--bg)', borderRadius:'5px', border:'1px solid var(--border)', minWidth:0 }}>
+      <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'5px', fontFamily:'DM Mono, monospace', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
+      <div style={{ fontSize:'13px', fontWeight:700, fontFamily:"'DM Mono', monospace", color: color || 'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{value}</div>
+      {sub && <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'3px', fontFamily:'DM Mono, monospace' }}>{sub}</div>}
+    </div>
+  )
+}
+
 function PnLCalendar({ trades, allExecs, resultAnnouncements = [] }) {
   const [month, setMonth] = useState(new Date())
   const [selectedCalDay, setSelectedCalDay] = useState(null)
@@ -773,6 +783,51 @@ export default function Dashboard() {
     return { score: Math.round(score), grade }
   }, [perfMetrics])
 
+  // ── DISCIPLINE ANALYSIS (checklist / exit reason / conviction) ──
+  const disciplineAnalysis = useMemo(() => {
+    const closedAll = tradesWithRealised.filter(t => t.status === 'CLOSED' && (!rangeStart || (t.exit_date && t.exit_date.slice(0,10) >= rangeStart && t.exit_date.slice(0,10) <= rangeEnd)))
+    const getRealisedPnL = (t) => {
+      const te = allExecs.filter(e => e.trade_id === t.id)
+      if (te.length > 0) return te.reduce((s, e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
+      if (t.exit_price) return (Number(t.exit_price) - Number(t.entry_price)) * Number(t.quantity)
+      return 0
+    }
+    const withPnL = closedAll.map(t => ({ ...t, _pnl: getRealisedPnL(t) }))
+    const bucketStats = (list) => ({
+      count: list.length,
+      winRatePct: list.length > 0 ? (list.filter(t => t._pnl > 0).length / list.length * 100) : 0,
+      avgPnL: list.length > 0 ? list.reduce((s, t) => s + t._pnl, 0) / list.length : 0,
+    })
+
+    const checklistBuckets = [
+      { key: 'followed', label: 'Followed', ...bucketStats(withPnL.filter(t => t.checklist_pass_rate === 100)) },
+      { key: 'skipped', label: 'Skipped Some', ...bucketStats(withPnL.filter(t => t.checklist_pass_rate != null && t.checklist_pass_rate < 100)) },
+      { key: 'none', label: 'No Checklist', ...bucketStats(withPnL.filter(t => t.checklist_pass_rate == null)) },
+    ].filter(b => b.count > 0)
+
+    const reasonMap = {}
+    withPnL.forEach(t => {
+      const reason = t.exit_reason || 'Not Recorded'
+      if (!reasonMap[reason]) reasonMap[reason] = []
+      reasonMap[reason].push(t)
+    })
+    const exitReasonBuckets = Object.entries(reasonMap).map(([reason, list]) => ({
+      key: reason, label: reason, isDiscretionary: reason === 'Discretionary', ...bucketStats(list),
+    }))
+
+    const convMap = {}
+    withPnL.forEach(t => {
+      const c = t.conviction != null ? String(t.conviction) : 'Not Recorded'
+      if (!convMap[c]) convMap[c] = []
+      convMap[c].push(t)
+    })
+    const convictionBuckets = ['1', '2', '3', '4', '5', 'Not Recorded']
+      .map(k => ({ key: k, label: k === 'Not Recorded' ? k : `${k} ★`, ...bucketStats(convMap[k] || []) }))
+      .filter(b => b.count > 0)
+
+    return { checklistBuckets, exitReasonBuckets, convictionBuckets }
+  }, [tradesWithRealised, allExecs, rangeStart, rangeEnd])
+
   const periodLabel = selectedFY === 'ALL' ? 'All Time'
     : selectedMonth !== 'ALL' ? (monthOptions.find(m => m.value === selectedMonth)?.label || selectedFY)
     : selectedQuarter !== 'ALL' ? `Q${selectedQuarter} ${selectedFY}`
@@ -1305,6 +1360,56 @@ export default function Dashboard() {
                 </div>
               )
             })()}
+
+            {/* CHECKLIST DISCIPLINE */}
+            {disciplineAnalysis.checklistBuckets.length > 0 && (
+              <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginTop:'20px' }}>
+                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'16px' }}>Checklist Discipline</div>
+                {disciplineAnalysis.checklistBuckets.map(b => (
+                  <div key={b.key} style={{ marginBottom:'12px' }}>
+                    <div style={{ fontSize:'10px', color:'var(--text)', fontFamily:'DM Mono, monospace', letterSpacing:'0.08em', textTransform:'uppercase', fontWeight:700, marginBottom:'8px' }}>
+                      {b.label} <span style={{ color:'var(--muted)', fontWeight:400, textTransform:'none', letterSpacing:'normal' }}>· {b.count} trade{b.count>1?'s':''}</span>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'8px' }}>
+                      <MetricTile label="Win Rate" value={`${b.winRatePct.toFixed(1)}%`} color="var(--accent)" />
+                      <MetricTile label="Avg Realised P&L" value={`${b.avgPnL>=0?'+':'−'}Rs.${fmtINR(Math.abs(b.avgPnL))}`} color={b.avgPnL>=0?'var(--bull)':'var(--bear)'} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* EXIT REASON PERFORMANCE */}
+            {disciplineAnalysis.exitReasonBuckets.length > 0 && (
+              <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginTop:'20px' }}>
+                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'16px' }}>Exit Reason Performance</div>
+                {disciplineAnalysis.exitReasonBuckets.map(b => (
+                  <div key={b.key} style={{ marginBottom:'12px' }}>
+                    <div style={{ fontSize:'10px', color: b.isDiscretionary ? 'var(--gold)' : 'var(--text)', fontFamily:'DM Mono, monospace', letterSpacing:'0.08em', textTransform:'uppercase', fontWeight:700, marginBottom:'8px', display:'flex', alignItems:'center', gap:'8px' }}>
+                      <span>{b.label}</span>
+                      {b.isDiscretionary && <span style={{ fontSize:'8px', background:'rgba(245,158,11,0.1)', color:'var(--gold)', padding:'1px 6px', borderRadius:'3px', fontWeight:700, textTransform:'uppercase' }}>Discretionary</span>}
+                      <span style={{ color:'var(--muted)', fontWeight:400, textTransform:'none', letterSpacing:'normal' }}>· {b.count} trade{b.count>1?'s':''}</span>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'8px' }}>
+                      <MetricTile label="Win Rate" value={`${b.winRatePct.toFixed(1)}%`} color="var(--accent)" />
+                      <MetricTile label="Avg Realised P&L" value={`${b.avgPnL>=0?'+':'−'}Rs.${fmtINR(Math.abs(b.avgPnL))}`} color={b.avgPnL>=0?'var(--bull)':'var(--bear)'} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* CONVICTION CORRELATION */}
+            {disciplineAnalysis.convictionBuckets.length > 0 && (
+              <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', padding:'20px', marginTop:'20px' }}>
+                <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:700, fontSize:'13px', color:'var(--text)', marginBottom:'16px' }}>Conviction Correlation</div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'8px' }}>
+                  {disciplineAnalysis.convictionBuckets.map(b => (
+                    <MetricTile key={b.key} label={`${b.label} · ${b.count} trade${b.count>1?'s':''}`} value={`${b.avgPnL>=0?'+':'−'}Rs.${fmtINR(Math.abs(b.avgPnL))}`} color={b.avgPnL>=0?'var(--bull)':'var(--bear)'} sub={`${b.winRatePct.toFixed(1)}% win rate`} />
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>

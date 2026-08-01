@@ -1174,7 +1174,7 @@ export default function AccountsPage() {
                           {expandedTrade === trade.id && (
                             <tr key={`exec-${trade.id}`}>
                               <td colSpan={11} style={{ padding:0, background:'var(--surface)', borderBottom:'2px solid var(--accent)' }}>
-                                <ExecutionPanel trade={trade} executions={executions[trade.id]||[]} onAdd={(exec) => addExecution(trade.id, exec)} onDelete={(execId) => deleteExecution(execId, trade.id)} onAutoClose={(updates) => handleAutoClose(trade.id, updates)} />
+                                <ExecutionPanel trade={trade} executions={executions[trade.id]||[]} onAdd={(exec) => addExecution(trade.id, exec)} onDelete={(execId) => deleteExecution(execId, trade.id)} onAutoClose={(updates) => handleAutoClose(trade.id, updates)} session={session} />
                               </td>
                             </tr>
                           )}

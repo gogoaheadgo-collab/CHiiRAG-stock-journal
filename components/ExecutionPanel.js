@@ -1,12 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
-export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onAutoClose, isReadOnly = false }) {
+export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onAutoClose, isReadOnly = false, session }) {
   const [showForm, setShowForm] = useState(false)
   const [qty, setQty] = useState('')
   const [price, setPrice] = useState('')
   const [date, setDate] = useState(new Date().toISOString().slice(0,10))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [exitReasons, setExitReasons] = useState([])
+  const [selectedExitReason, setSelectedExitReason] = useState('')
+
+  useEffect(() => {
+    const token = session?.access_token
+    if (!token || isReadOnly) return
+    fetch('/api/exit-reasons', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.json())
+      .then(data => setExitReasons(Array.isArray(data) ? data : []))
+      .catch(() => setExitReasons([]))
+  }, [session, isReadOnly])
 
   const totalQty = Number(trade.quantity) || 0
   const entryPrice = Number(trade.entry_price) || 0
@@ -47,15 +58,17 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
     const priceNum = parseFloat(price)
     if (!qtyNum || !priceNum || !date) { setError('All fields required'); return }
     if (qtyNum > remainingQty) { setError(`Max qty is ${remainingQty}`); return }
+    const willClose = qtyNum >= remainingQty
+    if (willClose && !selectedExitReason) { setError('Exit reason is required to close this trade'); return }
     setSaving(true)
     try {
       await onAdd({ type:'SELL', quantity:qtyNum, price:priceNum, date })
       const newSoldQty = soldQty + qtyNum
       if (newSoldQty >= totalQty && onAutoClose) {
         const newTotalRealised = totalRealised + (priceNum - entryPrice) * qtyNum
-        await onAutoClose({ exit_price:priceNum, exit_date:date, realized_gains:newTotalRealised, status:'CLOSED' })
+        await onAutoClose({ exit_price:priceNum, exit_date:date, realized_gains:newTotalRealised, status:'CLOSED', exit_reason:selectedExitReason })
       }
-      setQty(''); setPrice(''); setDate(new Date().toISOString().slice(0,10))
+      setQty(''); setPrice(''); setDate(new Date().toISOString().slice(0,10)); setSelectedExitReason('')
       setShowForm(false)
     } catch(err) {
       setError(err.message || 'Failed to save')
@@ -94,6 +107,15 @@ export default function ExecutionPanel({ trade, executions, onAdd, onDelete, onA
             <div><label style={lbl}>Sell Qty * (max {fmt(remainingQty)})</label><input type="number" placeholder={String(remainingQty)} value={qty} onChange={e=>setQty(e.target.value)} style={fld} autoFocus /></div>
             <div><label style={lbl}>Sell Price Rs *</label><input type="number" placeholder="0.00" value={price} onChange={e=>setPrice(e.target.value)} style={fld} /></div>
             <div><label style={lbl}>Sell Date *</label><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ ...fld, width:'150px' }} /></div>
+            {qtyNum >= remainingQty && remainingQty > 0 && (
+              <div>
+                <label style={lbl}>Exit Reason *</label>
+                <select value={selectedExitReason} onChange={e=>setSelectedExitReason(e.target.value)} style={{ ...fld, width:'170px' }}>
+                  <option value="">— Select reason —</option>
+                  {exitReasons.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+            )}
             <button onClick={handleSell} disabled={saving} style={{ padding:'7px 24px', background:'var(--bear)', border:'none', borderRadius:'5px', color:'#fff', fontSize:'13px', fontWeight:700, cursor:saving?'not-allowed':'pointer', fontFamily:'DM Mono, monospace', opacity:saving?0.7:1 }}>
               {saving ? 'Saving...' : 'Sell'}
             </button>

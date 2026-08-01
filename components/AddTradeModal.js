@@ -14,6 +14,7 @@ const EMPTY = {
   strategy: '',
   notes: '',
   stop_loss: '',
+  conviction: '',
 }
 
 export default function AddTradeModal({ session, onClose, onAdd, isAdmin, activeAccount }) {
@@ -39,6 +40,9 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
   const [mtfRateLoading, setMtfRateLoading] = useState(false)
   const [mtfError, setMtfError] = useState('')
 
+  const [checklistItems, setChecklistItems] = useState([])
+  const [checklistChecks, setChecklistChecks] = useState({})
+
   // Auto-calc total buying value
   const totalBuyingValue = form.entry_price && form.quantity
     ? parseFloat(form.entry_price) * parseFloat(form.quantity)
@@ -61,6 +65,20 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
   useEffect(() => { fetchAccounts(); fetchStrategies(); fetchMtfRates() }, [])
 
   const getToken = () => session?.access_token
+
+  useEffect(() => {
+    if (!form.strategy) { setChecklistItems([]); setChecklistChecks({}); return }
+    const token = getToken()
+    if (!token) return
+    let cancelled = false
+    fetch(`/api/checklist-items?strategy=${encodeURIComponent(form.strategy)}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.json())
+      .then(data => { if (!cancelled) { setChecklistItems(Array.isArray(data) ? data : []); setChecklistChecks({}) } })
+      .catch(() => { if (!cancelled) { setChecklistItems([]); setChecklistChecks({}) } })
+    return () => { cancelled = true }
+  }, [form.strategy]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleChecklistItem = (id) => setChecklistChecks(prev => ({ ...prev, [id]: !prev[id] }))
 
   const fetchAccounts = async () => {
     const token = getToken()
@@ -208,6 +226,10 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
     if (!form.entry_price || !form.quantity || !form.entry_date) return setError('Entry price, quantity and date are required')
     setLoading(true)
     try {
+      const checklistPassRate = checklistItems.length
+        ? (checklistItems.filter(i => checklistChecks[i.id]).length / checklistItems.length * 100)
+        : null
+      const checklistSnapshot = checklistItems.map(i => ({ item_text: i.item_text, checked: !!checklistChecks[i.id] }))
       await onAdd({
         account: form.account,
         ticker: form.ticker.toUpperCase().trim(),
@@ -219,6 +241,10 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
         actual_investment: form.actual_investment ? parseFloat(form.actual_investment) : null,
         mtf_interest_rate: form.mtf_interest_rate ? parseFloat(form.mtf_interest_rate) : null,
         notes: [form.strategy, form.notes].filter(Boolean).join(' | ') || null,
+        setup_pattern: form.strategy || null,
+        conviction: form.conviction ? parseInt(form.conviction) : null,
+        checklist_snapshot: checklistSnapshot,
+        checklist_pass_rate: checklistPassRate,
         stop_loss: form.stop_loss ? parseFloat(form.stop_loss) : null,
         status: 'OPEN',
       })
@@ -482,6 +508,36 @@ export default function AddTradeModal({ session, onClose, onAdd, isAdmin, active
               <input value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Setup, catalyst, plan..." style={fieldStyle} />
             </div>
           </div>
+
+          {/* ── CONVICTION ── */}
+          <div style={{ marginTop:'12px' }}>
+            <label style={labelStyle}>Conviction</label>
+            <div style={{ display:'flex', gap:'6px' }}>
+              {[1,2,3,4,5].map(n => (
+                <button key={n} type="button" onClick={() => set('conviction', String(n))} style={{
+                  flex:1, padding:'8px', borderRadius:'4px', cursor:'pointer', fontSize:'12px', fontFamily:'DM Mono, monospace', fontWeight:Number(form.conviction)===n?700:400,
+                  border:`1px solid ${Number(form.conviction)===n?'var(--accent)':'var(--border)'}`,
+                  background: Number(form.conviction)===n?'var(--accent-dim)':'var(--surface)',
+                  color: Number(form.conviction)===n?'var(--accent)':'var(--muted)',
+                }}>{n}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── CHECKLIST ── */}
+          {checklistItems.length > 0 && (
+            <div style={{ marginTop:'12px', padding:'12px', background:'var(--bg)', borderRadius:'6px', border:'1px solid var(--border)' }}>
+              <div style={{ fontSize:'9px', color:'var(--muted)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:'8px' }}>Checklist — {form.strategy}</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
+                {checklistItems.map(item => (
+                  <label key={item.id} style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'11px', color:'var(--text)', cursor:'pointer' }}>
+                    <input type="checkbox" checked={!!checklistChecks[item.id]} onChange={() => toggleChecklistItem(item.id)} style={{ cursor:'pointer', accentColor:'var(--accent)' }} />
+                    {item.item_text}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {error && <p style={{ color:'var(--bear)', fontSize:'11px', marginTop:'10px' }}>{error}</p>}
 
