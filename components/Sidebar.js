@@ -4,8 +4,8 @@ import { useState } from 'react'
 const ITEMS = [
   { label: 'Dashboard',       path: '/dashboard',       icon: '◈' },
   { label: 'Accounts',        path: '/accounts',        icon: '◰' },
-  { label: 'Fund Management', path: '/fund-management', icon: '◆' },
   { label: 'All Trades',      path: '/all-trades',      icon: '◫' },
+  { label: 'Fund Management', path: '/fund-management', icon: '◆' },
   { label: 'Bank',            path: '/bank',            icon: '◧' },
   { label: 'Notes',           path: '/notes',           icon: '◱' },
   { label: 'Revenue Sharing', path: '/revenue-sharing', icon: '◍' },
