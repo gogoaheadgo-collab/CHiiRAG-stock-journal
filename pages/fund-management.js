@@ -6,6 +6,8 @@ import Sidebar from '../components/Sidebar'
 
 const ADMIN = 'gogoaheadgo@gmail.com'
 const ALL_ACCOUNTS = '__ALL__'
+const MIRROR_PREFIX = 'MIRROR:'
+const mirrorKey = (subscriberId) => `${MIRROR_PREFIX}${subscriberId}`
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 const COLUMN_INFO = {
@@ -157,7 +159,7 @@ export default function FundManagementPage() {
   useEffect(() => { if (session && isAdmin) loadMirroredAccounts() }, [session, isAdmin, loadMirroredAccounts])
 
   const loadFundFlows = useCallback(async () => {
-    if (!session || !activeAccount) { setFundFlows([]); return }
+    if (!session || !activeAccount || activeAccount.startsWith(MIRROR_PREFIX)) { setFundFlows([]); return }
     const token = await getToken()
     const qs = activeAccount === ALL_ACCOUNTS ? '' : `?account=${encodeURIComponent(activeAccount)}`
     const res = await fetch(`/api/fund-flows${qs}`, { headers:{ Authorization:`Bearer ${token}` } })
@@ -168,7 +170,7 @@ export default function FundManagementPage() {
   useEffect(() => { loadFundFlows() }, [loadFundFlows])
 
   const handleAddFlow = async ({ date, amount, type }) => {
-    if (activeAccount === ALL_ACCOUNTS) throw new Error('Select a single account to record a fund flow')
+    if (activeAccount === ALL_ACCOUNTS || activeAccount.startsWith(MIRROR_PREFIX)) throw new Error('Select one of your own accounts to record a fund flow')
     const token = await getToken()
     const res = await fetch('/api/fund-flows', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body: JSON.stringify({ account_name: activeAccount, date, amount, type }) })
     const data = await res.json()
@@ -218,6 +220,12 @@ export default function FundManagementPage() {
       accountTrades = [...trades, ...allMirroredTrades]
       execList = [...Object.values(executions).flat(), ...allMirroredExecs]
       flowsForCalc = [...fundFlows, ...allMirroredFlows]
+    } else if (activeAccount.startsWith(MIRROR_PREFIX)) {
+      // A single mirrored subscriber's own ledger, across all of their accounts
+      const subId = activeAccount.slice(MIRROR_PREFIX.length)
+      accountTrades = mirroredTrades[subId] || []
+      execList = mirroredExecs[subId] || []
+      flowsForCalc = mirroredFundFlows[subId] || []
     } else {
       accountTrades = trades.filter(t => t.account === activeAccount)
       execList = accountTrades.flatMap(t => executions[t.id] || [])
@@ -318,7 +326,12 @@ export default function FundManagementPage() {
         <div style={{ marginBottom:'20px' }}>
           <h1 style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'24px', color:'var(--text)', margin:0 }}>Fund Management</h1>
           <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'4px', fontFamily:'DM Mono, monospace' }}>
-            Dated capital ledger — monthly walk-forward {activeAccount === ALL_ACCOUNTS ? 'across all accounts' : 'per account'}
+            Dated capital ledger — monthly walk-forward {
+              activeAccount === ALL_ACCOUNTS ? 'across all accounts'
+              : activeAccount?.startsWith(MIRROR_PREFIX)
+                ? `for ${mirroredAccounts.find(m => m.subscriber_id === activeAccount.slice(MIRROR_PREFIX.length))?.subscriber_name || 'subscriber'}'s account(s)`
+                : 'per account'
+            }
           </div>
         </div>
 
@@ -350,6 +363,25 @@ export default function FundManagementPage() {
                   <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'3px' }}>{trades.filter(t=>t.account===acc.name).length} trades</div>
                 </button>
               ))}
+              {/* Mirrored Account Tiles — same gold/LIVE treatment as the Accounts page */}
+              {isAdmin && mirroredAccounts.map(m => {
+                const key = mirrorKey(m.subscriber_id)
+                const isActive = activeAccount === key
+                return (
+                  <button key={m.subscriber_id} onClick={() => setActiveAccount(key)} style={{
+                    border:`2px solid ${isActive?'var(--gold)':'var(--border)'}`,
+                    background:isActive?'rgba(245,158,11,0.08)':'var(--surface)',
+                    borderRadius:'10px', minWidth:'120px', padding:'14px 16px', cursor:'pointer', textAlign:'left',
+                  }}>
+                    <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:isActive?'var(--gold)':'var(--muted)' }}>
+                      {(m.subscriber_name||m.subscriber_email||'').split(' ')[0]}'s
+                    </div>
+                    <div style={{ fontSize:'10px', color:'var(--gold)', marginTop:'3px', opacity:0.7 }}>
+                      {(mirroredTrades[m.subscriber_id]||[]).length} trades · LIVE
+                    </div>
+                  </button>
+                )
+              })}
             </div>
 
             {/* Year Selector */}
@@ -388,7 +420,7 @@ export default function FundManagementPage() {
                         <td style={{ fontFamily:'DM Mono, monospace', fontWeight:700, color:'var(--text)' }}>{MONTHS[row.month-1]}</td>
                         <td className="num" style={{ position:'relative' }}>
                           {row.added > 0 ? <span style={{ color:'var(--bull)' }}>+Rs.{toINRd(row.added)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}
-                          {activeAccount !== ALL_ACCOUNTS && (
+                          {activeAccount !== ALL_ACCOUNTS && !activeAccount.startsWith(MIRROR_PREFIX) && (
                             <button onClick={e => { e.stopPropagation(); setFlowPopover(p => (p?.month===row.month && p?.type==='ADD') ? null : { month: row.month, type: 'ADD' }) }}
                               style={{ marginLeft:'6px', background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'11px', verticalAlign:'middle' }} title="Record a fund addition">✎</button>
                           )}
@@ -398,7 +430,7 @@ export default function FundManagementPage() {
                         </td>
                         <td className="num" style={{ position:'relative' }}>
                           {row.withdrawn > 0 ? <span style={{ color:'var(--bear)' }}>−Rs.{toINRd(row.withdrawn)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}
-                          {activeAccount !== ALL_ACCOUNTS && (
+                          {activeAccount !== ALL_ACCOUNTS && !activeAccount.startsWith(MIRROR_PREFIX) && (
                             <button onClick={e => { e.stopPropagation(); setFlowPopover(p => (p?.month===row.month && p?.type==='WITHDRAW') ? null : { month: row.month, type: 'WITHDRAW' }) }}
                               style={{ marginLeft:'6px', background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'11px', verticalAlign:'middle' }} title="Record a fund withdrawal">✎</button>
                           )}
