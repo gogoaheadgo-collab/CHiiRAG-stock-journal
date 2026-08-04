@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 
 const ADMIN = 'gogoaheadgo@gmail.com'
+const ALL_ACCOUNTS = '__ALL__'
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 const COLUMN_INFO = {
@@ -70,6 +71,10 @@ export default function FundManagementPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [fundFlows, setFundFlows] = useState([])
   const [flowPopover, setFlowPopover] = useState(null) // { month, type }
+  const [mirroredAccounts, setMirroredAccounts] = useState([])
+  const [mirroredTrades, setMirroredTrades] = useState({})
+  const [mirroredExecs, setMirroredExecs] = useState({})
+  const [mirroredFundFlows, setMirroredFundFlows] = useState({})
 
   const isAdmin = session?.user?.email === ADMIN
   const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token
@@ -115,10 +120,35 @@ export default function FundManagementPage() {
 
   useEffect(() => { if (session) loadData() }, [session, loadData])
 
+  // Admin: pull every subscriber's trades/executions/fund-flows so "All Accounts" can aggregate them
+  const loadMirroredTrades = useCallback(async (subscriber_id, token) => {
+    const t = token || (await supabase.auth.getSession()).data.session?.access_token
+    const res = await fetch(`/api/admin/subscriber-trades?user_id=${subscriber_id}`, { headers:{ Authorization:`Bearer ${t}` } })
+    const data = await res.json()
+    if (data.trades) {
+      setMirroredTrades(prev => ({ ...prev, [subscriber_id]: data.trades }))
+      setMirroredExecs(prev => ({ ...prev, [subscriber_id]: data.executions || [] }))
+      setMirroredFundFlows(prev => ({ ...prev, [subscriber_id]: data.fund_flows || [] }))
+    }
+  }, [])
+
+  const loadMirroredAccounts = useCallback(async () => {
+    const token = await getToken()
+    if (!token) return
+    const res = await fetch('/api/admin/mirror', { headers:{ Authorization:`Bearer ${token}` } })
+    const data = await res.json()
+    if (!Array.isArray(data)) return
+    setMirroredAccounts(data)
+    data.forEach(m => loadMirroredTrades(m.subscriber_id, token))
+  }, [loadMirroredTrades])
+
+  useEffect(() => { if (session && isAdmin) loadMirroredAccounts() }, [session, isAdmin, loadMirroredAccounts])
+
   const loadFundFlows = useCallback(async () => {
     if (!session || !activeAccount) { setFundFlows([]); return }
     const token = await getToken()
-    const res = await fetch(`/api/fund-flows?account=${encodeURIComponent(activeAccount)}`, { headers:{ Authorization:`Bearer ${token}` } })
+    const qs = activeAccount === ALL_ACCOUNTS ? '' : `?account=${encodeURIComponent(activeAccount)}`
+    const res = await fetch(`/api/fund-flows${qs}`, { headers:{ Authorization:`Bearer ${token}` } })
     const data = await res.json()
     if (Array.isArray(data)) setFundFlows(data)
   }, [session, activeAccount])
@@ -126,6 +156,7 @@ export default function FundManagementPage() {
   useEffect(() => { loadFundFlows() }, [loadFundFlows])
 
   const handleAddFlow = async ({ date, amount, type }) => {
+    if (activeAccount === ALL_ACCOUNTS) throw new Error('Select a single account to record a fund flow')
     const token = await getToken()
     const res = await fetch('/api/fund-flows', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body: JSON.stringify({ account_name: activeAccount, date, amount, type }) })
     const data = await res.json()
@@ -155,8 +186,32 @@ export default function FundManagementPage() {
 
   const monthlyRows = useMemo(() => {
     if (!activeAccount) return []
-    const accountTrades = trades.filter(t => t.account === activeAccount)
-    const execList = accountTrades.flatMap(t => executions[t.id] || [])
+    const ownUserId = session?.user?.id
+
+    let accountTrades, execList, flowsForCalc
+    if (activeAccount === ALL_ACCOUNTS) {
+      // Admin's own trades (every account) + every mirrored subscriber's trades, deduped and self-excluded
+      const otherMirroredTrades = isAdmin
+        ? Object.entries(mirroredTrades).filter(([subId]) => subId !== ownUserId).flatMap(([, ts]) => ts)
+        : []
+      const ownTradeIds = new Set(trades.map(t => t.id))
+      const allMirroredTrades = otherMirroredTrades.filter(t => !ownTradeIds.has(t.id))
+      const mirroredTradeIds = new Set(allMirroredTrades.map(t => t.id))
+      const allMirroredExecs = isAdmin
+        ? Object.entries(mirroredExecs).filter(([subId]) => subId !== ownUserId).flatMap(([, es]) => es).filter(e => mirroredTradeIds.has(e.trade_id))
+        : []
+      const allMirroredFlows = isAdmin
+        ? Object.entries(mirroredFundFlows).filter(([subId]) => subId !== ownUserId).flatMap(([, fs]) => fs)
+        : []
+      accountTrades = [...trades, ...allMirroredTrades]
+      execList = [...Object.values(executions).flat(), ...allMirroredExecs]
+      flowsForCalc = [...fundFlows, ...allMirroredFlows]
+    } else {
+      accountTrades = trades.filter(t => t.account === activeAccount)
+      execList = accountTrades.flatMap(t => executions[t.id] || [])
+      flowsForCalc = fundFlows
+    }
+
     const getTradeRealised = (t) => {
       const execs = execList.filter(e => e.trade_id === t.id)
       if (execs.length > 0) return execs.reduce((s,e) => s + (Number(e.price) - Number(t.entry_price)) * Number(e.quantity), 0)
@@ -165,7 +220,7 @@ export default function FundManagementPage() {
     const closedTrades = accountTrades.filter(t => t.status === 'CLOSED' && t.exit_date)
 
     const allDates = [
-      ...fundFlows.map(f => f.date),
+      ...flowsForCalc.map(f => f.date),
       ...closedTrades.map(t => t.exit_date.slice(0,10)),
     ]
     let startYear = selectedYear
@@ -179,7 +234,7 @@ export default function FundManagementPage() {
     for (let y = startYear; y <= selectedYear; y++) {
       for (let m = 1; m <= 12; m++) {
         const ym = `${y}-${String(m).padStart(2,'0')}`
-        const monthFlows = fundFlows.filter(f => f.date.slice(0,7) === ym)
+        const monthFlows = flowsForCalc.filter(f => f.date.slice(0,7) === ym)
         const added = monthFlows.filter(f => f.type === 'ADD').reduce((s,f) => s + Number(f.amount), 0)
         const withdrawn = monthFlows.filter(f => f.type === 'WITHDRAW').reduce((s,f) => s + Number(f.amount), 0)
 
@@ -216,7 +271,17 @@ export default function FundManagementPage() {
       }
     }
     return rows
-  }, [trades, executions, fundFlows, activeAccount, selectedYear])
+  }, [trades, executions, fundFlows, activeAccount, selectedYear, isAdmin, session, mirroredTrades, mirroredExecs, mirroredFundFlows])
+
+  const allAccountsTradeCount = useMemo(() => {
+    const ownUserId = session?.user?.id
+    const otherMirroredTrades = isAdmin
+      ? Object.entries(mirroredTrades).filter(([subId]) => subId !== ownUserId).flatMap(([, ts]) => ts)
+      : []
+    const ownTradeIds = new Set(trades.map(t => t.id))
+    const allMirroredTrades = otherMirroredTrades.filter(t => !ownTradeIds.has(t.id))
+    return trades.length + allMirroredTrades.length
+  }, [trades, mirroredTrades, isAdmin, session])
 
   if (!session) return null
 
@@ -230,7 +295,9 @@ export default function FundManagementPage() {
 
         <div style={{ marginBottom:'20px' }}>
           <h1 style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'24px', color:'var(--text)', margin:0 }}>Fund Management</h1>
-          <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'4px', fontFamily:'DM Mono, monospace' }}>Dated capital ledger — monthly walk-forward per account</div>
+          <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'4px', fontFamily:'DM Mono, monospace' }}>
+            Dated capital ledger — monthly walk-forward {activeAccount === ALL_ACCOUNTS ? 'across all accounts' : 'per account'}
+          </div>
         </div>
 
         {loading ? (
@@ -241,6 +308,16 @@ export default function FundManagementPage() {
           <>
             {/* Account Picker */}
             <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'20px', flexWrap:'wrap' }}>
+              <button onClick={() => setActiveAccount(ALL_ACCOUNTS)} style={{
+                border:`2px solid ${activeAccount===ALL_ACCOUNTS?'var(--gold)':'var(--border)'}`,
+                background:activeAccount===ALL_ACCOUNTS?'rgba(245,158,11,0.1)':'var(--surface)',
+                borderRadius:'10px', minWidth:'130px', padding:'14px 16px', cursor:'pointer', textAlign:'left',
+              }}>
+                <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:activeAccount===ALL_ACCOUNTS?'var(--gold)':'var(--text)' }}>◆ All Accounts</div>
+                <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'3px' }}>
+                  {allAccountsTradeCount} trades{isAdmin && mirroredAccounts.length > 0 ? ` · +${mirroredAccounts.length} subscribers` : ''}
+                </div>
+              </button>
               {accounts.map(acc => (
                 <button key={acc.id} onClick={() => setActiveAccount(acc.name)} style={{
                   border:`2px solid ${activeAccount===acc.name?'var(--accent)':'var(--border)'}`,
@@ -289,16 +366,20 @@ export default function FundManagementPage() {
                         <td style={{ fontFamily:'DM Mono, monospace', fontWeight:700, color:'var(--text)' }}>{MONTHS[row.month-1]}</td>
                         <td className="num" style={{ position:'relative' }}>
                           {row.added > 0 ? <span style={{ color:'var(--bull)' }}>+Rs.{toINRd(row.added)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}
-                          <button onClick={e => { e.stopPropagation(); setFlowPopover(p => (p?.month===row.month && p?.type==='ADD') ? null : { month: row.month, type: 'ADD' }) }}
-                            style={{ marginLeft:'6px', background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'11px', verticalAlign:'middle' }} title="Record a fund addition">✎</button>
+                          {activeAccount !== ALL_ACCOUNTS && (
+                            <button onClick={e => { e.stopPropagation(); setFlowPopover(p => (p?.month===row.month && p?.type==='ADD') ? null : { month: row.month, type: 'ADD' }) }}
+                              style={{ marginLeft:'6px', background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'11px', verticalAlign:'middle' }} title="Record a fund addition">✎</button>
+                          )}
                           {flowPopover?.month === row.month && flowPopover?.type === 'ADD' && (
                             <FlowPopover month={row.month} year={selectedYear} type="ADD" onClose={() => setFlowPopover(null)} onSubmit={handleAddFlow} />
                           )}
                         </td>
                         <td className="num" style={{ position:'relative' }}>
                           {row.withdrawn > 0 ? <span style={{ color:'var(--bear)' }}>−Rs.{toINRd(row.withdrawn)}</span> : <span style={{ color:'var(--muted)' }}>—</span>}
-                          <button onClick={e => { e.stopPropagation(); setFlowPopover(p => (p?.month===row.month && p?.type==='WITHDRAW') ? null : { month: row.month, type: 'WITHDRAW' }) }}
-                            style={{ marginLeft:'6px', background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'11px', verticalAlign:'middle' }} title="Record a fund withdrawal">✎</button>
+                          {activeAccount !== ALL_ACCOUNTS && (
+                            <button onClick={e => { e.stopPropagation(); setFlowPopover(p => (p?.month===row.month && p?.type==='WITHDRAW') ? null : { month: row.month, type: 'WITHDRAW' }) }}
+                              style={{ marginLeft:'6px', background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:'11px', verticalAlign:'middle' }} title="Record a fund withdrawal">✎</button>
+                          )}
                           {flowPopover?.month === row.month && flowPopover?.type === 'WITHDRAW' && (
                             <FlowPopover month={row.month} year={selectedYear} type="WITHDRAW" onClose={() => setFlowPopover(null)} onSubmit={handleAddFlow} />
                           )}

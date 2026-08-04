@@ -18,13 +18,13 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const { account, year } = req.query
-    if (!account) return res.status(400).json({ error: 'account required' })
     let query = supabase
       .from('fund_flows')
       .select('*')
       .eq('user_id', user.id)
-      .eq('account_name', account)
       .order('date', { ascending: true })
+    // account omitted → all of this user's flows across every account (used for the "All Accounts" aggregate view)
+    if (account) query = query.eq('account_name', account)
     if (year) query = query.gte('date', `${year}-01-01`).lte('date', `${year}-12-31`)
     const { data, error } = await query
     if (error) return res.status(500).json({ error: error.message })

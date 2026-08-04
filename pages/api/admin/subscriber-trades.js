@@ -22,16 +22,19 @@ export default async function handler(req, res) {
     { data: trades, error: tErr },
     { data: executions, error: eErr },
     { data: accounts },
+    { data: fundFlows },
   ] = await Promise.all([
     adminSupabase.from('trades').select('*').eq('user_id', user_id).order('entry_date', { ascending: false }),
     adminSupabase.from('executions').select('*').eq('user_id', user_id),
     adminSupabase.from('accounts').select('id, name, available_fund').eq('user_id', user_id),
+    adminSupabase.from('fund_flows').select('*').eq('user_id', user_id).order('date', { ascending: true }),
   ])
 
   return res.status(200).json({
     trades: trades || [],
     executions: executions || [],
     accounts: accounts || [],
+    fund_flows: fundFlows || [],
     debug: {
       user_id_received: user_id,
       trades_count: trades?.length,
