@@ -72,6 +72,7 @@ export default function FundManagementPage() {
   const [fundFlows, setFundFlows] = useState([])
   const [flowPopover, setFlowPopover] = useState(null) // { month, type }
   const [mirroredAccounts, setMirroredAccounts] = useState([])
+  const [allSubscribers, setAllSubscribers] = useState([])
   const [mirroredTrades, setMirroredTrades] = useState({})
   const [mirroredExecs, setMirroredExecs] = useState({})
   const [mirroredFundFlows, setMirroredFundFlows] = useState({})
@@ -135,11 +136,22 @@ export default function FundManagementPage() {
   const loadMirroredAccounts = useCallback(async () => {
     const token = await getToken()
     if (!token) return
-    const res = await fetch('/api/admin/mirror', { headers:{ Authorization:`Bearer ${token}` } })
+    // Consolidate ALL subscribers (mirrored or not) — mirror status only affects live-sync elsewhere,
+    // it should not gate which accounts show up in the "All Accounts" capital ledger.
+    const [res, resAll] = await Promise.all([
+      fetch('/api/admin/mirror', { headers:{ Authorization:`Bearer ${token}` } }),
+      fetch('/api/admin/all-subscribers', { headers:{ Authorization:`Bearer ${token}` } }),
+    ])
     const data = await res.json()
+    const allSubs = await resAll.json()
     if (!Array.isArray(data)) return
     setMirroredAccounts(data)
-    data.forEach(m => loadMirroredTrades(m.subscriber_id, token))
+    if (Array.isArray(allSubs)) setAllSubscribers(allSubs)
+    const allToFetch = [
+      ...data.map(m => ({ id: m.subscriber_id })),
+      ...(Array.isArray(allSubs) ? allSubs.filter(s => !data.some(m => m.subscriber_id === s.id)).map(s => ({ id: s.id })) : []),
+    ]
+    allToFetch.forEach(m => loadMirroredTrades(m.id, token))
   }, [loadMirroredTrades])
 
   useEffect(() => { if (session && isAdmin) loadMirroredAccounts() }, [session, isAdmin, loadMirroredAccounts])
@@ -273,6 +285,16 @@ export default function FundManagementPage() {
     return rows
   }, [trades, executions, fundFlows, activeAccount, selectedYear, isAdmin, session, mirroredTrades, mirroredExecs, mirroredFundFlows])
 
+  const totalSubscriberCount = useMemo(() => {
+    const ownUserId = session?.user?.id
+    const ids = new Set([
+      ...mirroredAccounts.map(m => m.subscriber_id),
+      ...allSubscribers.map(s => s.id),
+    ])
+    ids.delete(ownUserId)
+    return ids.size
+  }, [mirroredAccounts, allSubscribers, session])
+
   const allAccountsTradeCount = useMemo(() => {
     const ownUserId = session?.user?.id
     const otherMirroredTrades = isAdmin
@@ -315,7 +337,7 @@ export default function FundManagementPage() {
               }}>
                 <div style={{ fontSize:'14px', fontWeight:700, fontFamily:'DM Mono, monospace', color:activeAccount===ALL_ACCOUNTS?'var(--gold)':'var(--text)' }}>◆ All Accounts</div>
                 <div style={{ fontSize:'10px', color:'var(--muted)', marginTop:'3px' }}>
-                  {allAccountsTradeCount} trades{isAdmin && mirroredAccounts.length > 0 ? ` · +${mirroredAccounts.length} subscribers` : ''}
+                  {allAccountsTradeCount} trades{isAdmin && totalSubscriberCount > 0 ? ` · +${totalSubscriberCount} subscribers` : ''}
                 </div>
               </button>
               {accounts.map(acc => (
