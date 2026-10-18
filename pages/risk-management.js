@@ -193,7 +193,21 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
   const [statusFilter, setStatusFilter] = useState('All')
   const [showExcluded, setShowExcluded] = useState(false)
   const { rows, excludedRows, summary, accountsLabel } = data
-  const visible = rows.filter(r => statusFilter === 'All' || r.status === statusFilter)
+  const [sort, setSort] = useState(null) // { key, dir }
+  const srNo = useMemo(() => new Map(rows.map((r,i) => [r.id, i + 1])), [rows])
+  const visible = useMemo(() => {
+    const list = rows.filter(r => statusFilter === 'All' || r.status === statusFilter)
+    if (!sort) return list
+    const val = r => sort.key === 'sr' ? srNo.get(r.id) : r[sort.key]
+    return [...list].sort((a,b) => {
+      const x = val(a), y = val(b)
+      if (x === null || x === undefined || x === '') return 1   // blanks always last
+      if (y === null || y === undefined || y === '') return -1
+      const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y))
+      return sort.dir === 'asc' ? c : -c
+    })
+  }, [rows, statusFilter, sort, srNo])
+  const toggleSort = key => setSort(s => !s || s.key !== key ? { key, dir:'asc' } : s.dir === 'asc' ? { key, dir:'desc' } : null)
   const setupOptions = useMemo(() => [...new Set([...strategies, ...rows.map(r => r.tradeSetup), ...rows.map(r => r.setup)].filter(Boolean))], [strategies, rows])
 
   const cell = (r, key) => {
@@ -250,8 +264,8 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
             <tr>
               <th style={{ width:'28px' }} />
               {COLUMNS.map(c => (
-                <th key={c.key} title={COLUMN_INFO[c.key]} style={{ whiteSpace:'nowrap' }}
-                  className={['sr','month','account','status','symbol','setup','buyDate','sellDate'].includes(c.key) ? undefined : 'r'}>{c.label}</th>
+                <th key={c.key} title={COLUMN_INFO[c.key]} onClick={() => toggleSort(c.key)} style={{ whiteSpace:'nowrap', cursor:'pointer', userSelect:'none' }}
+                  className={['sr','month','account','status','symbol','setup','buyDate','sellDate'].includes(c.key) ? undefined : 'r'}>{c.label}{sort?.key === c.key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
               ))}
             </tr>
           </thead>
@@ -268,7 +282,7 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
                 {COLUMNS.map(c => (
                   <td key={c.key} className={['sr','month','account','status','symbol','setup','buyDate','sellDate'].includes(c.key) ? undefined : 'num'}
                     style={{ whiteSpace:'nowrap', fontFamily:mono, fontSize:'11px' }}>
-                    {c.key === 'sr' ? rows.indexOf(r) + 1 : cell(r, c.key)}
+                    {c.key === 'sr' ? srNo.get(r.id) : cell(r, c.key)}
                   </td>
                 ))}
               </tr>
