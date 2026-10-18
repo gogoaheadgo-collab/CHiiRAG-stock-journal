@@ -193,7 +193,7 @@ function SummaryPanel({ s }) {
           sub={[s.openRiskOfCapital !== null ? `${pct(s.openRiskOfCapital)} of ₹${toINRd(s.capital)}` : 'set Portfolio Size', s.riskFreeCount ? `${s.riskFreeCount} risk-free` : null, s.openMissingSL ? `${s.openMissingSL} need SL` : null].filter(Boolean).join(' · ')}>
           ₹{toINRd(s.openRisk)}
         </StatCard>
-        <StatCard label="Open Risk % (sum)" sub="sum of Risk % on open trades">{s.openRiskPct.toFixed(2)}%</StatCard>
+        <StatCard label="Open risk %" sub={`of portfolio size · budget on open: ${s.openRiskPct.toFixed(2)}%`}>{s.openRiskOfCapital === null ? <Dash /> : pct(s.openRiskOfCapital)}</StatCard>
       </div>
       {s.bySetup.length > 0 && (
         <div style={{ border:'1px solid var(--border)', borderRadius:'8px', overflowX:'auto', marginBottom:'12px', maxWidth:'640px' }}>
@@ -242,7 +242,7 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
   const setupOptions = useMemo(() => [...new Set([...strategies, ...rows.map(r => r.tradeSetup), ...rows.map(r => r.setup)].filter(Boolean))], [strategies, rows])
 
   const cell = (r, key) => {
-    const save = field => v => onSaveInput(r.id, field, v)
+    const save = field => v => onSaveInput(r.initialIds, field, v)
     switch (key) {
       case 'setup': return <SetupCell value={r.setup} options={setupOptions} onSave={save('setup')} />
       case 'riskPct': return <RiskPctCell value={r.riskPct} onSave={save('risk_pct')} />
@@ -312,7 +312,7 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
               <th style={{ width:'28px' }} />
               {COLUMNS.map(c => (
                 <th key={c.key} title={COLUMN_INFO[c.key]} onClick={() => toggleSort(c.key)} style={{ whiteSpace:'nowrap', cursor:'pointer', userSelect:'none' }}
-                  className={['sr','month','account','status','symbol','setup','buyDate','sellDate'].includes(c.key) ? undefined : 'r'}>{c.label}{sort?.key === c.key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
+                  className={['sr','month','account','status','symbol','setup','buyDate','sellDate'].includes(c.key) ? undefined : 'r'}>{c.label}<span style={{ marginLeft:'4px', color: sort?.key === c.key ? 'var(--accent)' : 'var(--muted)', opacity: sort?.key === c.key ? 1 : 0.6, fontSize:'10px' }}>{sort?.key === c.key ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
               ))}
             </tr>
           </thead>
@@ -322,7 +322,7 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
             )}
             {visible.map(r => (
               <React.Fragment key={r.id}>
-              <tr>
+              <tr style={r.status === 'Closed' ? { opacity:0.5, background:'var(--surface)' } : undefined}>
                 <td>
                   <button onClick={() => onExclude(r.tradeIds)} title="Remove this position (all its account trades) from this portfolio's calculations"
                     style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'13px', padding:0 }}>✕</button>
@@ -366,7 +366,7 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
                               <td style={{ padding:'3px 10px', textAlign:'right', whiteSpace:'nowrap' }}>
                                 {l.tranche.label === 'Initial'
                                   ? (l.tranche.slPct === null ? <Dash /> : `${l.tranche.slPct.toFixed(2)}%`)
-                                  : <><InputCell value={l.tranche.slPct} width={56} placeholder="SL %" onSave={v => onSaveInput(l.tranche.key, 'sl_pct', v)} />%</>}
+                                  : <><InputCell value={l.tranche.slPct} width={56} placeholder="SL %" onSave={v => onSaveInput(l.tranche.legIds, 'sl_pct', v)} />%</>}
                               </td>
                               <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.tranche.slPrice === null ? <Dash /> : toINRd(l.tranche.slPrice)}</td>
                               <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.tranche.rr === null ? <Dash /> : <Signed v={l.tranche.rr}>{l.tranche.rr.toFixed(2)}</Signed>}</td>
@@ -591,11 +591,14 @@ export default function RiskManagementPage() {
     if (error) { setPortfolios(prev); alert('Error: ' + error.message) }
   }
 
-  const saveInput = async (tradeId, field, value) => {
-    const row = { ...(inputs[tradeId] || {}), user_id: ownId, trade_id: tradeId, [field]: value, updated_at: new Date().toISOString() }
+  // Writes the value to every account trade of the tranche so all portfolios see the same input
+  const saveInput = async (tradeIds, field, value) => {
+    const ids = Array.isArray(tradeIds) ? tradeIds : [tradeIds]
+    const now = new Date().toISOString()
+    const rowsToSave = ids.map(id => ({ ...(inputs[id] || {}), user_id: ownId, trade_id: id, [field]: value, updated_at: now }))
     const prev = inputs
-    setInputs(m => ({ ...m, [tradeId]: row }))
-    const { error } = await supabase.from('risk_trade_inputs').upsert(row, { onConflict: 'user_id,trade_id' })
+    setInputs(m => ({ ...m, ...Object.fromEntries(rowsToSave.map(r => [r.trade_id, r])) }))
+    const { error } = await supabase.from('risk_trade_inputs').upsert(rowsToSave, { onConflict: 'user_id,trade_id' })
     if (error) { setInputs(prev); alert('Could not save: ' + error.message) }
   }
 
