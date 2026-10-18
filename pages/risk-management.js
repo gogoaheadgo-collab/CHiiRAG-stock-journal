@@ -26,6 +26,17 @@ const stickyStyle = (key, bg, z = 1) => STICKY[key] ? {
   boxShadow: key === LAST_STICKY ? '2px 0 0 var(--border)' : undefined,
 } : {}
 
+// Inputs that must be filled on every position; empty ones are painted faded red
+const REQUIRED = ['setup', 'riskPct', 'slPct', 'rfRR', 'dma20', 'dma50', 'mae']
+const isBlank = v => v === null || v === undefined || v === ''
+const missingInputs = r => {
+  const m = REQUIRED.filter(k => isBlank(r[k]))
+  if ((r.tranches || []).slice(1).some(t => isBlank(t.slPct))) m.push('pyramidSL')
+  return m
+}
+const RED_TINT = 'linear-gradient(rgba(239,68,68,0.22), rgba(239,68,68,0.22))'      // empty input cell
+const RED_ROW = 'linear-gradient(rgba(239,68,68,0.08), rgba(239,68,68,0.08))'       // rest of an incomplete row
+
 const memberKey = m => `${m.owner_id}::${m.account}`
 const mono = 'DM Mono, monospace'
 
@@ -244,7 +255,7 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
   const toggleExpand = id => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const srNo = useMemo(() => new Map(rows.map((r,i) => [r.id, i + 1])), [rows])
   const visible = useMemo(() => {
-    const list = rows.filter(r => statusFilter === 'All' || r.status === statusFilter)
+    const list = rows.filter(r => statusFilter === 'All' || (statusFilter === 'Incomplete' ? missingInputs(r).length > 0 : r.status === statusFilter))
     if (!sort) return list
     const val = r => sort.key === 'sr' ? srNo.get(r.id) : r[sort.key]
     return [...list].sort((a,b) => {
@@ -256,6 +267,15 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
     })
   }, [rows, statusFilter, sort, srNo])
   const rowBg = r => r.status === 'Closed' ? 'var(--surface2)' : 'var(--bg)'
+  const missingMap = useMemo(() => new Map(rows.map(r => [r.id, missingInputs(r)])), [rows])
+  const incompleteCount = [...missingMap.values()].filter(m => m.length).length
+  // Opaque background (frozen cells must stay solid) with a red tint when the cell's input is empty
+  const cellBg = (r, key) => {
+    const miss = missingMap.get(r.id) || []
+    if (!miss.length) return rowBg(r)
+    const strong = miss.includes(key) || (key === 'symbol' && miss.includes('pyramidSL'))
+    return `${strong ? RED_TINT : RED_ROW}, ${rowBg(r)}`
+  }
   const toggleSort = key => setSort(s => !s || s.key !== key ? { key, dir:'asc' } : s.dir === 'asc' ? { key, dir:'desc' } : null)
   const setupOptions = useMemo(() => [...new Set([...strategies, ...rows.map(r => r.tradeSetup), ...rows.map(r => r.setup)].filter(Boolean))], [strategies, rows])
 
@@ -315,6 +335,11 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
           {['All','Open','Closed'].map(f => (
             <button key={f} onClick={() => setStatusFilter(f)} className={statusFilter === f ? 'btn btn-primary' : 'btn btn-ghost'} style={headBtn}>{f}</button>
           ))}
+          <button onClick={() => setStatusFilter('Incomplete')} title="Positions with inputs still to fill"
+            className={statusFilter === 'Incomplete' ? 'btn btn-primary' : 'btn btn-ghost'}
+            style={{ ...headBtn, color: statusFilter === 'Incomplete' ? undefined : incompleteCount ? 'var(--bear)' : undefined, borderColor: incompleteCount ? 'var(--bear)' : undefined }}>
+            To fill ({incompleteCount})
+          </button>
           <button onClick={onDownload} className="btn btn-ghost" style={headBtn} title="Download this portfolio as Excel (with formulas)">⬇ Excel</button>
           <button onClick={onEdit} className="btn btn-ghost" style={headBtn}>Edit</button>
           <button onClick={onDelete} className="btn btn-ghost" style={{ ...headBtn, color:'var(--bear)' }}>Delete</button>
@@ -341,13 +366,14 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
             {visible.map(r => (
               <React.Fragment key={r.id}>
               <tr>
-                <td style={{ position:'sticky', left:0, zIndex:1, background: rowBg(r), minWidth:'28px' }}>
+                <td style={{ position:'sticky', left:0, zIndex:1, background: cellBg(r, '_x'), minWidth:'28px', boxShadow: missingMap.get(r.id)?.length ? 'inset 3px 0 0 var(--bear)' : undefined }}>
                   <button onClick={() => onExclude(r.tradeIds)} title="Remove this position (all its account trades) from this portfolio's calculations"
                     style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'13px', padding:0 }}>✕</button>
                 </td>
                 {PAGE_COLUMNS.map(c => (
                   <td key={c.key} className={['sr','month','account','status','symbol','setup','buyDate','sellDate'].includes(c.key) ? undefined : 'num'}
-                    style={{ whiteSpace:'nowrap', fontFamily:mono, fontSize:'11px', background: rowBg(r), ...stickyStyle(c.key, rowBg(r)) }}>
+                    title={c.key === 'symbol' && missingMap.get(r.id)?.length ? `To fill: ${missingMap.get(r.id).map(k => k === 'pyramidSL' ? 'pyramid SL % (click +)' : (COLUMNS.find(x => x.key === k)?.label || k)).join(', ')}` : undefined}
+                    style={{ whiteSpace:'nowrap', fontFamily:mono, fontSize:'11px', background: cellBg(r, c.key), ...stickyStyle(c.key, cellBg(r, c.key)) }}>
                     {/* Closed positions: faded content on a shaded row (keeps frozen cells opaque) */}
                     <span style={r.status === 'Closed' ? { opacity:0.5 } : undefined}>{c.key === 'sr' ? srNo.get(r.id) : cell(r, c.key)}</span>
                   </td>
@@ -382,7 +408,7 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
                             <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.netPL === null ? <Dash /> : <Signed v={l.netPL}>₹{toINRd(l.netPL)}</Signed>}</td>
                             <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.plPct === null ? <Dash /> : <Signed v={l.plPct}>{pct(l.plPct)}</Signed>}</td>
                             {l.trancheFirst ? (<>
-                              <td style={{ padding:'3px 10px', textAlign:'right', whiteSpace:'nowrap' }}>
+                              <td style={{ padding:'3px 10px', textAlign:'right', whiteSpace:'nowrap', background: l.tranche.label !== 'Initial' && isBlank(l.tranche.slPct) ? RED_TINT : undefined }}>
                                 {l.tranche.label === 'Initial'
                                   ? (l.tranche.slPct === null ? <Dash /> : `${l.tranche.slPct.toFixed(2)}%`)
                                   : <><InputCell value={l.tranche.slPct} width={56} placeholder="SL %" onSave={v => onSaveInput(l.tranche.legIds, 'sl_pct', v)} />%</>}
