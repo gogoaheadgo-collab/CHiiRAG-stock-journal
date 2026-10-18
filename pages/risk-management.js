@@ -13,7 +13,7 @@ const START_DATE = '2026-09-25'
 const PAGE_COLUMNS = COLUMNS.filter(c => c.key !== 'status')
 // Columns frozen while scrolling sideways: fixed widths, left offsets after the 28px ✕ column
 const STICKY = (() => {
-  const widths = { symbol: 150, buy: 90, sellPrice: 115 }
+  const widths = { symbol: 150, buy: 90, sellPrice: 115, netBuy: 120, netSell: 120 }
   let left = 28
   const out = {}
   PAGE_COLUMNS.forEach(c => { if (widths[c.key]) { out[c.key] = { left, width: widths[c.key] }; left += widths[c.key] } })
@@ -307,8 +307,8 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
       )
       case 'riskAmt': case 'slRisk': return r[key] === null || r[key] === undefined ? <Dash /> : `₹${toINRd(r[key])}`
       case 'rr': return r.rr === null || r.rr === undefined ? <Dash /> : <Signed v={r.rr}>{r.rr.toFixed(2)}</Signed>
-      case 'buy': case 'netBuyPrice': return r[key] === null ? <Dash /> : toINRd(r[key])
-      case 'sellPrice': case 'netSellPrice': return r[key] === null ? <Dash /> : <span title={r.live ? 'Live CMP' : undefined}>{toINRd(r[key])}{r.live && <span style={{ color:'var(--gold)', fontSize:'9px', marginLeft:'3px' }}>LIVE</span>}</span>
+      case 'buy': return r[key] === null ? <Dash /> : toINRd(r[key])
+      case 'sellPrice': return r[key] === null ? <Dash /> : <span title={r.live ? 'Live CMP' : undefined}>{toINRd(r[key])}{r.live && <span style={{ color:'var(--gold)', fontSize:'9px', marginLeft:'3px' }}>LIVE</span>}</span>
       case 'buyDate': case 'sellDate': return fmtDate(r[key]) || <Dash />
       case 'netBuy': case 'netSell': return r[key] === null ? <Dash /> : `₹${toINRd(r[key])}`
       case 'mtf': return r.mtf ? `₹${toINRd(r.mtf)}` : <Dash />
