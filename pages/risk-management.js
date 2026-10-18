@@ -9,6 +9,23 @@ import { COLUMNS, downloadRiskWorkbook } from '../lib/riskExcel'
 const ADMIN = 'gogoaheadgo@gmail.com'
 // Only trades bought on or after this date are part of Risk Management
 const START_DATE = '2026-09-25'
+// On-page columns: Open/Closed is shown by row shading (kept in the Excel file)
+const PAGE_COLUMNS = COLUMNS.filter(c => c.key !== 'status')
+// Columns frozen while scrolling sideways: fixed widths, left offsets after the 28px ✕ column
+const STICKY = (() => {
+  const widths = { symbol: 150, buy: 90, sellPrice: 115 }
+  let left = 28
+  const out = {}
+  PAGE_COLUMNS.forEach(c => { if (widths[c.key]) { out[c.key] = { left, width: widths[c.key] }; left += widths[c.key] } })
+  return out
+})()
+const LAST_STICKY = Object.keys(STICKY).pop()
+const stickyStyle = (key, bg, z = 1) => STICKY[key] ? {
+  position:'sticky', left: STICKY[key].left, zIndex: z, background: bg,
+  minWidth: STICKY[key].width, maxWidth: STICKY[key].width, width: STICKY[key].width,
+  boxShadow: key === LAST_STICKY ? '2px 0 0 var(--border)' : undefined,
+} : {}
+
 const memberKey = m => `${m.owner_id}::${m.account}`
 const mono = 'DM Mono, monospace'
 
@@ -238,6 +255,7 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
       return sort.dir === 'asc' ? c : -c
     })
   }, [rows, statusFilter, sort, srNo])
+  const rowBg = r => r.status === 'Closed' ? 'var(--surface2)' : 'var(--bg)'
   const toggleSort = key => setSort(s => !s || s.key !== key ? { key, dir:'asc' } : s.dir === 'asc' ? { key, dir:'desc' } : null)
   const setupOptions = useMemo(() => [...new Set([...strategies, ...rows.map(r => r.tradeSetup), ...rows.map(r => r.setup)].filter(Boolean))], [strategies, rows])
 
@@ -309,35 +327,36 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
         <table className="data-table" style={{ tableLayout:'auto', width:'max-content', minWidth:'100%' }}>
           <thead>
             <tr>
-              <th style={{ width:'28px' }} />
-              {COLUMNS.map(c => (
-                <th key={c.key} title={COLUMN_INFO[c.key]} onClick={() => toggleSort(c.key)} style={{ whiteSpace:'nowrap', cursor:'pointer', userSelect:'none' }}
+              <th style={{ width:'28px', minWidth:'28px', position:'sticky', left:0, zIndex:3, background:'var(--bg)' }} />
+              {PAGE_COLUMNS.map(c => (
+                <th key={c.key} title={COLUMN_INFO[c.key]} onClick={() => toggleSort(c.key)} style={{ whiteSpace:'nowrap', cursor:'pointer', userSelect:'none', ...stickyStyle(c.key, 'var(--bg)', 3) }}
                   className={['sr','month','account','status','symbol','setup','buyDate','sellDate'].includes(c.key) ? undefined : 'r'}>{c.label}<span style={{ marginLeft:'4px', color: sort?.key === c.key ? 'var(--accent)' : 'var(--muted)', opacity: sort?.key === c.key ? 1 : 0.6, fontSize:'10px' }}>{sort?.key === c.key ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span></th>
               ))}
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 && (
-              <tr><td colSpan={COLUMNS.length + 1} style={{ textAlign:'center', color:'var(--muted)', padding:'24px' }}>No positions</td></tr>
+              <tr><td colSpan={PAGE_COLUMNS.length + 1} style={{ textAlign:'center', color:'var(--muted)', padding:'24px' }}>No positions</td></tr>
             )}
             {visible.map(r => (
               <React.Fragment key={r.id}>
-              <tr style={r.status === 'Closed' ? { opacity:0.5, background:'var(--surface)' } : undefined}>
-                <td>
+              <tr>
+                <td style={{ position:'sticky', left:0, zIndex:1, background: rowBg(r), minWidth:'28px' }}>
                   <button onClick={() => onExclude(r.tradeIds)} title="Remove this position (all its account trades) from this portfolio's calculations"
                     style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'13px', padding:0 }}>✕</button>
                 </td>
-                {COLUMNS.map(c => (
+                {PAGE_COLUMNS.map(c => (
                   <td key={c.key} className={['sr','month','account','status','symbol','setup','buyDate','sellDate'].includes(c.key) ? undefined : 'num'}
-                    style={{ whiteSpace:'nowrap', fontFamily:mono, fontSize:'11px' }}>
-                    {c.key === 'sr' ? srNo.get(r.id) : cell(r, c.key)}
+                    style={{ whiteSpace:'nowrap', fontFamily:mono, fontSize:'11px', background: rowBg(r), ...stickyStyle(c.key, rowBg(r)) }}>
+                    {/* Closed positions: faded content on a shaded row (keeps frozen cells opaque) */}
+                    <span style={r.status === 'Closed' ? { opacity:0.5 } : undefined}>{c.key === 'sr' ? srNo.get(r.id) : cell(r, c.key)}</span>
                   </td>
                 ))}
               </tr>
               {expanded.has(r.id) && (
                 <tr>
                   <td />
-                  <td colSpan={COLUMNS.length} style={{ background:'var(--surface)', padding:'8px 10px' }}>
+                  <td colSpan={PAGE_COLUMNS.length} style={{ background:'var(--surface)', padding:'8px 10px' }}>
                     <table style={{ borderCollapse:'collapse', fontFamily:mono, fontSize:'11px' }}>
                       <thead>
                         <tr style={{ color:'var(--muted)', textAlign:'left' }}>
