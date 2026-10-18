@@ -15,10 +15,10 @@ const mono = 'DM Mono, monospace'
 const COLUMN_INFO = {
   riskPct: 'Risk budget for this position as % of Portfolio Size',
   riskAmt: 'Risk % × Portfolio Size — the ₹ you are willing to lose',
-  slRisk: '(Avg Buy − Stop loss) × Total Qty — ₹ lost if SL hits',
+  slRisk: 'Σ tranche SL % × buy × qty — ₹ lost if every SL hits',
   rr: 'Net P/L ÷ SL Risk ₹ (open: unrealised, closed: realised)',
   account: 'Accounts holding this position — click + after the ticker for details',
-  sl: 'Original stop loss, entered here',
+  sl: 'SL price = initial buy × (1 − SL %)',
   sellPrice: 'Weighted average of all exits. Open trades: live CMP',
   sellDate: 'Last exit date. Open trades: today',
   netBuy: 'Quantity × Buy Price',
@@ -27,7 +27,9 @@ const COLUMN_INFO = {
   netPL: 'Net Sell Value − Net Buy Value − MTF Interest',
   plPct: 'Net P/L ÷ Net Buy Value',
   days: 'Sell Date − Buy Date',
-  slPct: '1 − Buy Price ÷ Stop loss',
+  slPct: 'SL % below initial buy. Auto = Risk ₹ × 100 ÷ (buy × qty) — editable',
+  rfRR: 'R:R at which a tranche becomes risk-free (open risk 0)',
+  openRisk: 'Initial: Risk ₹ until risk-free. Pyramid: SL % × buy × qty until risk-free. Risk-free tranches = 0',
   grossR: 'P/L % ÷ |Stop Loss %| (losses negative)',
   netR: 'Gross R × Risk % — % of account gained/lost',
   mae: 'MEA — entered here',
@@ -188,7 +190,7 @@ function SummaryPanel({ s }) {
         <StatCard label="Expectancy" sub="avg Gross R per closed trade">{R(s.expectancy)}</StatCard>
         <StatCard label="Best / Worst R">{R(s.bestR)} / {R(s.worstR)}</StatCard>
         <StatCard label="Open risk (heat)"
-          sub={[s.openRiskOfCapital !== null ? `${pct(s.openRiskOfCapital)} of ₹${toINRd(s.capital)}` : 'set Portfolio Size', s.openMissingSL ? `${s.openMissingSL} open w/o SL` : null].filter(Boolean).join(' · ')}>
+          sub={[s.openRiskOfCapital !== null ? `${pct(s.openRiskOfCapital)} of ₹${toINRd(s.capital)}` : 'set Portfolio Size', s.riskFreeCount ? `${s.riskFreeCount} risk-free` : null, s.openMissingSL ? `${s.openMissingSL} need SL` : null].filter(Boolean).join(' · ')}>
           ₹{toINRd(s.openRisk)}
         </StatCard>
         <StatCard label="Open Risk % (sum)" sub="sum of Risk % on open trades">{s.openRiskPct.toFixed(2)}%</StatCard>
@@ -244,7 +246,15 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
     switch (key) {
       case 'setup': return <SetupCell value={r.setup} options={setupOptions} onSave={save('setup')} />
       case 'riskPct': return <RiskPctCell value={r.riskPct} onSave={save('risk_pct')} />
-      case 'sl': return <InputCell value={r.sl} width={76} placeholder={r.tradeSL ? String(r.tradeSL) : ''} onSave={save('stop_loss')} />
+      case 'sl': return r.sl === null ? <Dash /> : toINRd(r.sl)
+      case 'slPct': return (
+        <span style={{ display:'inline-flex', alignItems:'center', gap:'3px' }}>
+          <InputCell value={r.slPctOverridden ? -r.slPct * 100 : null} width={62} placeholder={r.slPctAuto !== null ? r.slPctAuto.toFixed(2) : '%'} onSave={save('sl_pct')} />%
+        </span>
+      )
+      case 'rfRR': return <InputCell value={r.rfRR} width={52} placeholder="e.g. 2" onSave={save('rf_rr')} />
+      case 'openRisk': return r.status !== 'Open' ? <Dash /> : r.openRiskUnknown ? <span style={{ color:'var(--bear)', fontSize:'10px' }} title="Missing Risk % or a pyramid SL %">set SL</span>
+        : r.openRisk === 0 ? <span style={{ color:'var(--bull)', fontWeight:700 }}>0 <span style={{ fontSize:'9px' }}>RISK-FREE</span></span> : `₹${toINRd(r.openRisk)}`
       case 'dma20': return <InputCell value={r.dma20} width={70} onSave={save('dma20')} />
       case 'dma50': return <InputCell value={r.dma50} width={70} onSave={save('dma50')} />
       case 'mae': return <InputCell value={r.mae} width={60} onSave={save('mae')} />
@@ -257,7 +267,6 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
           {r.pyramids > 0 && <span title={`${r.pyramids} pyramid add${r.pyramids > 1 ? 's' : ''}`} style={{ fontSize:'9px', fontWeight:700, color:'var(--gold)', border:'1px solid var(--gold)', borderRadius:'3px', padding:'0 3px' }}>P{r.pyramids}</span>}
         </span>
       )
-      case 'account': return <span title={r.account}>{r.accountCount > 2 ? `${r.accountCount} accounts` : r.account}</span>
       case 'riskAmt': case 'slRisk': return r[key] === null || r[key] === undefined ? <Dash /> : `₹${toINRd(r[key])}`
       case 'rr': return r.rr === null || r.rr === undefined ? <Dash /> : <Signed v={r.rr}>{r.rr.toFixed(2)}</Signed>
       case 'buy': case 'netBuyPrice': return r[key] === null ? <Dash /> : toINRd(r[key])
@@ -267,7 +276,6 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
       case 'mtf': return r.mtf ? `₹${toINRd(r.mtf)}` : <Dash />
       case 'netPL': return r.netPL === null ? <Dash /> : <Signed v={r.netPL}>{r.netPL >= 0 ? '+' : '−'}₹{toINRd(Math.abs(r.netPL))}</Signed>
       case 'plPct': return r.plPct === null ? <Dash /> : <Signed v={r.plPct}>{pct(r.plPct)}</Signed>
-      case 'slPct': return r.slPct === null ? <Dash /> : pct(r.slPct)
       case 'grossR': case 'netR': return r[key] === null ? <Dash /> : <Signed v={r[key]}>{r[key].toFixed(2)}</Signed>
       case 'qty': case 'days': return r[key] ?? <Dash />
       default: return r[key] || <Dash />
@@ -333,7 +341,7 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
                     <table style={{ borderCollapse:'collapse', fontFamily:mono, fontSize:'11px' }}>
                       <thead>
                         <tr style={{ color:'var(--muted)', textAlign:'left' }}>
-                          {['', 'Account', 'Entry', 'Status', 'Qty', 'Buy Price', 'Buy Date', 'Sell Price', 'Sell Date', 'Net Buy Value', 'Net P/L', 'P/L %'].map(h => <th key={h} style={{ padding:'3px 10px', fontWeight:600, whiteSpace:'nowrap' }}>{h}</th>)}
+                          {['', 'Account', 'Entry', 'Status', 'Qty', 'Buy Price', 'Buy Date', 'Sell Price', 'Sell Date', 'Net Buy Value', 'Net P/L', 'P/L %', 'SL %', 'SL Price', 'Tranche R:R', 'Open Risk ₹'].map(h => <th key={h} style={{ padding:'3px 10px', fontWeight:600, whiteSpace:'nowrap' }}>{h}</th>)}
                         </tr>
                       </thead>
                       <tbody>
@@ -354,6 +362,19 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
                             <td style={{ padding:'3px 10px', textAlign:'right' }}>₹{toINRd(l.netBuy)}</td>
                             <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.netPL === null ? <Dash /> : <Signed v={l.netPL}>₹{toINRd(l.netPL)}</Signed>}</td>
                             <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.plPct === null ? <Dash /> : <Signed v={l.plPct}>{pct(l.plPct)}</Signed>}</td>
+                            {l.trancheFirst ? (<>
+                              <td style={{ padding:'3px 10px', textAlign:'right', whiteSpace:'nowrap' }}>
+                                {l.tranche.label === 'Initial'
+                                  ? (l.tranche.slPct === null ? <Dash /> : `${l.tranche.slPct.toFixed(2)}%`)
+                                  : <><InputCell value={l.tranche.slPct} width={56} placeholder="SL %" onSave={v => onSaveInput(l.tranche.key, 'sl_pct', v)} />%</>}
+                              </td>
+                              <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.tranche.slPrice === null ? <Dash /> : toINRd(l.tranche.slPrice)}</td>
+                              <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.tranche.rr === null ? <Dash /> : <Signed v={l.tranche.rr}>{l.tranche.rr.toFixed(2)}</Signed>}</td>
+                              <td style={{ padding:'3px 10px', textAlign:'right', whiteSpace:'nowrap' }}>
+                                {l.tranche.openQty === 0 ? <Dash /> : l.tranche.openRisk === null ? <span style={{ color:'var(--bear)' }}>set SL</span>
+                                  : l.tranche.riskFree ? <span style={{ color:'var(--bull)', fontWeight:700 }}>0 RISK-FREE</span> : `₹${toINRd(l.tranche.openRisk)}`}
+                              </td>
+                            </>) : <td colSpan={4} style={{ padding:'3px 10px', color:'var(--muted)', fontSize:'10px' }}>↑ same tranche</td>}
                           </tr>
                         ))}
                       </tbody>

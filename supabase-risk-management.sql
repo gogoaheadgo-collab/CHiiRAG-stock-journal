@@ -35,9 +35,13 @@ CREATE TABLE IF NOT EXISTS risk_trade_inputs (
   dma20       NUMERIC,
   dma50       NUMERIC,
   mae         NUMERIC,
+  sl_pct      NUMERIC,          -- SL % below buy (initial: overrides the auto value; pyramids: entered)
+  rf_rr       NUMERIC,          -- risk-free R:R threshold for the position
   updated_at  TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (user_id, trade_id)
 );
+ALTER TABLE risk_trade_inputs ADD COLUMN IF NOT EXISTS sl_pct NUMERIC;
+ALTER TABLE risk_trade_inputs ADD COLUMN IF NOT EXISTS rf_rr NUMERIC;
 
 ALTER TABLE risk_trade_inputs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "risk_trade_inputs_select" ON risk_trade_inputs FOR SELECT USING (auth.uid() = user_id);
