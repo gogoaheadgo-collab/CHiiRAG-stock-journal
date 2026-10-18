@@ -102,7 +102,7 @@ function SetupCell({ value, options, onSave }) {
 
 // Risk % of total portfolio value: 0.75% / 1% quick picks, or a custom value
 function RiskPctCell({ value, onSave }) {
-  const presets = [0.5, 0.75, 1]
+  const presets = [0.15, 0.25, 0.40, 0.50, 0.65, 0.75, 0.80, 1]
   const all = [...new Set([...presets, ...(value !== null && value !== undefined ? [value] : [])])].sort((a,b) => a - b)
   const change = e => {
     let v = e.target.value
