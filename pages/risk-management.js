@@ -3,7 +3,7 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
-import { buildRow, summarize } from '../lib/riskCalc'
+import { buildRow, buildPositions, summarize } from '../lib/riskCalc'
 import { COLUMNS, downloadRiskWorkbook } from '../lib/riskExcel'
 
 const ADMIN = 'gogoaheadgo@gmail.com'
@@ -13,7 +13,11 @@ const memberKey = m => `${m.owner_id}::${m.account}`
 const mono = 'DM Mono, monospace'
 
 const COLUMN_INFO = {
-  riskPct: 'Entered here. 1 = 1% of account',
+  riskPct: 'Risk budget for this position as % of Portfolio Size',
+  riskAmt: 'Risk % × Portfolio Size — the ₹ you are willing to lose',
+  slRisk: '(Avg Buy − Stop loss) × Total Qty — ₹ lost if SL hits',
+  rr: 'Net P/L ÷ SL Risk ₹ (open: unrealised, closed: realised)',
+  account: 'Accounts holding this position — click + after the ticker for details',
   sl: 'Original stop loss, entered here',
   sellPrice: 'Weighted average of all exits. Open trades: live CMP',
   sellDate: 'Last exit date. Open trades: today',
@@ -73,6 +77,29 @@ function SetupCell({ value, options, onSave }) {
       <option value="">— select —</option>
       {all.map(o => <option key={o} value={o}>{o}</option>)}
       <option value={CUSTOM}>+ Custom…</option>
+    </select>
+  )
+}
+
+// Risk % of total portfolio value: 0.75% / 1% quick picks, or a custom value
+function RiskPctCell({ value, onSave }) {
+  const presets = [0.5, 0.75, 1]
+  const all = [...new Set([...presets, ...(value !== null && value !== undefined ? [value] : [])])].sort((a,b) => a - b)
+  const change = e => {
+    let v = e.target.value
+    if (v === 'custom') {
+      v = window.prompt('Risk % of portfolio (e.g. 1.25)', value ?? '')
+      if (v === null || v.trim() === '' || isNaN(Number(v))) return
+    }
+    const n = v === '' ? null : Number(v)
+    if (n !== (value ?? null)) onSave(n)
+  }
+  return (
+    <select value={value ?? ''} onChange={change}
+      style={{ background:'var(--surface)', border:'1px solid var(--accent)', borderRadius:'4px', padding:'3px 4px', color:'var(--text)', fontSize:'11px', fontFamily:mono, cursor:'pointer', outline:'none' }}>
+      <option value="">—</option>
+      {all.map(o => <option key={o} value={o}>{o}%</option>)}
+      <option value="custom">Custom…</option>
     </select>
   )
 }
@@ -194,6 +221,8 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
   const [showExcluded, setShowExcluded] = useState(false)
   const { rows, excludedRows, summary, accountsLabel } = data
   const [sort, setSort] = useState(null) // { key, dir }
+  const [expanded, setExpanded] = useState(() => new Set())
+  const toggleExpand = id => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const srNo = useMemo(() => new Map(rows.map((r,i) => [r.id, i + 1])), [rows])
   const visible = useMemo(() => {
     const list = rows.filter(r => statusFilter === 'All' || r.status === statusFilter)
@@ -214,13 +243,23 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
     const save = field => v => onSaveInput(r.id, field, v)
     switch (key) {
       case 'setup': return <SetupCell value={r.setup} options={setupOptions} onSave={save('setup')} />
-      case 'riskPct': return <InputCell value={r.riskPct} width={56} placeholder="%" onSave={save('risk_pct')} />
+      case 'riskPct': return <RiskPctCell value={r.riskPct} onSave={save('risk_pct')} />
       case 'sl': return <InputCell value={r.sl} width={76} placeholder={r.tradeSL ? String(r.tradeSL) : ''} onSave={save('stop_loss')} />
       case 'dma20': return <InputCell value={r.dma20} width={70} onSave={save('dma20')} />
       case 'dma50': return <InputCell value={r.dma50} width={70} onSave={save('dma50')} />
       case 'mae': return <InputCell value={r.mae} width={60} onSave={save('mae')} />
       case 'status': return <span style={{ fontSize:'10px', fontWeight:700, padding:'2px 6px', borderRadius:'4px', background: r.status === 'Open' ? 'var(--accent-dim)' : 'var(--surface2)', color: r.status === 'Open' ? 'var(--accent)' : 'var(--muted)' }}>{r.status}</span>
-      case 'symbol': return <span style={{ fontWeight:700 }}>{r.symbol}</span>
+      case 'symbol': return (
+        <span style={{ display:'inline-flex', alignItems:'center', gap:'5px' }}>
+          <span style={{ fontWeight:700 }}>{r.symbol}</span>
+          <button onClick={() => toggleExpand(r.id)} title="Show which accounts hold it"
+            style={{ width:'18px', height:'18px', lineHeight:'14px', padding:0, border:'1px solid var(--accent)', borderRadius:'4px', background: expanded.has(r.id) ? 'var(--accent)' : 'transparent', color: expanded.has(r.id) ? '#fff' : 'var(--accent)', cursor:'pointer', fontSize:'12px', fontWeight:700 }}>{expanded.has(r.id) ? '−' : '+'}</button>
+          {r.pyramids > 0 && <span title={`${r.pyramids} pyramid add${r.pyramids > 1 ? 's' : ''}`} style={{ fontSize:'9px', fontWeight:700, color:'var(--gold)', border:'1px solid var(--gold)', borderRadius:'3px', padding:'0 3px' }}>P{r.pyramids}</span>}
+        </span>
+      )
+      case 'account': return <span title={r.account}>{r.accountCount > 2 ? `${r.accountCount} accounts` : r.account}</span>
+      case 'riskAmt': case 'slRisk': return r[key] === null || r[key] === undefined ? <Dash /> : `₹${toINRd(r[key])}`
+      case 'rr': return r.rr === null || r.rr === undefined ? <Dash /> : <Signed v={r.rr}>{r.rr.toFixed(2)}</Signed>
       case 'buy': case 'netBuyPrice': return r[key] === null ? <Dash /> : toINRd(r[key])
       case 'sellPrice': case 'netSellPrice': return r[key] === null ? <Dash /> : <span title={r.live ? 'Live CMP' : undefined}>{toINRd(r[key])}{r.live && <span style={{ color:'var(--gold)', fontSize:'9px', marginLeft:'3px' }}>LIVE</span>}</span>
       case 'buyDate': case 'sellDate': return fmtDate(r[key]) || <Dash />
@@ -271,12 +310,13 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
           </thead>
           <tbody>
             {visible.length === 0 && (
-              <tr><td colSpan={COLUMNS.length + 1} style={{ textAlign:'center', color:'var(--muted)', padding:'24px' }}>No trades</td></tr>
+              <tr><td colSpan={COLUMNS.length + 1} style={{ textAlign:'center', color:'var(--muted)', padding:'24px' }}>No positions</td></tr>
             )}
             {visible.map(r => (
-              <tr key={r.id}>
+              <React.Fragment key={r.id}>
+              <tr>
                 <td>
-                  <button onClick={() => onExclude(r.id)} title="Remove this trade from this portfolio's calculations"
+                  <button onClick={() => onExclude(r.tradeIds)} title="Remove this position (all its account trades) from this portfolio's calculations"
                     style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'13px', padding:0 }}>✕</button>
                 </td>
                 {COLUMNS.map(c => (
@@ -286,6 +326,42 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
                   </td>
                 ))}
               </tr>
+              {expanded.has(r.id) && (
+                <tr>
+                  <td />
+                  <td colSpan={COLUMNS.length} style={{ background:'var(--surface)', padding:'8px 10px' }}>
+                    <table style={{ borderCollapse:'collapse', fontFamily:mono, fontSize:'11px' }}>
+                      <thead>
+                        <tr style={{ color:'var(--muted)', textAlign:'left' }}>
+                          {['', 'Account', 'Entry', 'Status', 'Qty', 'Buy Price', 'Buy Date', 'Sell Price', 'Sell Date', 'Net Buy Value', 'Net P/L', 'P/L %'].map(h => <th key={h} style={{ padding:'3px 10px', fontWeight:600, whiteSpace:'nowrap' }}>{h}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.legs.filter(l => !l.excluded).map(l => (
+                          <tr key={l.id}>
+                            <td style={{ padding:'3px 10px' }}>
+                              <button onClick={() => onExclude([l.id])} title="Remove just this account's trade from the calculations"
+                                style={{ background:'none', border:'none', color:'var(--bear)', cursor:'pointer', fontSize:'11px', padding:0 }}>✕</button>
+                            </td>
+                            <td style={{ padding:'3px 10px', fontWeight:700, whiteSpace:'nowrap' }}>{l.account}</td>
+                            <td style={{ padding:'3px 10px', color: l.entryLabel === 'Initial' ? 'var(--muted)' : 'var(--gold)', whiteSpace:'nowrap' }}>{l.entryLabel}</td>
+                            <td style={{ padding:'3px 10px' }}>{l.status}</td>
+                            <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.qty}</td>
+                            <td style={{ padding:'3px 10px', textAlign:'right' }}>{toINRd(l.buy)}</td>
+                            <td style={{ padding:'3px 10px', whiteSpace:'nowrap' }}>{fmtDate(l.buyDate)}</td>
+                            <td style={{ padding:'3px 10px', textAlign:'right', whiteSpace:'nowrap' }}>{l.sellPrice === null ? <Dash /> : <>{toINRd(l.sellPrice)}{l.live && <span style={{ color:'var(--gold)', fontSize:'9px', marginLeft:'3px' }}>LIVE</span>}</>}</td>
+                            <td style={{ padding:'3px 10px', whiteSpace:'nowrap' }}>{fmtDate(l.sellDate) || <Dash />}</td>
+                            <td style={{ padding:'3px 10px', textAlign:'right' }}>₹{toINRd(l.netBuy)}</td>
+                            <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.netPL === null ? <Dash /> : <Signed v={l.netPL}>₹{toINRd(l.netPL)}</Signed>}</td>
+                            <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.plPct === null ? <Dash /> : <Signed v={l.plPct}>{pct(l.plPct)}</Signed>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
@@ -457,9 +533,9 @@ export default function RiskManagementPage() {
       const all = []
       members.forEach(m => memberTrades(m).forEach(t => { if (!seen.has(t.id) && String(t.entry_date).slice(0,10) >= START_DATE) { seen.add(t.id); all.push(t) } }))
       all.sort((a,b) => String(a.entry_date).localeCompare(String(b.entry_date)) || String(a.created_at).localeCompare(String(b.created_at)))
-      const build = t => buildRow(t, execsByTrade[t.id] || [], inputs[t.id], livePrices[t.ticker])
-      const rows = all.filter(t => !excluded.has(t.id)).map(build)
-      const excludedRows = all.filter(t => excluded.has(t.id)).map(build)
+      // One row per position (ticker across all accounts); inputs are keyed by the position's first trade
+      const rows = buildPositions(all, execsByTrade, inputs, livePrices, excluded, p.portfolio_size)
+      const excludedRows = all.filter(t => excluded.has(t.id)).map(t => buildRow(t, execsByTrade[t.id] || [], undefined, livePrices[t.ticker]))
       // Portfolio Size, when entered, is the capital; otherwise fall back to net deposits + realised P/L
       const capital = Number(p.portfolio_size) > 0 ? Number(p.portfolio_size) : members.reduce((s,m) => s + memberCapital(m), 0)
       const accountsLabel = members.map(m => m.owner_id === ownId ? m.account : `${subName(m.owner_id)} · ${m.account}`).join(', ')
@@ -522,7 +598,7 @@ export default function RiskManagementPage() {
         <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', gap:'12px', flexWrap:'wrap', marginBottom:'20px' }}>
           <div>
             <h1 style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'24px', color:'var(--text)', margin:0 }}>Risk Management</h1>
-            <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'4px', fontFamily:mono }}>R-multiples, heat and setup stats per portfolio of accounts · trades bought from {fmtDate(START_DATE)}</div>
+            <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'4px', fontFamily:mono }}>Ticker-wise positions across family accounts · R-multiples, heat and setup stats · trades bought from {fmtDate(START_DATE)}</div>
           </div>
           <div style={{ display:'flex', gap:'8px' }}>
             {portfolios.length > 0 && (
@@ -547,7 +623,7 @@ export default function RiskManagementPage() {
             onEdit={() => setModal({ initial: p })}
             onDelete={() => deletePortfolio(p)}
             onDownload={() => download([p], `Risk-${p.name.replace(/[^\w-]+/g, '_')}-${stamp}.xlsx`)}
-            onExclude={id => setExcluded(p, [...new Set([...(p.excluded_trade_ids || []), id])])}
+            onExclude={ids => setExcluded(p, [...new Set([...(p.excluded_trade_ids || []), ...ids])])}
             onRestore={id => setExcluded(p, (p.excluded_trade_ids || []).filter(x => x !== id))}
             onSaveInput={saveInput}
             onSaveSize={async v => {
