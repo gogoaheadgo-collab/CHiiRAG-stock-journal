@@ -54,8 +54,32 @@ function InputCell({ value, onSave, type='number', width=70, placeholder, list }
   )
 }
 
+// Setup picker: strategy list + any value already used, with "Custom…" to type a new one
+function SetupCell({ value, options, onSave }) {
+  const CUSTOM = '__custom__'
+  const all = [...new Set([...(value ? [value] : []), ...options].filter(Boolean))]
+  const change = e => {
+    let v = e.target.value
+    if (v === CUSTOM) {
+      v = window.prompt('Enter setup name', value || '')
+      if (v === null) return
+      v = v.trim().toUpperCase()
+    }
+    if ((v || '') !== (value || '')) onSave(v || null)
+  }
+  return (
+    <select value={value || ''} onChange={change}
+      style={{ minWidth:'110px', background:'var(--surface)', border:'1px solid var(--accent)', borderRadius:'4px', padding:'3px 5px', color:'var(--text)', fontSize:'11px', fontFamily:mono, cursor:'pointer', outline:'none' }}>
+      <option value="">— select —</option>
+      {all.map(o => <option key={o} value={o}>{o}</option>)}
+      <option value={CUSTOM}>+ Custom…</option>
+    </select>
+  )
+}
+
 function PortfolioModal({ initial, options, onClose, onSave }) {
   const [name, setName] = useState(initial?.name || '')
+  const [size, setSize] = useState(initial?.portfolio_size ?? '')
   const [selected, setSelected] = useState(() => new Set((initial?.members || []).map(memberKey)))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -74,7 +98,7 @@ function PortfolioModal({ initial, options, onClose, onSave }) {
     setSaving(true); setError('')
     try {
       const members = options.filter(o => selected.has(memberKey(o))).map(o => ({ owner_id: o.owner_id, account: o.account }))
-      await onSave({ name: name.trim(), members })
+      await onSave({ name: name.trim(), members, portfolio_size: size === '' ? null : Number(size) })
       onClose()
     } catch (e) { setError(e.message || 'Failed to save') }
     setSaving(false)
@@ -86,6 +110,8 @@ function PortfolioModal({ initial, options, onClose, onSave }) {
         <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'18px', color:'var(--text)', marginBottom:'14px' }}>{initial ? 'Edit Portfolio' : 'New Portfolio'}</div>
         <label style={{ fontSize:'10px', color:'var(--muted)', fontFamily:mono, textTransform:'uppercase', letterSpacing:'0.08em' }}>Portfolio name</label>
         <input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="e.g. Portfolio 1" style={{ ...inputStyle, margin:'6px 0 14px' }} />
+        <label style={{ fontSize:'10px', color:'var(--muted)', fontFamily:mono, textTransform:'uppercase', letterSpacing:'0.08em' }}>Portfolio size (₹)</label>
+        <input type="number" value={size} onChange={e => setSize(e.target.value)} placeholder="e.g. 1000000" style={{ ...inputStyle, margin:'6px 0 14px' }} />
         <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:mono, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'6px' }}>Accounts ({selected.size} selected)</div>
         <div style={{ overflowY:'auto', flex:1, border:'1px solid var(--border)', borderRadius:'6px', padding:'8px 10px' }}>
           {groups.length === 0 && <div style={{ color:'var(--muted)', fontSize:'12px' }}>Loading accounts…</div>}
@@ -135,7 +161,7 @@ function SummaryPanel({ s }) {
         <StatCard label="Expectancy" sub="avg Gross R per closed trade">{R(s.expectancy)}</StatCard>
         <StatCard label="Best / Worst R">{R(s.bestR)} / {R(s.worstR)}</StatCard>
         <StatCard label="Open risk (heat)"
-          sub={[s.openRiskOfCapital !== null ? `${pct(s.openRiskOfCapital)} of ₹${toINRd(s.capital)}` : 'no capital recorded', s.openMissingSL ? `${s.openMissingSL} open w/o SL` : null].filter(Boolean).join(' · ')}>
+          sub={[s.openRiskOfCapital !== null ? `${pct(s.openRiskOfCapital)} of ₹${toINRd(s.capital)}` : 'set Portfolio Size', s.openMissingSL ? `${s.openMissingSL} open w/o SL` : null].filter(Boolean).join(' · ')}>
           ₹{toINRd(s.openRisk)}
         </StatCard>
         <StatCard label="Open Risk % (sum)" sub="sum of Risk % on open trades">{s.openRiskPct.toFixed(2)}%</StatCard>
@@ -163,16 +189,17 @@ function SummaryPanel({ s }) {
   )
 }
 
-function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, onExclude, onRestore, onSaveInput }) {
+function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, onExclude, onRestore, onSaveInput, onSaveSize }) {
   const [statusFilter, setStatusFilter] = useState('All')
   const [showExcluded, setShowExcluded] = useState(false)
   const { rows, excludedRows, summary, accountsLabel } = data
   const visible = rows.filter(r => statusFilter === 'All' || r.status === statusFilter)
+  const setupOptions = useMemo(() => [...new Set([...strategies, ...rows.map(r => r.tradeSetup), ...rows.map(r => r.setup)].filter(Boolean))], [strategies, rows])
 
   const cell = (r, key) => {
     const save = field => v => onSaveInput(r.id, field, v)
     switch (key) {
-      case 'setup': return <InputCell type="text" value={r.setup} width={80} list="risk-setups" onSave={save('setup')} />
+      case 'setup': return <SetupCell value={r.setup} options={setupOptions} onSave={save('setup')} />
       case 'riskPct': return <InputCell value={r.riskPct} width={56} placeholder="%" onSave={save('risk_pct')} />
       case 'sl': return <InputCell value={r.sl} width={76} placeholder={r.tradeSL ? String(r.tradeSL) : ''} onSave={save('stop_loss')} />
       case 'dma20': return <InputCell value={r.dma20} width={70} onSave={save('dma20')} />
@@ -201,6 +228,9 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
         <div style={{ minWidth:0 }}>
           <div style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'18px', color:'var(--text)' }}>{p.name}</div>
           <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:mono, marginTop:'2px' }}>{accountsLabel || 'No accounts'}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:'6px', marginTop:'6px', fontSize:'11px', fontFamily:mono, color:'var(--muted)' }}>
+            Portfolio size ₹ <InputCell value={p.portfolio_size} width={120} placeholder="enter size" onSave={onSaveSize} />
+          </div>
         </div>
         <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
           {['All','Open','Closed'].map(f => (
@@ -416,20 +446,21 @@ export default function RiskManagementPage() {
       const build = t => buildRow(t, execsByTrade[t.id] || [], inputs[t.id], livePrices[t.ticker])
       const rows = all.filter(t => !excluded.has(t.id)).map(build)
       const excludedRows = all.filter(t => excluded.has(t.id)).map(build)
-      const capital = members.reduce((s,m) => s + memberCapital(m), 0)
+      // Portfolio Size, when entered, is the capital; otherwise fall back to net deposits + realised P/L
+      const capital = Number(p.portfolio_size) > 0 ? Number(p.portfolio_size) : members.reduce((s,m) => s + memberCapital(m), 0)
       const accountsLabel = members.map(m => m.owner_id === ownId ? m.account : `${subName(m.owner_id)} · ${m.account}`).join(', ')
       out[p.id] = { rows, excludedRows, summary: summarize(rows, capital), accountsLabel }
     })
     return out
   }, [portfolios, memberTrades, execsByTrade, inputs, livePrices, memberCapital, ownId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const savePortfolio = async ({ name, members }, existing) => {
+  const savePortfolio = async ({ name, members, portfolio_size }, existing) => {
     if (existing) {
-      const { data, error } = await supabase.from('risk_portfolios').update({ name, members }).eq('id', existing.id).select().single()
+      const { data, error } = await supabase.from('risk_portfolios').update({ name, members, portfolio_size }).eq('id', existing.id).select().single()
       if (error) throw error
       setPortfolios(ps => ps.map(p => p.id === existing.id ? data : p))
     } else {
-      const { data, error } = await supabase.from('risk_portfolios').insert([{ user_id: ownId, name, members }]).select().single()
+      const { data, error } = await supabase.from('risk_portfolios').insert([{ user_id: ownId, name, members, portfolio_size }]).select().single()
       if (error) throw error
       setPortfolios(ps => [...ps, data])
     }
@@ -458,7 +489,7 @@ export default function RiskManagementPage() {
   }
 
   const download = (list, filename) => {
-    const items = list.map(p => ({ portfolio: { name: p.name, accountsLabel: portfolioData[p.id]?.accountsLabel || '' }, rows: portfolioData[p.id]?.rows || [], summary: portfolioData[p.id]?.summary }))
+    const items = list.map(p => ({ portfolio: { name: p.name, accountsLabel: portfolioData[p.id]?.accountsLabel || '', size: Number(p.portfolio_size) > 0 ? Number(p.portfolio_size) : null }, rows: portfolioData[p.id]?.rows || [], summary: portfolioData[p.id]?.summary }))
     downloadRiskWorkbook(items, filename).catch(e => alert('Export failed: ' + e.message))
   }
 
@@ -487,9 +518,7 @@ export default function RiskManagementPage() {
           </div>
         </div>
 
-        <datalist id="risk-setups">{strategies.map(s => <option key={s} value={s} />)}</datalist>
-
-        {dbError ? (
+                {dbError ? (
           <div style={{ border:'1px solid var(--bear)', borderRadius:'8px', padding:'16px', color:'var(--bear)', fontSize:'12px', fontFamily:mono }}>
             Risk Management tables are not set up yet ({dbError}). Run <b>supabase-risk-management.sql</b> in the Supabase SQL editor.
           </div>
@@ -506,7 +535,12 @@ export default function RiskManagementPage() {
             onDownload={() => download([p], `Risk-${p.name.replace(/[^\w-]+/g, '_')}-${stamp}.xlsx`)}
             onExclude={id => setExcluded(p, [...new Set([...(p.excluded_trade_ids || []), id])])}
             onRestore={id => setExcluded(p, (p.excluded_trade_ids || []).filter(x => x !== id))}
-            onSaveInput={saveInput} />
+            onSaveInput={saveInput}
+            onSaveSize={async v => {
+              const { data, error } = await supabase.from('risk_portfolios').update({ portfolio_size: v }).eq('id', p.id).select().single()
+              if (error) { alert('Could not save: ' + error.message); return }
+              setPortfolios(ps => ps.map(x => x.id === p.id ? data : x))
+            }} />
         ))}
       </main>
 

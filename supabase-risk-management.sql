@@ -13,8 +13,10 @@ CREATE TABLE IF NOT EXISTS risk_portfolios (
   name                TEXT NOT NULL,
   members             JSONB NOT NULL DEFAULT '[]'::jsonb,
   excluded_trade_ids  UUID[] NOT NULL DEFAULT '{}',
+  portfolio_size      NUMERIC,      -- capital used for open-risk %
   created_at          TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE risk_portfolios ADD COLUMN IF NOT EXISTS portfolio_size NUMERIC;
 
 ALTER TABLE risk_portfolios ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "risk_portfolios_select" ON risk_portfolios FOR SELECT USING (auth.uid() = user_id);
