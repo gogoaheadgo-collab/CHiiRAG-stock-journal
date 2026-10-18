@@ -7,6 +7,8 @@ import { buildRow, summarize } from '../lib/riskCalc'
 import { COLUMNS, downloadRiskWorkbook } from '../lib/riskExcel'
 
 const ADMIN = 'gogoaheadgo@gmail.com'
+// Only trades bought on or after this date are part of Risk Management
+const START_DATE = '2026-09-25'
 const memberKey = m => `${m.owner_id}::${m.account}`
 const mono = 'DM Mono, monospace'
 
@@ -409,7 +411,7 @@ export default function RiskManagementPage() {
       const excluded = new Set(p.excluded_trade_ids || [])
       const seen = new Set()
       const all = []
-      members.forEach(m => memberTrades(m).forEach(t => { if (!seen.has(t.id)) { seen.add(t.id); all.push(t) } }))
+      members.forEach(m => memberTrades(m).forEach(t => { if (!seen.has(t.id) && String(t.entry_date).slice(0,10) >= START_DATE) { seen.add(t.id); all.push(t) } }))
       all.sort((a,b) => String(a.entry_date).localeCompare(String(b.entry_date)) || String(a.created_at).localeCompare(String(b.created_at)))
       const build = t => buildRow(t, execsByTrade[t.id] || [], inputs[t.id], livePrices[t.ticker])
       const rows = all.filter(t => !excluded.has(t.id)).map(build)
@@ -475,7 +477,7 @@ export default function RiskManagementPage() {
         <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', gap:'12px', flexWrap:'wrap', marginBottom:'20px' }}>
           <div>
             <h1 style={{ fontFamily:'Bookman Old Style, serif', fontWeight:800, fontSize:'24px', color:'var(--text)', margin:0 }}>Risk Management</h1>
-            <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'4px', fontFamily:mono }}>R-multiples, heat and setup stats per portfolio of accounts</div>
+            <div style={{ fontSize:'11px', color:'var(--muted)', marginTop:'4px', fontFamily:mono }}>R-multiples, heat and setup stats per portfolio of accounts · trades bought from {fmtDate(START_DATE)}</div>
           </div>
           <div style={{ display:'flex', gap:'8px' }}>
             {portfolios.length > 0 && (
