@@ -46,7 +46,7 @@ const COLUMN_INFO = {
   slRisk: 'Σ tranche SL % × buy × qty — ₹ lost if every SL hits',
   rr: 'Net P/L ÷ SL Risk ₹ (open: unrealised, closed: realised)',
   account: 'Accounts holding this position — click + after the ticker for details',
-  sl: 'SL price = initial buy × (1 − SL %)',
+  sl: 'SL price = initial buy × (1 − SL %). Editable — SL % and Risk % recalculate',
   sellPrice: 'Weighted average of all exits. Open trades: live CMP',
   sellDate: 'Last exit date. Open trades: today',
   netBuy: 'Quantity × Buy Price',
@@ -55,7 +55,7 @@ const COLUMN_INFO = {
   netPL: 'Net Sell Value − Net Buy Value − MTF Interest',
   plPct: 'Net P/L ÷ Net Buy Value',
   days: 'Sell Date − Buy Date',
-  slPct: 'SL % below initial buy. Auto = Risk ₹ × 100 ÷ (buy × qty) — editable',
+  slPct: 'SL % below initial buy. Auto = Risk ₹ × 100 ÷ (buy × qty). Editable — SL price and Risk % recalculate',
   rfRR: 'R:R at which a tranche becomes risk-free (open risk 0)',
   openRisk: 'Initial: Risk ₹ until risk-free. Pyramid: SL % × buy × qty until risk-free. Risk-free tranches = 0',
   grossR: 'P/L % ÷ |Stop Loss %| (losses negative)',
@@ -78,7 +78,8 @@ function InputCell({ value, onSave, type='number', width=70, placeholder, list }
   const commit = () => {
     const cur = value ?? ''
     if (String(v) === String(cur)) return
-    onSave(v === '' ? null : (type === 'number' ? Number(v) : v))
+    // onSave returns false when it rejects the value; put the old value back
+    if (onSave(v === '' ? null : (type === 'number' ? Number(v) : v)) === false) setV(cur)
   }
   return (
     <input type={type} value={v} placeholder={placeholder} list={list} step="any"
@@ -250,6 +251,20 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
   const [statusFilter, setStatusFilter] = useState('All')
   const [showExcluded, setShowExcluded] = useState(false)
   const { rows, excludedRows, summary, accountsLabel } = data
+  // SL price ↔ SL % ↔ Risk % link. Risk ₹ = SL % × buy × qty (initial tranche); Risk % = Risk ₹ ÷ Portfolio Size
+  const size = Number(p.portfolio_size) > 0 ? Number(p.portfolio_size) : null
+  const round2 = x => Math.round(x * 100) / 100
+  const needSize = () => { alert('Enter Portfolio Size for this portfolio first — Risk % is calculated from it.'); return false }
+  const saveInitialSL = (r, slPct) => {           // slPct in %, e.g. 4.5
+    const t = r.tranches[0]
+    if (!size) return needSize()
+    if (!(slPct > 0 && slPct < 100)) { alert('SL % must be between 0 and 100.'); return false }
+    onSaveInput(r.initialIds, { sl_pct: slPct, risk_pct: round2(slPct / 100 * t.buy * t.qty / size * 100) })
+  }
+  const slPriceToPct = (price, buy) => {
+    if (!(price > 0 && price < buy)) { alert(`SL price must be above 0 and below the buy price (${toINRd(buy)}).`); return null }
+    return (1 - price / buy) * 100
+  }
   const [sort, setSort] = useState(null) // { key, dir }
   const [expanded, setExpanded] = useState(() => new Set())
   const toggleExpand = id => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -283,11 +298,19 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
     const save = field => v => onSaveInput(r.initialIds, field, v)
     switch (key) {
       case 'setup': return <SetupCell value={r.setup} options={setupOptions} onSave={save('setup')} />
-      case 'riskPct': return <RiskPctCell value={r.riskPct} onSave={save('risk_pct')} />
-      case 'sl': return r.sl === null ? <Dash /> : toINRd(r.sl)
+      // Risk % edited → SL % goes back to auto (Risk ₹ × 100 ÷ buy × qty), SL price follows
+      case 'riskPct': return <RiskPctCell value={r.riskPct} onSave={v => onSaveInput(r.initialIds, { risk_pct: v, sl_pct: null })} />
+      case 'sl': return (
+        <InputCell value={r.sl === null ? null : round2(r.sl)} width={78} placeholder="SL ₹" onSave={v => {
+          if (v === null) return onSaveInput(r.initialIds, 'sl_pct', null)   // cleared → back to auto
+          if (!size) return needSize()
+          const pctV = slPriceToPct(v, r.tranches[0].buy)
+          return pctV === null ? false : saveInitialSL(r, pctV)
+        }} />
+      )
       case 'slPct': return (
         <span style={{ display:'inline-flex', alignItems:'center', gap:'3px' }}>
-          <InputCell value={r.slPctOverridden ? -r.slPct * 100 : null} width={62} placeholder={r.slPctAuto !== null ? r.slPctAuto.toFixed(2) : '%'} onSave={save('sl_pct')} />%
+          <InputCell value={r.slPctOverridden ? -r.slPct * 100 : null} width={62} placeholder={r.slPctAuto !== null ? r.slPctAuto.toFixed(2) : '%'} onSave={v => v === null ? onSaveInput(r.initialIds, 'sl_pct', null) : saveInitialSL(r, v)} />%
         </span>
       )
       case 'rfRR': return <InputCell value={r.rfRR} width={52} placeholder="e.g. 2" onSave={save('rf_rr')} />
@@ -413,7 +436,15 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
                                   ? (l.tranche.slPct === null ? <Dash /> : `${l.tranche.slPct.toFixed(2)}%`)
                                   : <><InputCell value={l.tranche.slPct} width={56} placeholder="SL %" onSave={v => onSaveInput(l.tranche.legIds, 'sl_pct', v)} />%</>}
                               </td>
-                              <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.tranche.slPrice === null ? <Dash /> : toINRd(l.tranche.slPrice)}</td>
+                              <td style={{ padding:'3px 10px', textAlign:'right' }}>
+                                {l.tranche.label === 'Initial'
+                                  ? (l.tranche.slPrice === null ? <Dash /> : toINRd(l.tranche.slPrice))
+                                  : <InputCell value={l.tranche.slPrice === null ? null : round2(l.tranche.slPrice)} width={72} placeholder="SL ₹" onSave={v => {
+                                      if (v === null) return onSaveInput(l.tranche.legIds, 'sl_pct', null)
+                                      const pctV = slPriceToPct(v, l.tranche.buy)
+                                      return pctV === null ? false : onSaveInput(l.tranche.legIds, 'sl_pct', pctV)
+                                    }} />}
+                              </td>
                               <td style={{ padding:'3px 10px', textAlign:'right' }}>{l.tranche.rr === null ? <Dash /> : <Signed v={l.tranche.rr}>{l.tranche.rr.toFixed(2)}</Signed>}</td>
                               <td style={{ padding:'3px 10px', textAlign:'right', whiteSpace:'nowrap' }}>
                                 {l.tranche.openQty === 0 ? <Dash /> : l.tranche.openRisk === null ? <span style={{ color:'var(--bear)' }}>set SL</span>
@@ -637,10 +668,12 @@ export default function RiskManagementPage() {
   }
 
   // Writes the value to every account trade of the tranche so all portfolios see the same input
+  // `field` may be a column name, or an object { column: value, ... } to save several at once
   const saveInput = async (tradeIds, field, value) => {
     const ids = Array.isArray(tradeIds) ? tradeIds : [tradeIds]
     const now = new Date().toISOString()
-    const rowsToSave = ids.map(id => ({ ...(inputs[id] || {}), user_id: ownId, trade_id: id, [field]: value, updated_at: now }))
+    const patch = typeof field === 'object' ? field : { [field]: value }
+    const rowsToSave = ids.map(id => ({ ...(inputs[id] || {}), user_id: ownId, trade_id: id, ...patch, updated_at: now }))
     const prev = inputs
     setInputs(m => ({ ...m, ...Object.fromEntries(rowsToSave.map(r => [r.trade_id, r])) }))
     const { error } = await supabase.from('risk_trade_inputs').upsert(rowsToSave, { onConflict: 'user_id,trade_id' })
