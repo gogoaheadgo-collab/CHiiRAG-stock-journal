@@ -43,6 +43,7 @@ const mono = 'DM Mono, monospace'
 const COLUMN_INFO = {
   riskPct: 'Risk budget for this position as % of Portfolio Size',
   riskAmt: 'Risk % × Portfolio Size — the ₹ you are willing to lose',
+  positionSize: '(Buy₁ × open qty₁ + Buy₂ × open qty₂ + …) ÷ Portfolio Size — initial + pyramids, unsold shares only',
   slRisk: 'Σ tranche SL % × buy × qty — ₹ lost if every SL hits',
   rr: 'Net P/L ÷ SL Risk ₹ (open: unrealised, closed: realised)',
   account: 'Accounts holding this position — click + after the ticker for details',
@@ -218,6 +219,14 @@ function SummaryPanel({ s }) {
         <StatCard label="Total Net R" sub="% of account from closed trades">{s.totalNetR === null ? <Dash /> : <Signed v={s.totalNetR}>{s.totalNetR >= 0 ? '+' : ''}{s.totalNetR.toFixed(2)}</Signed>}</StatCard>
         <StatCard label="Expectancy" sub="avg Gross R per closed trade">{R(s.expectancy)}</StatCard>
         <StatCard label="Best / Worst R">{R(s.bestR)} / {R(s.worstR)}</StatCard>
+      </div>
+      <div style={{ border:'1px solid var(--accent)', borderRadius:'8px', padding:'14px 16px', background:'var(--surface)', marginBottom:'8px', display:'flex', alignItems:'baseline', gap:'18px', flexWrap:'wrap' }}>
+        <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:mono, textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>Current Position Size</div>
+        <div style={{ fontSize:'28px', fontWeight:700, fontFamily:mono, color:'var(--accent)' }}>{s.positionSizeOfCapital === null ? <Dash /> : pct(s.positionSizeOfCapital)}</div>
+        <div style={{ fontSize:'18px', fontWeight:700, fontFamily:mono, color:'var(--text)' }}>₹{toINRd(s.positionValue)}</div>
+        <div style={{ fontSize:'10px', color:'var(--muted)', fontFamily:mono }}>{s.capital > 0 ? `open shares at buy price · of ₹${toINRd(s.capital)}` : 'set Portfolio Size'}</div>
+      </div>
+      <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'10px' }}>
         <StatCard label="Open risk (heat)"
           sub={[s.openRiskOfCapital !== null ? `${pct(s.openRiskOfCapital)} of ₹${toINRd(s.capital)}` : 'set Portfolio Size', s.riskFreeCount ? `${s.riskFreeCount} risk-free` : null, s.openMissingSL ? `${s.openMissingSL} need SL` : null].filter(Boolean).join(' · ')}>
           ₹{toINRd(s.openRisk)}
@@ -328,6 +337,7 @@ function PortfolioSection({ p, data, strategies, onEdit, onDelete, onDownload, o
           {r.pyramids > 0 && <span title={`${r.pyramids} pyramid add${r.pyramids > 1 ? 's' : ''}`} style={{ fontSize:'9px', fontWeight:700, color:'var(--gold)', border:'1px solid var(--gold)', borderRadius:'3px', padding:'0 3px' }}>P{r.pyramids}</span>}
         </span>
       )
+      case 'positionSize': return r.positionSize === null || r.positionSize === undefined ? <Dash /> : <span title={`₹${toINRd(r.openValue)}`}>{pct(r.positionSize)}</span>
       case 'riskAmt': case 'slRisk': return r[key] === null || r[key] === undefined ? <Dash /> : `₹${toINRd(r[key])}`
       case 'rr': return r.rr === null || r.rr === undefined ? <Dash /> : <Signed v={r.rr}>{r.rr.toFixed(2)}</Signed>
       case 'buy': return r[key] === null ? <Dash /> : toINRd(r[key])
